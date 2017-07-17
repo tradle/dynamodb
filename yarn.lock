@@ -12,7 +12,7 @@
 
 "@tradle/schema-joi@tradle/schema-joi":
   version "1.0.0"
-  resolved "https://codeload.github.com/tradle/schema-joi/tar.gz/a6522cbebc9e87c9407252d89aea054feb5901e9"
+  resolved "https://codeload.github.com/tradle/schema-joi/tar.gz/4a17c1987f0353389d83c053e7ff6c31b2e1897a"
   dependencies:
     joi "^10.6.0"
     xtend "^4.0.1"
