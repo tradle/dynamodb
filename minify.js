@@ -43,7 +43,9 @@ function minify ({ item, model }) {
 }
 
 function getRef (property) {
-  return property.ref || (property.items && property.items.ref)
+  if (property.ref) return property.ref
+
+  return property.items && property.items.ref
 }
 
 function stripPhotos ({ property }) {

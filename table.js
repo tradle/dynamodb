@@ -20,7 +20,15 @@ const { getTableName, getIndexes } = require('./utils')
 
 module.exports = DynamoTable
 
-function DynamoTable ({ joi, model, objects, createIfNotExists=true }) {
+function DynamoTable ({
+  joi,
+  model,
+  objects,
+  prefix,
+  suffix,
+  tableName,
+  createIfNotExists=true
+}) {
   bindAll(this)
 
   if (!(joi && model)) {
@@ -47,7 +55,7 @@ function DynamoTable ({ joi, model, objects, createIfNotExists=true }) {
 
   const tableDef = {
     hashKey,
-    tableName: getTableName(model),
+    tableName: tableName || getTableName({ model, prefix, suffix }),
     timestamps: true,
     createdAt: false,
     updatedAt: '_dateUpdated',

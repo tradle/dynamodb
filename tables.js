@@ -1,7 +1,7 @@
 const toJoi = require('@tradle/schema-joi')
 const Table = require('./table')
 
-module.exports = function createTables ({ objects, models }) {
+module.exports = function createTables ({ objects, models, prefix }) {
   const tables = {}
   Object.keys(models).forEach(id => {
     const model = models[id]
@@ -11,7 +11,7 @@ module.exports = function createTables ({ objects, models }) {
       get: function () {
         if (!table) {
           const joi = toJoi({ models, model })
-          table = new Table({ objects, model, joi })
+          table = new Table({ objects, model, joi, prefix })
         }
 
         return table

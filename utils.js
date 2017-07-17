@@ -25,9 +25,9 @@ module.exports = {
   getTableName,
 }
 
-function getTableName (model) {
-  const id = model.id || model
-  return id.replace(/[.]/g, '_')
+function getTableName ({ model, prefix='', suffix='' }) {
+  const name = (model.id || model).replace(/[.]/g, '_')
+  return prefix + name + suffix
 }
 
 function getIndexes (model) {
