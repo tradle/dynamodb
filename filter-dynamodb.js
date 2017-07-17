@@ -65,6 +65,19 @@ module.exports = function filterViaDynamoDB ({ table, model, filter, orderBy, li
     builder = createBuilder()
   }
 
+  addConditions({
+    builder,
+    opType,
+    filter,
+    limit,
+    orderBy,
+    fullScanRequired
+  })
+
+  return builder
+}
+
+function addConditions ({ opType, builder, filter, limit, orderBy, fullScanRequired }) {
   const conditionMethod = opType === 'query' ? 'filter' : 'where'
   for (let op in filter) {
     let conditions = filter[op]
