@@ -161,7 +161,7 @@ function wrapDBOperation (dynamoTable, fn) {
 const maybeInflate = co(function* (dynamoTable, instance) {
   if (instance.get(minifiedFlag)) {
     const link = instance.get(hashKey)
-    const full = yield dynamoTable.objects.getObjectByLink(link)
+    const full = yield dynamoTable.objects.get(link)
     instance.set(full)
   }
 
