@@ -1,18 +1,30 @@
+const traverse = require('traverse')
 const { clone, toObject, debug, getIndexes } = require('./utils')
 const OPERATORS = require('./operators')
 const { hashKey } = require('./constants')
 
-// const COMPARATORS = {
-//   EQ: ({ where, value }) => where.equals(value),
-//   CONTAINS: ({ where, value }) => where.contains(value),
-//   STARTS_WITH: ({ where, value }) => where.beginsWith(value),
-//   LT: ({ where, value }) => where.lt(value),
-//   LTE: ({ where, value }) => where.lte(value),
-//   GT: ({ where, value }) => where.gt(value),
-//   GTE: ({ where, value }) => where.gte(value),
-//   IN: ({ where, value }) => where.in(value),
-//   BETWEEN: ({ where, value }) => where.between(...value),
-// }
+const CHECK_EQ = ({ where, value }) => {
+  if (typeof value !== 'object') {
+    where.equals(value)
+    return
+  }
+
+  forEachLeaf(value, ({ path, value }) => {
+    where(path).equals(value)
+  })
+}
+
+const COMPARATORS = {
+  EQ: CHECK_EQ,
+  CONTAINS: ({ where, value }) => where.contains(value),
+  STARTS_WITH: ({ where, value }) => where.beginsWith(value),
+  LT: ({ where, value }) => where.lt(value),
+  LTE: ({ where, value }) => where.lte(value),
+  GT: ({ where, value }) => where.gt(value),
+  GTE: ({ where, value }) => where.gte(value),
+  IN: ({ where, value }) => where.in(value),
+  BETWEEN: ({ where, value }) => where.between(...value),
+}
 
 module.exports = function filterViaDynamoDB ({ table, model, filter, orderBy, limit }) {
   filter = clone(filter || {})
@@ -173,4 +185,25 @@ function flatten (filter) {
   }
 
   return flat
+}
+
+function getLeaves (obj) {
+  return traverse(obj).reduce(function (acc, value) {
+    if (this.isLeaf) {
+      return acc.concat({
+        path: this.path,
+        value
+      })
+    }
+
+    return acc
+  }, [])
+}
+
+function forEachLeaf (obj, fn) {
+  traverse(obj).forEach(function (value) {
+    if (this.isLeaf) {
+      fn({ value, path: this.path })
+    }
+  })
 }

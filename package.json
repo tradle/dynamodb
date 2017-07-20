@@ -27,6 +27,7 @@
     "object.omit": "^2.0.1",
     "object.pick": "^1.2.0",
     "pify": "^3.0.0",
+    "traverse": "^0.6.6",
     "typeforce": "^1.11.1",
     "xtend": "^4.0.1"
   },
