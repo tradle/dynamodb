@@ -31,11 +31,15 @@ function minify ({ item, model }) {
         value: item[propertyName]
       })
 
-      if (!keep) {
-        diff[propertyName] = item[propertyName]
-        delete min[propertyName]
-        min._min = true
+      if (keep) continue
+
+      diff[propertyName] = item[propertyName]
+      delete min[propertyName]
+      if (!min._stripped) {
+        min._stripped = []
       }
+
+      min._stripped.push(propertyName)
     }
   }
 

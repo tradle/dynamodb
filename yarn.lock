@@ -252,9 +252,9 @@ doctrine@^2.0.0:
     esutils "^2.0.2"
     isarray "^1.0.0"
 
-dynogels@^8.0.1:
+dynogels@mvayngrib/dynogels:
   version "8.0.1"
-  resolved "https://registry.yarnpkg.com/dynogels/-/dynogels-8.0.1.tgz#64429c38beae960d1c37302039da10ccd2c4a31b"
+  resolved "https://codeload.github.com/mvayngrib/dynogels/tar.gz/e83b96157395db63cbd7cd3caf38e0655936f8a2"
   dependencies:
     async "2.4.1"
     aws-sdk "2.58.0"

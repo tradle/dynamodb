@@ -2,6 +2,9 @@ module.exports = {
   EQ: {
     type: 'any'
   },
+  NEQ: {
+    type: 'any'
+  },
   IN: {
     type: 'array'
   },
@@ -17,6 +20,10 @@ module.exports = {
     type: 'string',
     scalar: true
   },
+  NOT_CONTAINS: {
+    type: 'string',
+    scalar: true
+  },
   LT: {
     scalar: true
   },
@@ -29,6 +36,9 @@ module.exports = {
   GTE: {
     scalar: true
   },
+  EXISTS: {
+    type: 'any'
+  }
   // NOT IMPLEMENTED
   // OR: {
   //   type: 'array'

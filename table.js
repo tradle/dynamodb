@@ -101,6 +101,8 @@ DynamoTable.prototype._getMin = function (key) {
 DynamoTable.prototype.get = co(function* (key) {
   yield this._tableExistsPromise
   const instance = yield this._getMin(key)
+  if (!instance) return null
+
   yield maybeInflate(this, instance)
   return instance.toJSON()
 })

@@ -9,14 +9,17 @@ const {
 
 const comparators = {
   EQ: isEqual,
+  NEQ: negate(isEqual),
   IN: ({ value, condition }) => condition.some(one => deepEqual(one, value)),
   STARTS_WITH: ({ value, condition }) => value && value.startsWith(condition),
   CONTAINS: ({ value, condition }) => value && value.indexOf(condition) !== -1,
+  NOT_CONTAINS: ({ value, condition }) => !value || value.indexOf(condition) === -1,
   BETWEEN: ({ value, condition }) => value >= condition[0] && value < condition[1],
   LT: ({ value, condition }) => value < condition,
   LTE: ({ value, condition }) => value <= condition,
   GT: ({ value, condition }) => value > condition,
   GTE: ({ value, condition }) => value >= condition,
+  EXISTS: ({ value, condition }) => condition ? !!value : !value,
 }
 
 module.exports = {
@@ -95,4 +98,10 @@ function filterResults ({ model, results, filter }) {
 
 function isHeaderProperty (propertyName) {
   return propertyName in BaseObjectModel.properties
+}
+
+function negate (fn) {
+  return function (...args) {
+    return !fn.apply(this, args)
+  }
 }

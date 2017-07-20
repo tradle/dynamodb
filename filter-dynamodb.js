@@ -3,27 +3,65 @@ const { clone, toObject, debug, getIndexes } = require('./utils')
 const OPERATORS = require('./operators')
 const { hashKey } = require('./constants')
 
-const CHECK_EQ = ({ where, value }) => {
-  if (typeof value !== 'object') {
-    where.equals(value)
-    return
+const CREATE_EQUALITY_CHECK = method => {
+  const checkStrict = ({ where, key, value }) => {
+    return where(key)[method](value)
   }
 
-  forEachLeaf(value, ({ path, value }) => {
-    where(path).equals(value)
-  })
+  return function addEqualityCheck ({ where, key, value }) {
+    if (method === 'ne' || typeof value !== 'object') {
+      return checkStrict({ where, key, value })
+    }
+
+    // this may backfire in the following way:
+    //
+    // filter = {
+    //   name: {
+    //     first: 'Abby',
+    //     last: 'Shmabby'
+    //   }
+    // }
+    //
+    // result:
+    //
+    // {
+    //   first: 'Abby',
+    //   last: 'Shmabby',
+    //   middle: 'Falama fama fo flabby'
+    // }
+    //
+    // maybe this result is desired, maybe not
+    //
+    // should probably add STRICT_EQ as an operator
+    forEachLeaf(value, ({ path, value }) => {
+      path = path.slice()
+      path.unshift(key)
+      where(path.join('.'))[method](value)
+    })
+  }
+}
+
+const CHECK_EXISTS = ({ where, key, value }) => {
+  if (value) {
+    where(key).exists()
+  } else {
+    where(key).null()
+  }
 }
 
 const COMPARATORS = {
-  EQ: CHECK_EQ,
-  CONTAINS: ({ where, value }) => where.contains(value),
-  STARTS_WITH: ({ where, value }) => where.beginsWith(value),
-  LT: ({ where, value }) => where.lt(value),
-  LTE: ({ where, value }) => where.lte(value),
-  GT: ({ where, value }) => where.gt(value),
-  GTE: ({ where, value }) => where.gte(value),
-  IN: ({ where, value }) => where.in(value),
-  BETWEEN: ({ where, value }) => where.between(...value),
+  EQ: CREATE_EQUALITY_CHECK('eq'),
+  NEQ: CREATE_EQUALITY_CHECK('ne'),
+  EXISTS: CHECK_EXISTS,
+  CONTAINS: ({ where, key, value }) => where(key).contains(value),
+  NOT_CONTAINS: ({ where, key, value }) => where(key).notContains(value),
+  STARTS_WITH: ({ where, key, value }) => where(key).beginsWith(value),
+  LT: ({ where, key, value }) => where(key).lt(value),
+  LTE: ({ where, key, value }) => where(key).lte(value),
+  GT: ({ where, key, value }) => where(key).gt(value),
+  GTE: ({ where, key, value }) => where(key).gte(value),
+  IN: ({ where, key, value }) => where(key).in(value),
+  BETWEEN: ({ where, key, value }) => where(key).between(...value),
 }
 
 module.exports = function filterViaDynamoDB ({ table, model, filter, orderBy, limit }) {
@@ -91,7 +129,14 @@ module.exports = function filterViaDynamoDB ({ table, model, filter, orderBy, li
 
 function addConditions ({ opType, builder, filter, limit, orderBy, fullScanRequired }) {
   const conditionMethod = opType === 'query' ? 'filter' : 'where'
+  const conditionBuilder = builder[conditionMethod].bind(builder)
   for (let op in filter) {
+    let setCondition = COMPARATORS[op]
+    if (!setCondition) {
+      debug(`comparator ${op} is not implemented (yet)`)
+      continue
+    }
+
     let conditions = filter[op]
     for (let prop in conditions) {
       if (prop in OPERATORS) {
@@ -99,40 +144,11 @@ function addConditions ({ opType, builder, filter, limit, orderBy, fullScanRequi
         continue
       }
 
-      const where = builder[conditionMethod](prop)
-      const value = conditions[prop]
-      switch (op) {
-      case 'EQ':
-        where.equals(value)
-        break
-      case 'STARTS_WITH':
-        where.beginsWith(value)
-        break
-      case 'CONTAINS':
-        where.contains(value)
-        break
-      case 'LT':
-        where.lt(value)
-        break
-      case 'LTE':
-        where.lte(value)
-        break
-      case 'GT':
-        where.gt(value)
-        break
-      case 'GTE':
-        where.gte(value)
-        break
-      case 'IN':
-        where.in(value)
-        break
-      case 'BETWEEN':
-        where.between(...value)
-        break
-      default:
-        debug(`unsupported operator ${op}`)
-        break
-      }
+      setCondition({
+        where: conditionBuilder,
+        key: prop,
+        value: conditions[prop]
+      })
     }
   }
 
