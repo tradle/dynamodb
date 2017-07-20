@@ -60,7 +60,10 @@ function DynamoTable ({
     createdAt: false,
     updatedAt: '_dateUpdated',
     schema: extend({}, joi, metadataTypes),
-    indexes: getIndexes(model)
+    indexes: getIndexes(model),
+    validation: {
+      allowUnknown: true
+    }
   }
 
   const table = dynogels.define(model.id, tableDef)
