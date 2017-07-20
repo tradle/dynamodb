@@ -1,7 +1,7 @@
 
 module.exports = {
   hashKey: '_link',
-  minifiedFlag: '_min',
+  minifiedFlag: '_cut',
   defaultIndexes: [
     {
       hashKey: '_author',
