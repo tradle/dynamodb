@@ -74,13 +74,15 @@ function matchesFilter ({ model, object, filter }) {
       }
 
       let property = model.properties[propertyName]
-      let matches = compare({
+      let isMatch = compare({
         model,
         propertyName,
         property,
         condition: conditions[propertyName],
         value: object[propertyName]
       })
+
+      if (!isMatch) return false
     }
   }
 
