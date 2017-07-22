@@ -65,6 +65,7 @@ function matchesFilter ({ model, object, filter }) {
       throw new Error(`operator "${op}" not supported (yet)`)
     }
 
+    let compare = comparators[op]
     let conditions = filter[op]
     for (let propertyName in conditions) {
       if (propertyName in OPERATORS) {
@@ -73,7 +74,7 @@ function matchesFilter ({ model, object, filter }) {
       }
 
       let property = model.properties[propertyName]
-      let matches = isEqual({
+      let matches = compare({
         model,
         propertyName,
         property,
