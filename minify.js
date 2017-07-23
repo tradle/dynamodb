@@ -1,5 +1,4 @@
-const pick = require('object.pick')
-const shallowClone = require('xtend')
+const { pick, shallowClone, debug } = require('./utils')
 const DEFAULT_MAX_SIZE = 1000
 
 module.exports = minify
@@ -25,10 +24,16 @@ function minify ({ item, model, maxSize=DEFAULT_MAX_SIZE }) {
         continue
       }
 
+      let property = model.properties[propertyName]
+      if (!property) {
+        debug(`property "${propertyName}" not found in model "${model.id}"`)
+        continue
+      }
+
       let keep = filter({
         model,
         propertyName,
-        property: model.properties[propertyName],
+        property,
         value: item[propertyName]
       })
 
