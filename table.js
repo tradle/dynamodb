@@ -27,7 +27,8 @@ function DynamoTable ({
   prefix,
   suffix,
   tableName,
-  createIfNotExists=true
+  createIfNotExists=true,
+  maxItemSize
 }) {
   bindAll(this)
 
@@ -38,6 +39,7 @@ function DynamoTable ({
   this.joi = joi
   this.model = model
   this.objects = objects
+  this.maxItemSize = maxItemSize
   if (createIfNotExists === false) {
     this._tableExistsPromise = RESOLVED
   } else {
@@ -126,8 +128,8 @@ DynamoTable.prototype.update = function (item, options) {
 
 DynamoTable.prototype._write = co(function* (method, item, options) {
   yield this._tableExistsPromise
-  const { model } = this
-  const { min, diff, isMinified } = minify({ model, item })
+  const { model, maxItemSize } = this
+  const { min, diff, isMinified } = minify({ model, item, maxSize: maxItemSize })
   const result = yield this.table[method](min, options)
   return extend(result.toJSON(), diff)
 })

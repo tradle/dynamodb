@@ -1,5 +1,6 @@
 const pick = require('object.pick')
 const shallowClone = require('xtend')
+const DEFAULT_MAX_SIZE = 1000
 
 module.exports = minify
 
@@ -10,13 +11,13 @@ const MINIFY_PREFERENCES = [
   stripAll
 ]
 
-function minify ({ item, model }) {
+function minify ({ item, model, maxSize=DEFAULT_MAX_SIZE }) {
   let min = shallowClone(item)
   let diff = {}
 
   for (const filter of MINIFY_PREFERENCES) {
     const size = JSON.stringify(min).length
-    if (size < 1000) break
+    if (size < maxSize) break
 
     let slimmed
     for (let propertyName in min) {
