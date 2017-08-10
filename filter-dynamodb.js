@@ -1,7 +1,21 @@
 const traverse = require('traverse')
-const { clone, toObject, debug, getIndexes } = require('./utils')
+const {
+  co,
+  clone,
+  pick,
+  toObject,
+  debug,
+  getIndexes,
+  resultsToJson,
+  sortResults,
+  getQueryInfo,
+  promisify
+} = require('./utils')
+
 const OPERATORS = require('./operators')
 const { hashKey } = require('./constants')
+const { filterResults } = require('./filter-memory')
+const DEFAULT_LIMIT = 50
 
 const CREATE_EQUALITY_CHECK = method => {
   const checkStrict = ({ where, key, value }) => {
@@ -64,45 +78,43 @@ const COMPARATORS = {
   BETWEEN: ({ where, key, value }) => where(key).between(...value),
 }
 
-module.exports = function filterViaDynamoDB ({ table, model, filter, orderBy, limit }) {
+module.exports = co(function* filterViaDynamoDB ({
+  table,
+  model,
+  filter,
+  orderBy,
+  limit=DEFAULT_LIMIT,
+  after
+}) {
   filter = clone(filter || {})
-  const indexes = getIndexes({ model })
-  const usedProps = getUsedProperties({ model, filter })
-  const indexedProps = indexes.map(index => index.hashKey)
-    .concat(hashKey)
-
-  const indexedPropsMap = toObject(indexedProps)
   const { EQ } = filter
-  const usedIndexedProps = usedProps.filter(prop => {
-    return EQ && prop in EQ && prop in indexedPropsMap
-  })
+  const {
+    opType,
+    queryProp,
+    index,
+    itemToPosition
+  } = getQueryInfo({ model, filter })
 
-  const opType = usedIndexedProps.length
-    ? 'query'
-    : 'scan'
-
-  let createBuilder = table[opType]
+  const createBuilder = table[opType]
   let builder
-  let queryProp
   let fullScanRequired = true
   if (opType === 'query') {
-    // supported key condition operators:
-    //   http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
-
-    if (usedIndexedProps.includes(hashKey)) {
-      queryProp = hashKey
-    } else {
-      queryProp = usedIndexedProps[0]
-    }
+  //   // supported key condition operators:
+  //   // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
 
     builder = createBuilder(EQ[queryProp])
     delete EQ[queryProp]
-    if (queryProp !== hashKey) {
-      const index = indexes.find(i => i.hashKey === queryProp)
+    if (index) {
       builder.usingIndex(index.name)
     }
 
-    if (orderBy && orderBy.property === queryProp) {
+    if (!orderBy) {
+      orderBy = {
+        property: queryProp
+      }
+    }
+
+    if (orderBy.property === queryProp) {
       fullScanRequired = false
       if (orderBy.desc) {
         builder.descending()
@@ -112,22 +124,107 @@ module.exports = function filterViaDynamoDB ({ table, model, filter, orderBy, li
     }
 
   } else {
+    fullScanRequired = !!orderBy
     builder = createBuilder()
+  }
+
+  if (fullScanRequired) {
+    builder.loadAll()
   }
 
   addConditions({
     builder,
     opType,
     filter,
-    limit,
+    // limit,
     orderBy,
+    after,
     fullScanRequired
   })
 
-  return builder
+  let result
+  if (fullScanRequired) {
+    result = yield promisify(builder.exec.bind(builder))()
+    result.Items = filterResults({
+      model,
+      filter,
+      results: result.Items
+    })
+  } else {
+    result = yield collect({ model, builder, limit })
+  }
+
+  let items = result.Items
+  let position
+  if (items.length <= limit) {
+    position = getStartKey(builder)
+  } else {
+    items = items.slice(0, limit)
+    position = itemToPosition(items[items.length - 1])
+  }
+
+  if (orderBy) {
+    items = sortResults({
+      results: items,
+      orderBy
+    })
+  }
+
+  return {
+    items,
+    position,
+    index,
+    itemToPosition
+  }
+})
+
+function getStartKey (builder) {
+  return builder.request.ExclusiveStartKey
 }
 
-function addConditions ({ opType, builder, filter, limit, orderBy, fullScanRequired }) {
+function notNull (item) {
+  return !!item
+}
+
+const collect = co(function* ({ model, builder, filter, limit }) {
+  // limit how many items dynamodb iterates over before filtering
+  // this is different from the sql-like notion of limit
+  let batchLimit = limit * 2
+  if (batchLimit < 10) batchLimit = 10
+
+  builder.limit(batchLimit)
+
+  const result = yield promisify(builder.exec.bind(builder))()
+  result.Items = filterResults({
+    model,
+    filter,
+    results: resultsToJson(result.Items)
+  })
+
+  const getNextBatch = promisify(builder.continue.bind(builder))
+  while (result.Count < limit && builder.canContinue()) {
+    let batch = yield getNextBatch()
+    if (batch.Count) {
+      result.Count += batch.Count
+      result.ScannedCount += batch.ScannedCount
+      result.Items = result.Items.concat(filterResults({
+        model,
+        filter,
+        results: resultsToJson(batch.Items)
+      }))
+    }
+
+    if (!batch.LastEvaluatedKey) break
+  }
+
+  return result
+})
+
+function addConditions ({ opType, builder, filter, after, orderBy, fullScanRequired }) {
+  if (after) {
+    builder.startKey(after)
+  }
+
   const conditionMethod = opType === 'query' ? 'filter' : 'where'
   const conditionBuilder = builder[conditionMethod].bind(builder)
   for (let op in filter) {
@@ -152,69 +249,19 @@ function addConditions ({ opType, builder, filter, limit, orderBy, fullScanRequi
     }
   }
 
-  if (fullScanRequired) {
-    if (limit) {
-      debug('unable to set limit for db search operation, full scan is required')
-    }
-
-    builder.loadAll()
-  } else if (limit) {
-    builder.limit(limit)
-  }
+  // if (fullScanRequired) {
+  //   builder.loadAll()
+  // }
+  // else if (limit) {
+  //   builder.limit(limit)
+  // }
 
   return builder
-}
-
-function getUsedProperties ({ model, filter }) {
-  const flat = flatten(filter)
-  return flat.reduce((all, obj) => {
-    return all.concat(Object.keys(obj))
-  }, [])
 }
 
 // function usesNonPrimaryKeys ({ model, filter }) {
 //   return props.some(prop => !indexed[prop])
 // }
-
-/**
- * flattens nested filter
- *
- * has no semantic meaning, this is just to be able to check
- * which props are being filtered against
- */
-function flatten (filter) {
-  const flat = []
-  const batch = [filter]
-  let len = batch.length
-  while (batch.length) {
-    let copy = batch.slice()
-    batch.length = 0
-    copy.forEach(subFilter => {
-      for (let op in subFilter) {
-        if (op in OPERATORS) {
-          batch.push(subFilter[op])
-        } else {
-          flat.push(subFilter)
-        }
-      }
-    })
-  }
-
-  return flat
-}
-
-function getLeaves (obj) {
-  return traverse(obj).reduce(function (acc, value) {
-    if (this.isLeaf) {
-      return acc.concat({
-        path: this.path,
-        value
-      })
-    }
-
-    return acc
-  }, [])
-}
 
 function forEachLeaf (obj, fn) {
   traverse(obj).forEach(function (value) {

@@ -76,8 +76,8 @@ function DynamoTable ({
   ;['scan', 'query'].forEach(op => {
     this[op] = (...args) => {
       const builder = table[op](...args)
-      const exec = promisify(builder.exec.bind(builder))
-      builder.exec = wrapDBOperation(this, exec)
+      // const exec = promisify(builder.exec.bind(builder))
+      builder.exec = wrapDBOperation(this, builder.exec.bind(builder))
       return builder
     }
   })
@@ -143,10 +143,9 @@ DynamoTable.prototype.destroy = co(function* (key, options) {
 
 function wrapDBOperation (dynamoTable, fn) {
   const { model, objects } = dynamoTable
-  return co(function* (...args) {
+  const promisified = co(function* (...args) {
     yield dynamoTable._tableExistsPromise
-
-    const result = yield fn.apply(dynamoTable, args)
+    const result = yield promisify(fn).apply(dynamoTable, args)
     if (!result) return result
 
     const { Item, Items } = result
@@ -163,6 +162,13 @@ function wrapDBOperation (dynamoTable, fn) {
 
     return result
   })
+
+  return function (...args) {
+    const callback = args.pop()
+    Promise.resolve(promisified(...args))
+      .catch(callback)
+      .then(result => callback(null, result))
+  }
 }
 
 const maybeInflate = co(function* (dynamoTable, instance) {
