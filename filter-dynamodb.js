@@ -151,7 +151,7 @@ module.exports = co(function* filterViaDynamoDB ({
       results: result.Items
     })
   } else {
-    result = yield collect({ model, builder, limit })
+    result = yield collect({ model, builder, filter, limit })
   }
 
   let items = result.Items
@@ -189,8 +189,12 @@ function notNull (item) {
 const collect = co(function* ({ model, builder, filter, limit }) {
   // limit how many items dynamodb iterates over before filtering
   // this is different from the sql-like notion of limit
-  let batchLimit = limit * 2
-  if (batchLimit < 10) batchLimit = 10
+
+  let batchLimit = limit
+  if (!isEmpty(filter)) {
+    batchLimit = limit * 2
+    if (batchLimit < 10) batchLimit = 10
+  }
 
   builder.limit(batchLimit)
 
@@ -269,4 +273,8 @@ function forEachLeaf (obj, fn) {
       fn({ value, path: this.path })
     }
   })
+}
+
+function isEmpty (obj) {
+  return !obj || Object.keys(obj).length === 0
 }
