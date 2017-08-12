@@ -23,7 +23,7 @@ module.exports = function createResolvers ({ tables, objects, models }) {
     return result ? resultsToJson(result) : null
   })
 
-  const list = function ({ model, filter, orderBy, limit, after }) {
+  const list = function list ({ model, filter, orderBy, limit, after }) {
     return filterDynamodb({
       table: tables[model.id],
       model,
