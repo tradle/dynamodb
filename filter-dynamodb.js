@@ -144,7 +144,7 @@ module.exports = co(function* filterViaDynamoDB ({
 
   let result
   if (fullScanRequired) {
-    result = yield promisify(builder.exec.bind(builder))()
+    result = yield exec(builder)
     result.Items = filterResults({
       model,
       filter,
@@ -178,6 +178,22 @@ module.exports = co(function* filterViaDynamoDB ({
   }
 })
 
+const exec = co(function* (builder, method='exec') {
+  try {
+    return yield promisify(builder[method].bind(builder))()
+  } catch (err) {
+    if (err.code === 'ResourceNotFoundException') {
+      return {
+        Count: 0
+        ScannedCount: 0,
+        Items: []
+      }
+    }
+
+    throw err
+  }
+})
+
 function getStartKey (builder) {
   return builder.request.ExclusiveStartKey
 }
@@ -198,14 +214,14 @@ const collect = co(function* ({ model, builder, filter, limit }) {
 
   builder.limit(batchLimit)
 
-  const result = yield promisify(builder.exec.bind(builder))()
+  const result = yield exec(builder)
   result.Items = filterResults({
     model,
     filter,
     results: resultsToJson(result.Items)
   })
 
-  const getNextBatch = promisify(builder.continue.bind(builder))
+  const getNextBatch = exec(builder, 'continue')
   while (result.Count < limit && builder.canContinue()) {
     let batch = yield getNextBatch()
     if (batch.Count) {
