@@ -184,7 +184,7 @@ const exec = co(function* (builder, method='exec') {
   } catch (err) {
     if (err.code === 'ResourceNotFoundException') {
       return {
-        Count: 0
+        Count: 0,
         ScannedCount: 0,
         Items: []
       }
@@ -221,7 +221,7 @@ const collect = co(function* ({ model, builder, filter, limit }) {
     results: resultsToJson(result.Items)
   })
 
-  const getNextBatch = exec(builder, 'continue')
+  const getNextBatch = exec.bind(null, builder, 'continue')
   while (result.Count < limit && builder.canContinue()) {
     let batch = yield getNextBatch()
     if (batch.Count) {

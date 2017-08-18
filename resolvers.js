@@ -24,9 +24,8 @@ module.exports = function createResolvers ({ tables, objects, models }) {
   })
 
   const list = function list ({ model, filter, orderBy, limit, after }) {
-    return filterDynamodb({
-      table: tables[model.id],
-      model,
+    const table = tables[model.id]
+    return table.search({
       filter,
       orderBy,
       limit,

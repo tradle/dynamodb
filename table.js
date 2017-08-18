@@ -135,11 +135,17 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
 })
 
 DynamoTable.prototype.destroy = co(function* (key, options) {
-  key = this.deflate(key)
   yield this._tableExistsPromise
   const result = yield this.table.destroy(key, options)
   return result.toJSON()
 })
+
+DynamoTable.prototype.search = function (options) {
+  options = shallowClone(options)
+  options.table = this
+  options.model = this.model
+  return filterDynamodb(options)
+}
 
 function wrapDBOperation (dynamoTable, fn) {
   const { model, objects } = dynamoTable
