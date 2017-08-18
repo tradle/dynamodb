@@ -1,3 +1,4 @@
+const dotProp = require('dot-prop')
 const OPERATORS = require('./operators')
 const {
   debug,
@@ -43,7 +44,7 @@ module.exports = {
 // }
 
 function isEqual ({ model, property, condition, value }) {
-  const { type } = property
+  const type = property && property.type
   if (type !== 'array' && type !== 'object') {
     return deepEqual(condition, value)
   }
@@ -79,7 +80,7 @@ function matchesFilter ({ model, object, filter }) {
         propertyName,
         property,
         condition: conditions[propertyName],
-        value: object[propertyName]
+        value: dotProp.get(object, propertyName)
       })
 
       if (!isMatch) return false

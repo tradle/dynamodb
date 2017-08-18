@@ -10,6 +10,7 @@ const omit = require('object.omit')
 const toJoi = require('@tradle/schema-joi')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
 const minify = require('./minify')
+const filterDynamoDB = require('./filter-dynamodb')
 const metadataTypes = toJoi({
   model: BaseObjectModel
 })
@@ -144,7 +145,7 @@ DynamoTable.prototype.search = function (options) {
   options = shallowClone(options)
   options.table = this
   options.model = this.model
-  return filterDynamodb(options)
+  return filterDynamoDB(options)
 }
 
 function wrapDBOperation (dynamoTable, fn) {
