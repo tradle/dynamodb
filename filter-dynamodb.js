@@ -124,7 +124,7 @@ module.exports = co(function* filterViaDynamoDB ({
     }
 
   } else {
-    fullScanRequired = !!orderBy
+    // fullScanRequired = !!orderBy
     builder = createBuilder()
   }
 
