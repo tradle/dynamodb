@@ -56,9 +56,12 @@ function DynamoTable ({
     })
   }
 
+  const tableName = tableName || getTableName({ model, prefix, suffix })
+  this.name = tableName
+
   const tableDef = {
     hashKey,
-    tableName: tableName || getTableName({ model, prefix, suffix }),
+    tableName,
     timestamps: true,
     createdAt: false,
     updatedAt: '_dateUpdated',
