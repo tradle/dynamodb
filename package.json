@@ -35,6 +35,7 @@
   "peerDependencies": {
     "@tradle/models": "*",
     "@tradle/schema-joi": "*",
-    "@tradle/validate-resource": "*"
+    "@tradle/validate-resource": "*",
+    "aws-sdk": "^2.58.0"
   }
 }

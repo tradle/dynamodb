@@ -18,6 +18,13 @@ const metadataTypes = toJoi({
 const RESOLVED = Promise.resolve()
 const { hashKey, minifiedFlag, defaultIndexes } = require('./constants')
 const { getTableName, getIndexes } = require('./utils')
+const types = {
+  item: typeforce.compile({
+    _author: 'String',
+    _link: 'String',
+    _time: typeforce.oneOf('String', 'Number')
+  })
+}
 
 module.exports = DynamoTable
 
@@ -29,7 +36,8 @@ function DynamoTable ({
   suffix,
   tableName,
   createIfNotExists=true,
-  maxItemSize
+  maxItemSize,
+  docClient
 }) {
   bindAll(this)
 
@@ -41,6 +49,7 @@ function DynamoTable ({
   this.model = model
   this.objects = objects
   this.maxItemSize = maxItemSize
+  this.docClient = docClient
   if (createIfNotExists === false) {
     this._tableExistsPromise = RESOLVED
   } else {
@@ -56,7 +65,10 @@ function DynamoTable ({
     })
   }
 
-  const tableName = tableName || getTableName({ model, prefix, suffix })
+  if (!tableName) {
+    tableName = getTableName({ model, prefix, suffix })
+  }
+
   this.name = tableName
 
   const tableDef = {
@@ -117,12 +129,7 @@ DynamoTable.prototype.get = co(function* (key) {
 })
 
 DynamoTable.prototype.create = function (item, options) {
-  typeforce({
-    _author: 'String',
-    _link: 'String',
-    _time: typeforce.oneOf('String', 'Number')
-  }, item)
-
+  typeforce(types.item, item)
   return this._write('create', item, options)
 }
 
@@ -136,6 +143,67 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
   const { min, diff, isMinified } = minify({ model, item, maxSize: maxItemSize })
   const result = yield this.table[method](min, options)
   return extend(result.toJSON(), diff)
+})
+
+DynamoTable.prototype.batchPut = co(function* (items, options={}) {
+  typeforce(typeforce.arrayOf(types.item), items)
+
+  yield this._tableExistsPromise
+  const minified = items.map(item => {
+    const { model, maxItemSize } = this
+    return minify({ model, item, maxSize: maxItemSize })
+  })
+
+  let mins = minified.map(({ min }) => min)
+  if (!options.docClient) {
+    options.docClient = this.docClient
+  }
+
+  let batch
+  while (mins.length) {
+    batch = mins.slice(0, 25)
+    mins = mins.slice(25)
+    yield this._batchPut(batch, options)
+  }
+
+  return items
+})
+
+DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
+  const params = {
+    RequestItems: {
+      [this.name]: items.map(Item => ({
+        PutRequest: { Item }
+      }))
+    }
+  }
+
+  if (!params.ReturnConsumedCapacity) {
+    params.ReturnConsumedCapacity = 'TOTAL'
+  }
+
+  const {
+    backoff=defaultBackoffFunction,
+    maxTries=6
+  } = backoffOptions
+
+  let tries = 0
+  let start = Date.now()
+  let time = 0
+  let failed
+  while (tries < maxTries) {
+    let result = yield this.docClient.batchWrite(params).promise()
+    failed = result.UnprocessedItems
+    if (!(failed && Object.keys(failed).length > 0)) return
+
+    params.RequestItems = failed
+    yield wait(backoff(tries++))
+  }
+
+  const err = new Error('batch put failed')
+  err.failed = failed
+  err.attempts = tries
+  throw err
 })
 
 DynamoTable.prototype.destroy = co(function* (key, options) {
@@ -190,3 +258,18 @@ const maybeInflate = co(function* (dynamoTable, instance) {
 
   return instance
 })
+
+function jitter (val, percent) {
+  // jitter by val * percent
+  // eslint-disable-next-line no-mixed-operators
+  return val * (1 + 2 * percent * Math.random() - percent)
+}
+
+function defaultBackoffFunction (retryCount) {
+  const delay = Math.pow(2, retryCount) * 500
+  return Math.min(jitter(delay, 0.1), 10000)
+}
+
+function wait (millis) {
+  return new Promise(resolve => setTimeout(resolve, millis))
+}
