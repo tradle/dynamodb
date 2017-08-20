@@ -23,9 +23,10 @@ module.exports = function createResolvers ({ tables, objects, models }) {
     return result ? resultsToJson(result) : null
   })
 
-  const list = function list ({ model, filter, orderBy, limit, after }) {
+  const list = function list ({ model, select, filter, orderBy, limit, after }) {
     const table = tables[model.id]
     return table.search({
+      select,
       filter,
       orderBy,
       limit,

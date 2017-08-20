@@ -213,7 +213,7 @@ DynamoTable.prototype.search = co(function* (options) {
   options.model = this.model
   const results = yield filterDynamoDB(options)
   results.items = yield Promise.all(results.items.map(item => {
-    return maybeInflate(this, item)
+    return maybeInflate(this, item, options)
   }))
 
   return results
@@ -248,8 +248,15 @@ function wrapDBOperation (dynamoTable, fn) {
   }
 }
 
-const maybeInflate = co(function* (dynamoTable, item) {
-  if (item[minifiedFlag] && item[minifiedFlag].length) {
+const maybeInflate = co(function* (dynamoTable, item, options={}) {
+  const cut = item[minifiedFlag]
+  if (cut && cut.length) {
+    const { select } = options
+    if (select) {
+      const needsInflate = cut.some(prop => prop in options.select)
+      if (!needsInflate) return item
+    }
+
     const link = item[hashKey]
     const full = yield dynamoTable.objects.get(link)
     extend(item, full)
