@@ -124,8 +124,7 @@ DynamoTable.prototype.get = co(function* (key) {
   const instance = yield this._getMin(key)
   if (!instance) return null
 
-  yield maybeInflate(this, instance)
-  return instance.toJSON()
+  return yield maybeInflate(this, instance.toJSON())
 })
 
 DynamoTable.prototype.create = function (item, options) {
@@ -147,18 +146,14 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
 
 DynamoTable.prototype.batchPut = co(function* (items, options={}) {
   typeforce(typeforce.arrayOf(types.item), items)
+  const { model, maxItemSize } = this
 
   yield this._tableExistsPromise
   const minified = items.map(item => {
-    const { model, maxItemSize } = this
     return minify({ model, item, maxSize: maxItemSize })
   })
 
   let mins = minified.map(({ min }) => min)
-  if (!options.docClient) {
-    options.docClient = this.docClient
-  }
-
   let batch
   while (mins.length) {
     batch = mins.slice(0, 25)
@@ -212,12 +207,17 @@ DynamoTable.prototype.destroy = co(function* (key, options) {
   return result.toJSON()
 })
 
-DynamoTable.prototype.search = function (options) {
+DynamoTable.prototype.search = co(function* (options) {
   options = shallowClone(options)
   options.table = this
   options.model = this.model
-  return filterDynamoDB(options)
-}
+  const results = yield filterDynamoDB(options)
+  results.items = yield Promise.all(results.items.map(item => {
+    return maybeInflate(this, item)
+  }))
+
+  return results
+})
 
 function wrapDBOperation (dynamoTable, fn) {
   const { model, objects } = dynamoTable
@@ -228,14 +228,13 @@ function wrapDBOperation (dynamoTable, fn) {
 
     const { Item, Items } = result
     if (Item) {
-      yield maybeInflate(dynamoTable, Item)
       result.Item = Item.toJSON()
+      yield maybeInflate(dynamoTable, result.Item)
     } else if (Items) {
-      yield Promise.all(Items.map(Item => {
+      result.Items = Items.map(Item => Item.toJSON())
+      yield Promise.all(result.Items.map(Item => {
         return maybeInflate(dynamoTable, Item)
       }))
-
-      result.Items = Items.map(Item => Item.toJSON())
     }
 
     return result
@@ -249,14 +248,14 @@ function wrapDBOperation (dynamoTable, fn) {
   }
 }
 
-const maybeInflate = co(function* (dynamoTable, instance) {
-  if (instance.get(minifiedFlag)) {
-    const link = instance.get(hashKey)
+const maybeInflate = co(function* (dynamoTable, item) {
+  if (item[minifiedFlag] && item[minifiedFlag].length) {
+    const link = item[hashKey]
     const full = yield dynamoTable.objects.get(link)
-    instance.set(full)
+    extend(item, full)
   }
 
-  return instance
+  return item
 })
 
 function jitter (val, percent) {

@@ -1,5 +1,5 @@
 const { pick, shallowClone, debug } = require('./utils')
-const DEFAULT_MAX_SIZE = 1000
+const DEFAULT_MAX_SIZE = 4000
 
 module.exports = minify
 
@@ -15,7 +15,8 @@ function minify ({ item, model, maxSize=DEFAULT_MAX_SIZE }) {
   let diff = {}
 
   for (const filter of MINIFY_PREFERENCES) {
-    const size = JSON.stringify(min).length
+    // approximation
+    const size = Buffer.byteLength(JSON.stringify(min), 'utf8')
     if (size < maxSize) break
 
     let slimmed

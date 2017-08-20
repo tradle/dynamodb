@@ -14,7 +14,7 @@
   version "1.0.0"
   resolved "https://codeload.github.com/tradle/schema-joi/tar.gz/4a17c1987f0353389d83c053e7ff6c31b2e1897a"
   dependencies:
-    joi "10.5.0"
+    joi "^10.6.0"
     xtend "^4.0.1"
 
 acorn-jsx@^3.0.0:
@@ -532,6 +532,10 @@ graceful-fs@^4.1.11, graceful-fs@^4.1.2:
   version "4.1.11"
   resolved "https://registry.yarnpkg.com/graceful-fs/-/graceful-fs-4.1.11.tgz#0e8bdfe4d1ddb8854d64e04ea7c00e2a026e5658"
 
+graphql-fields@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/graphql-fields/-/graphql-fields-1.0.2.tgz#099ee1d4445b42d0f47e06d622acebb33abc6cce"
+
 has-ansi@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/has-ansi/-/has-ansi-2.0.0.tgz#34f5049ce1ecdf2b0649af3ef24e45ed35416d91"
@@ -708,15 +712,6 @@ jmespath@0.15.0:
 joi@10.5.0:
   version "10.5.0"
   resolved "https://registry.yarnpkg.com/joi/-/joi-10.5.0.tgz#4e3172a199c993b36aabe5a987b00b1b541c3059"
-  dependencies:
-    hoek "4.x.x"
-    isemail "2.x.x"
-    items "2.x.x"
-    topo "2.x.x"
-
-joi@^10.6.0:
-  version "10.6.0"
-  resolved "https://registry.yarnpkg.com/joi/-/joi-10.6.0.tgz#52587f02d52b8b75cdb0c74f0b164a191a0e1fc2"
   dependencies:
     hoek "4.x.x"
     isemail "2.x.x"
