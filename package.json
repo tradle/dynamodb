@@ -6,8 +6,13 @@
   "author": "Mark Vayngrib <mark@tradle.io>",
   "license": "MIT",
   "devDependencies": {
-    "@tradle/models": "https://github.com/tradle/models",
+    "@tradle/merge-models": "github:tradle/merge-models",
+    "@tradle/models": "github:tradle/models",
     "@tradle/schema-joi": "tradle/schema-joi",
+    "@tradle/validate-model": "github:tradle/validate-model",
+    "@tradle/validate-resource": "github:tradle/validate-resource",
+    "aws-sdk": "^2.100.0",
+    "dynogels": "github:mvayngrib/dynogels",
     "eslint": "^3.19.0",
     "husky": "^0.13.3",
     "tape": "^4.6.3"
@@ -24,7 +29,7 @@
     "debug": "^2.6.8",
     "deep-equal": "^1.0.1",
     "dot-prop": "^4.2.0",
-    "dynogels": "mvayngrib/dynogels",
+    "dynogels": "github:mvayngrib/dynogels",
     "object.omit": "^2.0.1",
     "object.pick": "^1.2.0",
     "pify": "^3.0.0",

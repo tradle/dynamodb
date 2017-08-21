@@ -14,8 +14,8 @@ const {
 } = require('./utils')
 
 const OPERATORS = require('./operators')
-const { hashKey } = require('./constants')
 const { filterResults } = require('./filter-memory')
+const { defaultOrderBy } = require('./constants')
 const DEFAULT_LIMIT = 50
 
 const CREATE_EQUALITY_CHECK = method => {
@@ -83,7 +83,7 @@ const filterViaDynamoDB = co(function* ({
   table,
   model,
   filter,
-  orderBy,
+  orderBy=defaultOrderBy,
   limit=DEFAULT_LIMIT,
   after
 }) {
@@ -91,14 +91,21 @@ const filterViaDynamoDB = co(function* ({
   const { EQ } = filter
   const {
     opType,
+    hashKey,
     queryProp,
     index,
     itemToPosition
-  } = getQueryInfo({ model, filter })
+  } = getQueryInfo({ model, filter, orderBy })
 
   const createBuilder = table[opType]
   let builder
   let fullScanRequired = true
+  // if (!orderBy) {
+  //   orderBy = {
+  //     property: queryProp || '_time'
+  //   }
+  // }
+
   if (opType === 'query') {
   //   // supported key condition operators:
   //   // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
@@ -107,12 +114,6 @@ const filterViaDynamoDB = co(function* ({
     delete EQ[queryProp]
     if (index) {
       builder.usingIndex(index.name)
-    }
-
-    if (!orderBy) {
-      orderBy = {
-        property: queryProp
-      }
     }
 
     if (orderBy.property === queryProp) {
@@ -129,6 +130,7 @@ const filterViaDynamoDB = co(function* ({
   }
 
   if (fullScanRequired) {
+    debug('full scan required')
     builder.loadAll()
   }
 
@@ -155,15 +157,15 @@ const filterViaDynamoDB = co(function* ({
   }
 
   let items = result.Items
-  if (orderBy) {
-    // sort first
-    // when fullScanRequired === true, ExclusiveStartKey is meaningless
-    // because we first need to scan the whole table before we can sort
-    items = sortResults({
-      results: items,
-      orderBy
-    })
-  }
+  // if (orderBy) {
+  // sort first
+  // when fullScanRequired === true, ExclusiveStartKey is meaningless
+  // because we first need to scan the whole table before we can sort
+  items = sortResults({
+    results: items,
+    orderBy
+  })
+  // }
 
   if (after) {
     // if we're running a scan

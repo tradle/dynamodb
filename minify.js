@@ -1,4 +1,4 @@
-const { pick, shallowClone, debug } = require('./utils')
+const { pick, shallowClone, debug, getIndexes } = require('./utils')
 const DEFAULT_MAX_SIZE = 4000
 
 module.exports = minify
@@ -11,6 +11,7 @@ const MINIFY_PREFERENCES = [
 ]
 
 function minify ({ item, model, maxSize=DEFAULT_MAX_SIZE }) {
+  const indexes = getIndexes(model)
   let min = shallowClone(item)
   let diff = {}
 
@@ -20,10 +21,17 @@ function minify ({ item, model, maxSize=DEFAULT_MAX_SIZE }) {
     if (size < maxSize) break
 
     let slimmed
+    let currentCut = (min._cut || []).slice()
     for (let propertyName in min) {
       if (propertyName.startsWith('_')) {
         continue
       }
+
+      let isIndexed = indexes.some(index => {
+        return index.hashKey === propertyName || index.rangeKey === propertyName
+      })
+
+      if (isIndexed) continue
 
       let property = model.properties[propertyName]
       if (!property) {
@@ -47,6 +55,11 @@ function minify ({ item, model, maxSize=DEFAULT_MAX_SIZE }) {
       }
 
       min._cut.push(propertyName)
+    }
+
+    if (!min._cut || currentCut.length === min._cut.length) {
+      // give up
+      break
     }
   }
 

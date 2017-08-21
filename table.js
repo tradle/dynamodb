@@ -86,7 +86,7 @@ function DynamoTable ({
 
   const table = dynogels.define(model.id, tableDef)
   this.table = promisify(table, {
-    include: ['createTable', 'create', 'get', 'update', 'destroy']
+    include: ['createTable', 'deleteTable', 'create', 'get', 'update', 'destroy']
   })
 
   ;['scan', 'query'].forEach(op => {
@@ -102,6 +102,7 @@ function DynamoTable ({
 DynamoTable.prototype._maybeCreate = co(function* () {
   try {
     yield this.createTable()
+    debug(`created table ${this.name}`)
   } catch (err) {
     if (err.code !== 'ResourceInUseException') {
       this._tableExistsPromise = null
@@ -218,6 +219,10 @@ DynamoTable.prototype.search = co(function* (options) {
 
   return results
 })
+
+DynamoTable.prototype.deleteTable = function () {
+  return this.table.deleteTable()
+}
 
 function wrapDBOperation (dynamoTable, fn) {
   const { model, objects } = dynamoTable

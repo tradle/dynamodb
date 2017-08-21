@@ -2,6 +2,9 @@
 module.exports = {
   hashKey: '_link',
   minifiedFlag: '_cut',
+  defaultOrderBy: {
+    property: '_time'
+  },
   defaultIndexes: [
     {
       hashKey: '_author',

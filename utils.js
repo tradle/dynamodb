@@ -8,7 +8,7 @@ const omit = require('object.omit')
 const co = require('co').wrap
 const promisify = require('pify')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
-const { hashKey, defaultIndexes } = require('./constants')
+const { hashKey, defaultIndexes, defaultOrderBy } = require('./constants')
 const OPERATORS = require('./operators')
 const TYPE = '_t'
 
@@ -48,6 +48,16 @@ function sortResults ({ results, orderBy }) {
     const aVal = a[property]
     const bVal = b[property]
     if (aVal === bVal) {
+      if (defaultOrderBy.property !== orderBy.property) {
+        if (a[defaultOrderBy.property] < b[defaultOrderBy.property]) {
+          return -1
+        }
+
+        if (a[defaultOrderBy.property] > b[defaultOrderBy.property]) {
+          return 1
+        }
+      }
+
       return 0
     }
 
@@ -137,14 +147,16 @@ function flatten (filter) {
 
 function getQueryInfo ({ model, filter }) {
   const indexes = getIndexes({ model })
+  // orderBy is not counted, because for a 'query' op,
+  // a value for the indexed prop must come from 'filter'
   const usedProps = getUsedProperties({ model, filter })
   const indexedProps = indexes.map(index => index.hashKey)
     .concat(hashKey)
 
   const indexedPropsMap = toObject(indexedProps)
-  const { EQ } = filter
+  const { EQ={} } = filter
   const usedIndexedProps = usedProps.filter(prop => {
-    return EQ && prop in EQ && prop in indexedPropsMap
+    return prop in EQ && prop in indexedPropsMap
   })
 
   const opType = usedIndexedProps.length
@@ -180,6 +192,7 @@ function getQueryInfo ({ model, filter }) {
 
   return {
     opType,
+    hashKey,
     queryProp,
     index,
     itemToPosition
