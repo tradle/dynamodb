@@ -9,7 +9,8 @@ const {
   resultsToJson,
   sortResults,
   getQueryInfo,
-  promisify
+  promisify,
+  deepEqual
 } = require('./utils')
 
 const OPERATORS = require('./operators')
@@ -78,7 +79,7 @@ const COMPARATORS = {
   BETWEEN: ({ where, key, value }) => where(key).between(...value),
 }
 
-module.exports = co(function* filterViaDynamoDB ({
+const filterViaDynamoDB = co(function* ({
   table,
   model,
   filter,
@@ -122,7 +123,6 @@ module.exports = co(function* filterViaDynamoDB ({
         builder.ascending()
       }
     }
-
   } else {
     // fullScanRequired = !!orderBy
     builder = createBuilder()
@@ -155,29 +155,67 @@ module.exports = co(function* filterViaDynamoDB ({
   }
 
   let items = result.Items
-  let position
-  if (items.length <= limit) {
-    position = getStartKey(builder)
-  } else {
-    items = items.slice(0, limit)
-    position = itemToPosition(items[items.length - 1])
-  }
-
   if (orderBy) {
+    // sort first
+    // when fullScanRequired === true, ExclusiveStartKey is meaningless
+    // because we first need to scan the whole table before we can sort
     items = sortResults({
       results: items,
       orderBy
     })
   }
 
+  if (after) {
+    // if we're running a scan
+    // we need to do pagination in memory
+    const idx = items.findIndex(item => {
+      for (let prop in after) {
+        if (!deepEqual(after[prop], item[prop])) {
+          return false
+        }
+      }
+
+      return true
+    })
+
+    if (idx !== -1) {
+      items = items.slice(idx + 1)
+    }
+  }
+
+  let startPosition
+  if (items.length) {
+    startPosition = itemToPosition(items[0])
+  } else {
+    startPosition = after && itemToPosition(after)
+  }
+
+  let endPosition
+  if (!orderBy || orderBy.property === queryProp) {
+    if (items.length <= limit) {
+      endPosition = getStartKey(builder)
+    }
+  }
+
+  if (!endPosition) {
+    const length = Math.min(limit, items.length)
+    endPosition = itemToPosition(items[length - 1])
+  }
+
+  if (items.length > limit) {
+    items = items.slice(0, limit)
+  }
+
   return {
     items,
-    position,
+    startPosition,
+    endPosition,
     index,
     itemToPosition
   }
 })
 
+module.exports = filterViaDynamoDB
 const exec = co(function* (builder, method='exec') {
   try {
     return yield promisify(builder[method].bind(builder))()
@@ -242,7 +280,9 @@ const collect = co(function* ({ model, builder, filter, limit }) {
 
 function addConditions ({ opType, builder, filter, after, orderBy, fullScanRequired }) {
   if (after) {
-    builder.startKey(after)
+    if (!fullScanRequired) {
+      builder.startKey(after)
+    }
   }
 
   const conditionMethod = opType === 'query' ? 'filter' : 'where'
@@ -268,13 +308,6 @@ function addConditions ({ opType, builder, filter, after, orderBy, fullScanRequi
       })
     }
   }
-
-  // if (fullScanRequired) {
-  //   builder.loadAll()
-  // }
-  // else if (limit) {
-  //   builder.limit(limit)
-  // }
 
   return builder
 }
