@@ -3,7 +3,8 @@ module.exports = {
   hashKey: '_link',
   minifiedFlag: '_cut',
   defaultOrderBy: {
-    property: '_time'
+    property: '_time',
+    desc: true
   },
   defaultIndexes: [
     {
