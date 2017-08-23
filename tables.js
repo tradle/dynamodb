@@ -2,8 +2,9 @@ const toJoi = require('@tradle/schema-joi')
 const { TYPE } = require('@tradle/constants')
 const Table = require('./table')
 
-module.exports = function createTables ({ objects, models, prefix, maxItemSize, docClient }) {
+module.exports = function createTables (opts) {
   const tables = {}
+  const { models } = opts
   Object.keys(models).forEach(id => {
     const model = models[id]
     let table
@@ -12,15 +13,8 @@ module.exports = function createTables ({ objects, models, prefix, maxItemSize, 
       get: function () {
         if (!table) {
           const joi = toJoi({ models, model })
-          table = new Table({
-            objects,
-            models,
-            model,
-            joi,
-            prefix,
-            maxItemSize,
-            docClient
-          })
+          const tableOpts = Object.assign({ joi, model }, opts)
+          table = new Table(tableOpts)
         }
 
         return table
