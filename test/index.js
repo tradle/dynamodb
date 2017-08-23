@@ -3,7 +3,7 @@ const test = require('tape')
 const co = require('co').wrap
 const clone = require('clone')
 const dynogels = require('dynogels')
-const { SIG, PREVLINK, PERMALINK } = require('@tradle/constants')
+const { TYPE, SIG, PREVLINK, PERMALINK } = require('@tradle/constants')
 const buildResource = require('@tradle/build-resource')
 const models = require('@tradle/merge-models')()
   .add(require('@tradle/models').models)
@@ -41,9 +41,10 @@ const objects = {
   }
 }
 
-const { createTables } = require('../')
-const tables = createTables({ objects, models, maxItemSize: 1000, docClient })
+const tradleDynamo = require('../')
+const tables = tradleDynamo.createTables({ objects, models, maxItemSize: 1000, docClient })
 const table = tables['tradle.FormRequest']
+const db = tradleDynamo.db({ tables })
 
 test('load fixtures', loudCo(function* (t) {
   try {
@@ -189,6 +190,25 @@ test('latest', loudCo(function* (t) {
 
   t.same(first, v1)
   t.same(latest, v2)
+  yield table.del(v2._link)
+  t.same(yield table.latest(v1._permalink), first)
+
+  t.end()
+}))
+
+test('db', loudCo(function* (t) {
+  const req = formRequests[0]
+  const type = req[TYPE]
+  const link = req._link
+  const permalink = req._permalink
+  t.same(yield db.get({ type, link }), req)
+  t.same(yield db.latest({ type, permalink }), req)
+  yield db.del({ type, link })
+
+  t.notOk(yield db.get({ type, link }))
+  t.notOk(yield db.latest({ type, permalink }))
+  yield db.put(req)
+  t.same(yield db.get({ type, link }), req)
   t.end()
 }))
 

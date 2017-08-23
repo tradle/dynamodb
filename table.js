@@ -127,19 +127,26 @@ DynamoTable.prototype.create = function () {
 }
 
 DynamoTable.prototype._getMin = function (link) {
+  typeforce(typeforce.String, link)
   return this.table.get(link)
 }
 
-DynamoTable.prototype.get = function (link) {
-  return this.objects.get(link)
-  // yield this._tableExistsPromise
-  // const instance = yield this._getMin(link)
-  // if (!instance) return null
+DynamoTable.prototype.get = co(function* (link) {
+  typeforce(typeforce.String, link)
 
-  // return yield maybeInflate(this, instance.toJSON())
-}
+  // don't fetch directly from objects
+  // as the item may have been deleted from the table
+  // return this.objects.get(link)
+  yield this._tableExistsPromise
+  const instance = yield this._getMin(link)
+  if (!instance) return null
+
+  return yield maybeInflate(this, instance.toJSON())
+})
 
 DynamoTable.prototype.latest = co(function* (permalink) {
+  typeforce(typeforce.String, permalink)
+
   const result = yield this.search({
     orderBy: {
       property: '_time',
@@ -245,8 +252,8 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
 
 DynamoTable.prototype.del = co(function* (link, options) {
   yield this._tableExistsPromise
-  const result = yield this.table.destroy(link, options)
-  return result.toJSON()
+  yield this.table.destroy(link, options)
+  this._debug(`deleted ${link}`)
 })
 
 DynamoTable.prototype.search = co(function* (options) {

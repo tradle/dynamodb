@@ -10,7 +10,7 @@ module.exports = function proxy (opts) {
     tables
   }
 
-  ;['create', 'merge'].forEach(method => {
+  ;['put', 'merge'].forEach(method => {
     proxy[method] = (...args) => {
       const item = args[0]
       return tables[item[TYPE]][method](...args)
@@ -19,13 +19,13 @@ module.exports = function proxy (opts) {
 
   ;['get', 'del'].forEach(method => {
     proxy[method] = ({ type, link }) => {
-      return tables[type][method]({ _link: link })
+      return tables[type][method](link)
     }
   })
 
   ;['latest'].forEach(method => {
     proxy[method] = ({ type, permalink }) => {
-      return tables[type][method]({ _permalink: permalink })
+      return tables[type][method](permalink)
     }
   })
 
