@@ -125,11 +125,11 @@ DynamoTable.prototype.get = co(function* (link) {
 })
 
 DynamoTable.prototype.put = function (item, options) {
-  return this._write('put', item, options)
+  return this._write('create', item, options)
 }
 
 DynamoTable.prototype.merge = function (item, options) {
-  return this._write('merge', item, options)
+  return this._write('update', item, options)
 }
 
 DynamoTable.prototype._write = co(function* (method, item, options) {
