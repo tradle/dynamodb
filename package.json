@@ -6,6 +6,7 @@
   "author": "Mark Vayngrib <mark@tradle.io>",
   "license": "MIT",
   "devDependencies": {
+    "@tradle/custom-models": "github:tradle/custom-models",
     "@tradle/merge-models": "github:tradle/merge-models",
     "@tradle/models": "github:tradle/models",
     "@tradle/schema-joi": "tradle/schema-joi",

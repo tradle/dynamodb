@@ -19,13 +19,6 @@ const metadataTypes = toJoi({
 const RESOLVED = Promise.resolve()
 const { hashKey, minifiedFlag, defaultIndexes } = require('./constants')
 const { getTableName, getIndexes } = require('./utils')
-const types = {
-  item: typeforce.compile({
-    _author: 'String',
-    _link: 'String',
-    _time: typeforce.oneOf('String', 'Number')
-  })
-}
 
 module.exports = DynamoTable
 
@@ -156,8 +149,8 @@ DynamoTable.prototype._debug = function (...args) {
 }
 
 DynamoTable.prototype.batchPut = co(function* (items, options={}) {
-  typeforce(typeforce.arrayOf(types.item), items)
-  const { model, maxItemSize } = this
+  const { models, model, maxItemSize } = this
+  items.forEach(resource => validateResource({ models, model, resource }))
 
   yield this._tableExistsPromise
   const minified = items.map(item => {
