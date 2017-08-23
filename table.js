@@ -8,7 +8,7 @@ const shallowClone = require('xtend')
 const promisify = require('pify')
 const omit = require('object.omit')
 const toJoi = require('@tradle/schema-joi')
-const _validateResource = require('@tradle/validate-resource')
+const validateResource = require('@tradle/validate-resource')
 const { SIG } = require('@tradle/constants')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
 const minify = require('./minify')
@@ -21,45 +21,39 @@ const RESOLVED = Promise.resolve()
 const { hashKey, minifiedFlag, defaultIndexes } = require('./constants')
 const { getTableName, getIndexes } = require('./utils')
 const types = {
+  dated: typeforce.compile({
+    _time: typeforce.oneOf(typeforce.String, typeforce.Number),
+  }),
   signed: typeforce.compile({
     _author: typeforce.String,
     _link: typeforce.String,
-    _time: typeforce.oneOf(typeforce.String, typeforce.Number),
     [SIG]: typeforce.String
   })
 }
 
-function validateResource ({ models, model, resource }) {
-  typeforce(types.signed, resource)
-  _validateResource({ models, model, resource })
-}
-
 module.exports = DynamoTable
 
-function DynamoTable ({
-  joi,
-  models,
-  model,
-  objects,
-  prefix,
-  suffix,
-  tableName,
-  createIfNotExists=true,
-  maxItemSize,
-  docClient
-}) {
+function DynamoTable (opts) {
+  const {
+    joi,
+    models,
+    model,
+    objects,
+    prefix,
+    suffix,
+    maxItemSize,
+    docClient,
+    createIfNotExists=true,
+    requireSigned=true
+  } = opts
+
   bindAll(this)
 
   if (!(joi && model)) {
     throw new Error('joi and model are required')
   }
 
-  this.joi = joi
-  this.models = models
-  this.model = model
-  this.objects = objects
-  this.maxItemSize = maxItemSize
-  this.docClient = docClient
+  this.opts = opts
   if (createIfNotExists === false) {
     this._tableExistsPromise = RESOLVED
   } else {
@@ -75,15 +69,11 @@ function DynamoTable ({
     })
   }
 
-  if (!tableName) {
-    tableName = getTableName({ model, prefix, suffix })
-  }
-
-  this.name = tableName
+  this.name = opts.tableName || getTableName({ model, prefix, suffix })
 
   const tableDef = {
     hashKey,
-    tableName,
+    tableName: this.name,
     timestamps: true,
     createdAt: false,
     updatedAt: '_dateUpdated',
@@ -103,7 +93,7 @@ function DynamoTable ({
     this[op] = (...args) => {
       const builder = table[op](...args)
       // const exec = promisify(builder.exec.bind(builder))
-      builder.exec = wrapDBOperation(this, builder.exec.bind(builder))
+      builder.exec = this._wrapDBOperation(builder.exec.bind(builder))
       return builder
     }
   })
@@ -176,8 +166,8 @@ DynamoTable.prototype.merge = function (item, options) {
 }
 
 DynamoTable.prototype._write = co(function* (method, item, options) {
-  const { models, model, maxItemSize } = this
-  validateResource({ models, model, resource: item })
+  const { model, maxItemSize } = this.opts
+  this._validateResource(item)
 
   yield this._tableExistsPromise
   const { min, diff, isMinified } = minify({ model, item, maxSize: maxItemSize })
@@ -186,14 +176,25 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
   return extend(result.toJSON(), diff)
 })
 
+DynamoTable.prototype._validateResource = function (item) {
+  const { models, model, requireSigned } = this.opts
+
+  typeforce(types.dated, item)
+  if (requireSigned) {
+    typeforce(types.signed, item)
+  }
+
+  validateResource({ models, model, resource: item })
+}
+
 DynamoTable.prototype._debug = function (...args) {
-  args.unshift(this.model.id)
+  args.unshift(this.opts.model.id)
   return debug(...args)
 }
 
 DynamoTable.prototype.batchPut = co(function* (items, options={}) {
-  const { models, model, maxItemSize } = this
-  items.forEach(resource => validateResource({ models, model, resource }))
+  const { model, maxItemSize } = this.opts
+  items.forEach(resource => this._validateResource(resource))
 
   yield this._tableExistsPromise
   const minified = items.map(item => {
@@ -230,12 +231,14 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
     maxTries=6
   } = backoffOptions
 
+  const { docClient } = this.opts
+
   let tries = 0
   let start = Date.now()
   let time = 0
   let failed
   while (tries < maxTries) {
-    let result = yield this.docClient.batchWrite(params).promise()
+    let result = yield docClient.batchWrite(params).promise()
     failed = result.UnprocessedItems
     if (!(failed && Object.keys(failed).length)) return
 
@@ -259,7 +262,7 @@ DynamoTable.prototype.del = co(function* (link, options) {
 DynamoTable.prototype.search = co(function* (options) {
   options = shallowClone(options)
   options.table = this
-  options.model = this.model
+  options.model = this.opts.model
   const results = yield filterDynamoDB(options)
   results.items = yield Promise.all(results.items.map(item => {
     return maybeInflate(this, item, options)
@@ -272,21 +275,22 @@ DynamoTable.prototype.destroy = function () {
   return this.table.deleteTable()
 }
 
-function wrapDBOperation (dynamoTable, fn) {
-  const { model, objects } = dynamoTable
+DynamoTable.prototype._wrapDBOperation = function (fn) {
+  const self = this
+  const { model, objects } = this.opts
   const promisified = co(function* (...args) {
-    yield dynamoTable._tableExistsPromise
-    const result = yield promisify(fn).apply(dynamoTable, args)
+    yield self._tableExistsPromise
+    const result = yield promisify(fn).apply(self, args)
     if (!result) return result
 
     const { Item, Items } = result
     if (Item) {
       result.Item = Item.toJSON()
-      yield maybeInflate(dynamoTable, result.Item)
+      yield maybeInflate(self, result.Item)
     } else if (Items) {
       result.Items = Items.map(Item => Item.toJSON())
       yield Promise.all(result.Items.map(Item => {
-        return maybeInflate(dynamoTable, Item)
+        return maybeInflate(self, Item)
       }))
     }
 
