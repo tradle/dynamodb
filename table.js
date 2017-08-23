@@ -130,12 +130,34 @@ DynamoTable.prototype._getMin = function (link) {
   return this.table.get(link)
 }
 
-DynamoTable.prototype.get = co(function* (link) {
-  yield this._tableExistsPromise
-  const instance = yield this._getMin(link)
-  if (!instance) return null
+DynamoTable.prototype.get = function (link) {
+  return this.objects.get(link)
+  // yield this._tableExistsPromise
+  // const instance = yield this._getMin(link)
+  // if (!instance) return null
 
-  return yield maybeInflate(this, instance.toJSON())
+  // return yield maybeInflate(this, instance.toJSON())
+}
+
+DynamoTable.prototype.latest = co(function* (permalink) {
+  const result = yield this.search({
+    orderBy: {
+      property: '_time',
+      desc: true
+    },
+    limit: 1,
+    filter: {
+      EQ: {
+        _permalink: permalink
+      }
+    }
+  })
+
+  if (result && result.items.length) {
+    return yield maybeInflate(this, result.items[0])
+  }
+
+  return null
 })
 
 DynamoTable.prototype.put = function (item, options) {

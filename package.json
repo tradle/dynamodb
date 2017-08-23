@@ -6,10 +6,12 @@
   "author": "Mark Vayngrib <mark@tradle.io>",
   "license": "MIT",
   "devDependencies": {
+    "@tradle/build-resource": "^2.1.0",
     "@tradle/custom-models": "github:tradle/custom-models",
+    "@tradle/engine": "^4.10.0",
     "@tradle/merge-models": "github:tradle/merge-models",
     "@tradle/models": "github:tradle/models",
-    "@tradle/schema-joi": "tradle/schema-joi",
+    "@tradle/schema-joi": "github:tradle/schema-joi",
     "@tradle/validate-model": "^2.0.1",
     "@tradle/validate-resource": "^2.1.0",
     "aws-sdk": "^2.100.0",

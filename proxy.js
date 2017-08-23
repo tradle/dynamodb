@@ -23,6 +23,12 @@ module.exports = function proxy (opts) {
     }
   })
 
+  ;['latest'].forEach(method => {
+    proxy[method] = ({ type, permalink }) => {
+      return tables[type][method]({ _permalink: permalink })
+    }
+  })
+
   ;['batchPut'].forEach(method => {
     proxy[method] = (items, ...rest) => {
       const type = items[0][TYPE]

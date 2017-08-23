@@ -1,6 +1,10 @@
+const crypto = require('crypto')
 const test = require('tape')
 const co = require('co').wrap
+const clone = require('clone')
 const dynogels = require('dynogels')
+const { SIG, PREVLINK, PERMALINK } = require('@tradle/constants')
+const buildResource = require('@tradle/build-resource')
 const models = require('@tradle/merge-models')()
   .add(require('@tradle/models').models)
   .get()
@@ -160,6 +164,31 @@ test('indexed props', loudCo(function* (t) {
   })
 
   t.same(page3.items, expected.slice(10, 20))
+  t.end()
+}))
+
+test('latest', loudCo(function* (t) {
+  const v1 = formRequests[0]
+  const v2 = clone(v1)
+  v2[SIG] = crypto.randomBytes(128).toString('base64')
+  v2[PERMALINK] = v2._permalink
+  v2[PREVLINK] = v2._link
+  buildResource.setVirtual(v2, {
+    _time: Date.now(),
+    _link: crypto.randomBytes(32).toString('hex')
+  })
+
+  yield table.put(v2)
+  const {
+    first,
+    latest
+  } = yield {
+    first: yield table.get(v1._permalink),
+    latest: yield table.latest(v1._permalink)
+  }
+
+  t.same(first, v1)
+  t.same(latest, v2)
   t.end()
 }))
 
