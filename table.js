@@ -101,40 +101,40 @@ function DynamoTable ({
 
 DynamoTable.prototype._maybeCreate = co(function* () {
   try {
-    yield this.createTable()
-    debug(`created table ${this.name}`)
+    yield this.create()
+    this._debug(`created table`)
   } catch (err) {
     if (err.code !== 'ResourceInUseException') {
       this._tableExistsPromise = null
-      debug('failed to create table', err)
+      this._debug('failed to create table', err)
       throw err
     }
   }
 })
 
-DynamoTable.prototype.createTable = function () {
+DynamoTable.prototype.create = function () {
   return this.table.createTable()
 }
 
-DynamoTable.prototype._getMin = function (key) {
-  return this.table.get(key[hashKey])
+DynamoTable.prototype._getMin = function (link) {
+  return this.table.get(link)
 }
 
-DynamoTable.prototype.get = co(function* (key) {
+DynamoTable.prototype.get = co(function* (link) {
   yield this._tableExistsPromise
-  const instance = yield this._getMin(key)
+  const instance = yield this._getMin(link)
   if (!instance) return null
 
   return yield maybeInflate(this, instance.toJSON())
 })
 
-DynamoTable.prototype.create = function (item, options) {
+DynamoTable.prototype.put = function (item, options) {
   typeforce(types.item, item)
-  return this._write('create', item, options)
+  return this._write('put', item, options)
 }
 
-DynamoTable.prototype.update = function (item, options) {
-  return this._write('update', item, options)
+DynamoTable.prototype.merge = function (item, options) {
+  return this._write('merge', item, options)
 }
 
 DynamoTable.prototype._write = co(function* (method, item, options) {
@@ -142,8 +142,14 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
   const { model, maxItemSize } = this
   const { min, diff, isMinified } = minify({ model, item, maxSize: maxItemSize })
   const result = yield this.table[method](min, options)
+  this._debug(`"${method}" ${item[hashKey]} successfully`)
   return extend(result.toJSON(), diff)
 })
+
+DynamoTable.prototype._debug = function (...args) {
+  args.unshift(this.model.id)
+  return debug(...args)
+}
 
 DynamoTable.prototype.batchPut = co(function* (items, options={}) {
   typeforce(typeforce.arrayOf(types.item), items)
@@ -160,6 +166,7 @@ DynamoTable.prototype.batchPut = co(function* (items, options={}) {
     batch = mins.slice(0, 25)
     mins = mins.slice(25)
     yield this._batchPut(batch, options)
+    this._debug(`batchPut ${batch.length} items successfully`)
   }
 
   return items
@@ -190,8 +197,9 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
   while (tries < maxTries) {
     let result = yield this.docClient.batchWrite(params).promise()
     failed = result.UnprocessedItems
-    if (!(failed && Object.keys(failed).length > 0)) return
+    if (!(failed && Object.keys(failed).length)) return
 
+    this._debug(`batchPut partially failed, retrying`)
     params.RequestItems = failed
     yield wait(backoff(tries++))
   }
@@ -202,9 +210,9 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
   throw err
 })
 
-DynamoTable.prototype.destroy = co(function* (key, options) {
+DynamoTable.prototype.del = co(function* (link, options) {
   yield this._tableExistsPromise
-  const result = yield this.table.destroy(key, options)
+  const result = yield this.table.destroy(link, options)
   return result.toJSON()
 })
 
@@ -220,7 +228,7 @@ DynamoTable.prototype.search = co(function* (options) {
   return results
 })
 
-DynamoTable.prototype.deleteTable = function () {
+DynamoTable.prototype.destroy = function () {
   return this.table.deleteTable()
 }
 

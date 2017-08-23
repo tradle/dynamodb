@@ -43,7 +43,7 @@ const table = tables['tradle.FormRequest']
 
 test('load fixtures', loudCo(function* (t) {
   try {
-    yield table.deleteTable()
+    yield table.destroy()
   } catch (err) {
     if (err.code !== 'ResourceNotFoundException') {
       throw err

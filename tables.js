@@ -1,4 +1,5 @@
 const toJoi = require('@tradle/schema-joi')
+const { TYPE } = require('@tradle/constants')
 const Table = require('./table')
 
 module.exports = function createTables ({ objects, models, prefix, maxItemSize, docClient }) {
