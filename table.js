@@ -8,7 +8,8 @@ const shallowClone = require('xtend')
 const promisify = require('pify')
 const omit = require('object.omit')
 const toJoi = require('@tradle/schema-joi')
-const validateResource = require('@tradle/validate-resource')
+const _validateResource = require('@tradle/validate-resource')
+const { SIG } = require('@tradle/constants')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
 const minify = require('./minify')
 const filterDynamoDB = require('./filter-dynamodb')
@@ -19,6 +20,19 @@ const metadataTypes = toJoi({
 const RESOLVED = Promise.resolve()
 const { hashKey, minifiedFlag, defaultIndexes } = require('./constants')
 const { getTableName, getIndexes } = require('./utils')
+const types = {
+  signed: typeforce.compile({
+    _author: typeforce.String,
+    _link: typeforce.String,
+    _time: typeforce.oneOf(typeforce.String, typeforce.Number),
+    [SIG]: typeforce.String
+  })
+}
+
+function validateResource ({ models, model, resource }) {
+  typeforce(types.signed, resource)
+  _validateResource({ models, model, resource })
+}
 
 module.exports = DynamoTable
 
