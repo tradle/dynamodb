@@ -8,6 +8,7 @@ const shallowClone = require('xtend')
 const promisify = require('pify')
 const omit = require('object.omit')
 const toJoi = require('@tradle/schema-joi')
+const validateResource = require('@tradle/validate-resource')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
 const minify = require('./minify')
 const filterDynamoDB = require('./filter-dynamodb')
@@ -30,6 +31,7 @@ module.exports = DynamoTable
 
 function DynamoTable ({
   joi,
+  models,
   model,
   objects,
   prefix,
@@ -46,6 +48,7 @@ function DynamoTable ({
   }
 
   this.joi = joi
+  this.models = models
   this.model = model
   this.objects = objects
   this.maxItemSize = maxItemSize
@@ -129,7 +132,6 @@ DynamoTable.prototype.get = co(function* (link) {
 })
 
 DynamoTable.prototype.put = function (item, options) {
-  typeforce(types.item, item)
   return this._write('put', item, options)
 }
 
@@ -138,8 +140,10 @@ DynamoTable.prototype.merge = function (item, options) {
 }
 
 DynamoTable.prototype._write = co(function* (method, item, options) {
+  const { models, model, maxItemSize } = this
+  validateResource({ models, model, resource: item })
+
   yield this._tableExistsPromise
-  const { model, maxItemSize } = this
   const { min, diff, isMinified } = minify({ model, item, maxSize: maxItemSize })
   const result = yield this.table[method](min, options)
   this._debug(`"${method}" ${item[hashKey]} successfully`)

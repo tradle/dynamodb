@@ -12,7 +12,15 @@ module.exports = function createTables ({ objects, models, prefix, maxItemSize, 
       get: function () {
         if (!table) {
           const joi = toJoi({ models, model })
-          table = new Table({ objects, model, joi, prefix, maxItemSize, docClient })
+          table = new Table({
+            objects,
+            models,
+            model,
+            joi,
+            prefix,
+            maxItemSize,
+            docClient
+          })
         }
 
         return table

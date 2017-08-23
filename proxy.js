@@ -10,7 +10,7 @@ module.exports = function proxy (opts) {
     tables
   }
 
-  ;['create', 'update'].forEach(method => {
+  ;['create', 'merge'].forEach(method => {
     proxy[method] = (...args) => {
       const item = args[0]
       return tables[item[TYPE]][method](...args)
