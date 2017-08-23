@@ -9,6 +9,7 @@ module.exports = {
   Table,
   createTables,
   createTable: opts => new Table(opts),
+  db: createProxy,
   proxy: createProxy,
   utils,
   constants,
