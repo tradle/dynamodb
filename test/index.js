@@ -10,7 +10,7 @@ const models = require('@tradle/merge-models')()
   .get()
 
 const { defaultOrderBy } = require('../constants')
-const { sortResults } = require('../utils')
+const { sortResults, wait, runWithBackoffOnTableNotExists } = require('../utils')
 const formRequests = require('./fixtures')
   .filter(fixture => {
     return fixture._t === 'tradle.FormRequest'
@@ -45,6 +45,62 @@ const tradleDynamo = require('../')
 const tables = tradleDynamo.createTables({ objects, models, maxItemSize: 1000, docClient })
 const table = tables['tradle.FormRequest']
 const db = tradleDynamo.db({ tables })
+
+test('backoff after create', loudCo(function* (t) {
+  const backoffOpts = {
+    initialDelay: 50,
+    maxDelay: 100,
+    maxTime: 500
+  }
+
+  let expectedResult = 1
+  let failsLeft = 3
+
+  const errThatCausesBackoff = new Error('yay')
+  errThatCausesBackoff.name = 'ResourceNotFoundException'
+
+  const errThatCausesExit = new Error('nay')
+  errThatCausesExit.name = 'ResourceIsStupidException'
+
+  let result = yield runWithBackoffOnTableNotExists(co(function* () {
+    if (failsLeft-- > 0) {
+      throw errThatCausesBackoff
+    }
+
+    return expectedResult
+  }), backoffOpts)
+
+  t.equal(result, expectedResult)
+
+  try {
+    result = yield runWithBackoffOnTableNotExists(co(function* () {
+      throw errThatCausesExit
+    }), backoffOpts)
+
+    t.fail('expected error')
+  } catch (err) {
+    t.equal(err, errThatCausesExit)
+  }
+
+  const start = Date.now()
+  const expectedTimeBeforeTimeout = backoffOpts.initialDelay
+  try {
+    result = yield runWithBackoffOnTableNotExists(co(function* () {
+      throw errThatCausesBackoff
+    }), backoffOpts)
+
+    t.fail('expected operation to time out')
+  } catch (err) {
+    t.equal(err.message, 'timed out')
+    const time = Date.now() - start
+    // expected delta should be around a tick (15-20ms)
+    // but let's give it some room
+    const delta = Math.abs(time - expectedTimeBeforeTimeout)
+    t.ok(delta < 100)
+  }
+
+  t.end()
+}))
 
 test('load fixtures', loudCo(function* (t) {
   try {

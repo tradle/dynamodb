@@ -19,7 +19,12 @@ const metadataTypes = toJoi({
 
 const RESOLVED = Promise.resolve()
 const { hashKey, minifiedFlag, defaultIndexes } = require('./constants')
-const { getTableName, getIndexes } = require('./utils')
+const {
+  getTableName,
+  getIndexes,
+  runWithBackoffOnTableNotExists
+} = require('./utils')
+
 const types = {
   dated: typeforce.compile({
     _time: typeforce.oneOf(typeforce.String, typeforce.Number),
@@ -141,9 +146,10 @@ DynamoTable.prototype._maybeCreate = co(function* () {
   }
 })
 
-DynamoTable.prototype.create = function () {
-  return this.table.createTable()
-}
+DynamoTable.prototype.create = co(function* () {
+  yield this.table.createTable()
+  this._created = true
+})
 
 DynamoTable.prototype._getMin = function (link) {
   typeforce(typeforce.String, link)
@@ -200,7 +206,10 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
 
   yield this._tableExistsPromise
   const { min, diff, isMinified } = minify({ model, item, maxSize: maxItemSize })
-  const result = yield this.table[method](min, options)
+  const result = yield runWithBackoffOnTableNotExists(() => {
+    return this.table[method](min, options)
+  })
+
   this._debug(`"${method}" ${item[hashKey]} successfully`)
   return extend(result.toJSON(), diff)
 })
@@ -267,7 +276,10 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
   let time = 0
   let failed
   while (tries < maxTries) {
-    let result = yield docClient.batchWrite(params).promise()
+    let result = yield runWithBackoffOnTableNotExists(() => {
+      return docClient.batchWrite(params).promise()
+    })
+
     failed = result.UnprocessedItems
     if (!(failed && Object.keys(failed).length)) return
 

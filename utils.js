@@ -12,26 +12,6 @@ const { hashKey, defaultIndexes, defaultOrderBy } = require('./constants')
 const OPERATORS = require('./operators')
 const TYPE = '_t'
 
-module.exports = {
-  BaseObjectModel,
-  fromResourceStub,
-  sortResults,
-  co,
-  promisify,
-  debug,
-  clone,
-  shallowClone,
-  extend,
-  deepEqual,
-  pick,
-  omit,
-  toObject,
-  getIndexes,
-  getTableName,
-  resultsToJson,
-  getQueryInfo
-}
-
 function getTableName ({ model, prefix='', suffix='' }) {
   const name = (model.id || model).replace(/[.]/g, '_')
   return prefix + name + suffix
@@ -197,4 +177,69 @@ function getQueryInfo ({ model, filter }) {
     index,
     itemToPosition
   }
+}
+
+function runWithBackoffOnTableNotExists (fn, opts={}) {
+  opts = shallowClone(opts)
+  opts.shouldTryAgain = err => err.name === 'ResourceNotFoundException'
+  return runWithBackoffUntil(fn, opts)
+}
+
+const runWithBackoffUntil = co(function* (fn, opts) {
+  const {
+    initialDelay=1000,
+    maxAttempts=10,
+    maxTime=60000,
+    factor=2,
+    shouldTryAgain
+  } = opts
+
+  const { maxDelay=maxTime/2 } = opts
+  const start = Date.now()
+  let millisToWait = initialDelay
+  let attempts = 0
+  while (Date.now() - start < maxTime && attempts++ < maxAttempts) {
+    try {
+      return yield fn()
+    } catch (err) {
+      if (!shouldTryAgain(err)) {
+        throw err
+      }
+
+      yield wait(millisToWait)
+      millisToWait = Math.min(
+        maxDelay,
+        millisToWait * factor,
+        maxTime - Date.now()
+      )
+    }
+  }
+
+  throw new Error('timed out')
+})
+
+function wait (millis) {
+  return new Promise(resolve => setTimeout(resolve, millis))
+}
+
+module.exports = {
+  BaseObjectModel,
+  fromResourceStub,
+  sortResults,
+  co,
+  promisify,
+  debug,
+  clone,
+  shallowClone,
+  extend,
+  deepEqual,
+  pick,
+  omit,
+  toObject,
+  getIndexes,
+  getTableName,
+  resultsToJson,
+  getQueryInfo,
+  runWithBackoffUntil,
+  runWithBackoffOnTableNotExists
 }
