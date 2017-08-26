@@ -182,10 +182,10 @@ function getQueryInfo ({ model, filter }) {
 function runWithBackoffOnTableNotExists (fn, opts={}) {
   opts = shallowClone(opts)
   opts.shouldTryAgain = err => err.name === 'ResourceNotFoundException'
-  return runWithBackoffUntil(fn, opts)
+  return runWithBackoffWhile(fn, opts)
 }
 
-const runWithBackoffUntil = co(function* (fn, opts) {
+const runWithBackoffWhile = co(function* (fn, opts) {
   const {
     initialDelay=1000,
     maxAttempts=10,
@@ -222,6 +222,32 @@ function wait (millis) {
   return new Promise(resolve => setTimeout(resolve, millis))
 }
 
+const waitTillActive = co(function* (table) {
+  const { tableName } = table
+  const notReadyErr = new Error('not ready')
+  yield runWithBackoffWhile(co(function* () {
+    const { Table: { TableStatus } } = yield table.describeTable()
+    switch (TableStatus) {
+      case 'CREATING':
+      case 'UPDATING':
+        throw notReadyErr
+      case 'ACTIVE':
+        return
+      case 'DELETING':
+        throw new Error(`table "${tableName}" is being deleted`)
+      default:
+        const message = `table "${tableName}" has unknown TableStatus "${TableStatus}"`
+        debug(table.tableName, message)
+        throw new Error(message)
+        return
+    }
+  }), {
+    initialDelay: 1000,
+    maxDelay: 10000,
+    shouldTryAgain: err => err === notReadyErr
+  })
+})
+
 module.exports = {
   BaseObjectModel,
   fromResourceStub,
@@ -240,6 +266,7 @@ module.exports = {
   getTableName,
   resultsToJson,
   getQueryInfo,
-  runWithBackoffUntil,
-  runWithBackoffOnTableNotExists
+  runWithBackoffWhile,
+  runWithBackoffOnTableNotExists,
+  waitTillActive
 }

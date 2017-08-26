@@ -145,7 +145,6 @@ test('load fixtures', loudCo(function* (t) {
   yield table.batchPut(formRequests)
   const result = yield table.search()
   t.equal(result.items.length, formRequests.length)
-
   t.end()
 }))
 

@@ -22,7 +22,9 @@ const { hashKey, minifiedFlag, defaultIndexes } = require('./constants')
 const {
   getTableName,
   getIndexes,
-  runWithBackoffOnTableNotExists
+  runWithBackoffOnTableNotExists,
+  runWithBackoffWhile,
+  waitTillActive
 } = require('./utils')
 
 const types = {
@@ -115,30 +117,44 @@ function DynamoTable (opts) {
   })
 }
 
-DynamoTable.prototype.exists = co(function* () {
-  if (this._created) return true
-
+DynamoTable.prototype.info = co(function* () {
   try {
-    yield this.table.describeTable()
-    return true
+    return yield this.table.describeTable()
   } catch (err) {
     if (err.name !== 'ResourceNotFoundException') {
       throw err
     }
-
-    return false
   }
 })
 
+// DynamoTable.prototype.exists = co(function* () {
+//   if (this._created) return true
+
+//   try {
+//     yield this.info()
+//     return true
+//   } catch (err) {
+//     if (err.name !== 'ResourceNotFoundException') {
+//       throw err
+//     }
+
+//     return false
+//   }
+// })
+
 DynamoTable.prototype._maybeCreate = co(function* () {
-  const exists = yield this.exists()
-  if (exists) {
+  const info = yield this.info()
+  if (info) {
+    if (info.TableStatus === 'ACTIVE') return
+
+    yield this.waitTillActive()
     this._debug('table already exists, not re-creating')
-    return true
+    return
   }
 
   try {
     yield this.create()
+    yield this.waitTillActive()
     this._debug(`created table`)
   } catch (err) {
     // should have been taken care of by exists()
@@ -151,8 +167,18 @@ DynamoTable.prototype._maybeCreate = co(function* () {
   }
 })
 
+DynamoTable.prototype.waitTillActive = co(function* () {
+  if (!this._active) {
+    yield waitTillActive(this.table)
+    this._active = true
+  }
+})
+
 DynamoTable.prototype.create = co(function* () {
-  yield this.table.createTable()
+  yield runWithBackoffWhile(() => this.table.createTable(), {
+    shouldTryAgain: err => err.name === 'LimitExceededException'
+  })
+
   this._created = true
 })
 
@@ -163,8 +189,8 @@ DynamoTable.prototype._getMin = function (link) {
 
 DynamoTable.prototype.get = co(function* (link) {
   typeforce(typeforce.String, link)
-  const exists = yield this.exists()
-  if (!exists) return
+  const info = yield this.info()
+  if (isEmptyTable(info)) return
 
   // don't fetch directly from objects
   // as the item may have been deleted from the table
@@ -301,8 +327,8 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
 })
 
 DynamoTable.prototype.del = co(function* (link, options) {
-  const exists = yield this.exists()
-  if (!exists) return
+  const info = yield this.info()
+  if (isEmptyTable(info)) return
 
   yield this._tableCreateIfNotExistsPromise
   yield this.table.destroy(link, options)
@@ -310,8 +336,11 @@ DynamoTable.prototype.del = co(function* (link, options) {
 })
 
 DynamoTable.prototype.search = co(function* (options) {
-  const exists = yield this.exists()
-  if (!exists) return { items: [] }
+  debugger
+  const info = yield this.info()
+  if (isEmptyTable(info)) {
+    return { items: [] }
+  }
 
   options = shallowClone(options)
   options.table = this
@@ -326,6 +355,7 @@ DynamoTable.prototype.search = co(function* (options) {
 
 DynamoTable.prototype.destroy = co(function* () {
   yield this.table.deleteTable()
+  this._active = false
   this._created = false
 })
 
@@ -389,4 +419,8 @@ function defaultBackoffFunction (retryCount) {
 
 function wait (millis) {
   return new Promise(resolve => setTimeout(resolve, millis))
+}
+
+function isEmptyTable (info) {
+  return !info || info.Table.TableStatus !== 'ACTIVE'
 }
