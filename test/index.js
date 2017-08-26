@@ -102,6 +102,37 @@ test('backoff after create', loudCo(function* (t) {
   t.end()
 }))
 
+test('no autocreate on read/del', loudCo(function* (t) {
+  try {
+    yield table.destroy()
+  } catch (err) {
+    if (err.code !== 'ResourceNotFoundException') {
+      throw err
+    }
+  }
+
+  const { create } = table
+  table.create = () => {
+    t.fail('should not create table on read or del ops')
+    return Promise.resolve()
+  }
+
+  t.notOk(yield table.get('some resource id'))
+  t.same(yield table.search({
+    filter: {
+      EQ: {
+        form: 'tradle.AboutYou'
+      }
+    }
+  }), { items: [] })
+
+  yield table.del('some resource id')
+
+  // restore
+  table.create = create
+  t.end()
+}))
+
 test('load fixtures', loudCo(function* (t) {
   try {
     yield table.destroy()

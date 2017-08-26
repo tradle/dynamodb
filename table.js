@@ -59,19 +59,22 @@ function DynamoTable (opts) {
   }
 
   this.opts = opts
-  if (createIfNotExists === false) {
-    this._tableExistsPromise = RESOLVED
-  } else {
+  if (createIfNotExists) {
     let promise
-    Object.defineProperty(this, '_tableExistsPromise', {
+    Object.defineProperty(this, '_tableCreateIfNotExistsPromise', {
       get: () => {
         if (!promise) {
           promise = this._maybeCreate()
         }
 
         return promise
+      },
+      set: val => {
+        promise = val
       }
     })
+  } else {
+    this._tableCreateIfNotExistsPromise = RESOLVED
   }
 
   this.name = opts.tableName || getTableName({ model, prefix, suffix })
@@ -113,6 +116,8 @@ function DynamoTable (opts) {
 }
 
 DynamoTable.prototype.exists = co(function* () {
+  if (this._created) return true
+
   try {
     yield this.table.describeTable()
     return true
@@ -139,7 +144,7 @@ DynamoTable.prototype._maybeCreate = co(function* () {
     // should have been taken care of by exists()
     // but just in case
     if (err.code !== 'ResourceInUseException') {
-      this._tableExistsPromise = null
+      this._tableCreateIfNotExistsPromise = null
       this._debug('failed to create table', err)
       throw err
     }
@@ -158,11 +163,12 @@ DynamoTable.prototype._getMin = function (link) {
 
 DynamoTable.prototype.get = co(function* (link) {
   typeforce(typeforce.String, link)
+  const exists = yield this.exists()
+  if (!exists) return
 
   // don't fetch directly from objects
   // as the item may have been deleted from the table
   // return this.objects.get(link)
-  yield this._tableExistsPromise
   const instance = yield this._getMin(link)
   if (!instance) return null
 
@@ -204,7 +210,7 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
   const { model, maxItemSize } = this.opts
   this._validateResource(item)
 
-  yield this._tableExistsPromise
+  yield this._tableCreateIfNotExistsPromise
   const { min, diff, isMinified } = minify({ model, item, maxSize: maxItemSize })
   const result = yield runWithBackoffOnTableNotExists(() => {
     return this.table[method](min, options)
@@ -234,7 +240,7 @@ DynamoTable.prototype.batchPut = co(function* (items, options={}) {
   const { model, maxItemSize } = this.opts
   items.forEach(resource => this._validateResource(resource))
 
-  yield this._tableExistsPromise
+  yield this._tableCreateIfNotExistsPromise
   const minified = items.map(item => {
     return minify({ model, item, maxSize: maxItemSize })
   })
@@ -295,12 +301,18 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
 })
 
 DynamoTable.prototype.del = co(function* (link, options) {
-  yield this._tableExistsPromise
+  const exists = yield this.exists()
+  if (!exists) return
+
+  yield this._tableCreateIfNotExistsPromise
   yield this.table.destroy(link, options)
   this._debug(`deleted ${link}`)
 })
 
 DynamoTable.prototype.search = co(function* (options) {
+  const exists = yield this.exists()
+  if (!exists) return { items: [] }
+
   options = shallowClone(options)
   options.table = this
   options.model = this.opts.model
@@ -312,15 +324,16 @@ DynamoTable.prototype.search = co(function* (options) {
   return results
 })
 
-DynamoTable.prototype.destroy = function () {
-  return this.table.deleteTable()
-}
+DynamoTable.prototype.destroy = co(function* () {
+  yield this.table.deleteTable()
+  this._created = false
+})
 
 DynamoTable.prototype._wrapDBOperation = function (fn) {
   const self = this
   const { model, objects } = this.opts
   const promisified = co(function* (...args) {
-    yield self._tableExistsPromise
+    yield self._tableCreateIfNotExistsPromise
     const result = yield promisify(fn).apply(self, args)
     if (!result) return result
 
