@@ -86,7 +86,15 @@ function DynamoTable (opts) {
 
   const table = dynogels.define(model.id, tableDef)
   this.table = promisify(table, {
-    include: ['createTable', 'deleteTable', 'create', 'get', 'update', 'destroy']
+    include: [
+      'createTable',
+      'deleteTable',
+      'describeTable',
+      'create',
+      'get',
+      'update',
+      'destroy'
+    ]
   })
 
   ;['scan', 'query'].forEach(op => {
@@ -99,11 +107,32 @@ function DynamoTable (opts) {
   })
 }
 
+DynamoTable.prototype.exists = co(function* () {
+  try {
+    yield this.table.describeTable()
+    return true
+  } catch (err) {
+    if (err.name !== 'ResourceNotFoundException') {
+      throw err
+    }
+
+    return false
+  }
+})
+
 DynamoTable.prototype._maybeCreate = co(function* () {
+  const exists = yield this.exists()
+  if (exists) {
+    this._debug('table already exists, not re-creating')
+    return true
+  }
+
   try {
     yield this.create()
     this._debug(`created table`)
   } catch (err) {
+    // should have been taken care of by exists()
+    // but just in case
     if (err.code !== 'ResourceInUseException') {
       this._tableExistsPromise = null
       this._debug('failed to create table', err)
