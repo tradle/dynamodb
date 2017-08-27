@@ -10,7 +10,19 @@ const models = require('@tradle/merge-models')()
   .get()
 
 const { defaultOrderBy } = require('../constants')
-const { sortResults, wait, runWithBackoffOnTableNotExists } = require('../utils')
+const {
+  debug,
+  sortResults,
+  wait,
+  runWithBackoffOnTableNotExists
+} = require('../utils')
+
+dynogels.log = {
+  info: debug,
+  warn: debug,
+  level: 'info'
+}
+
 const formRequests = require('./fixtures')
   .filter(fixture => {
     return fixture._t === 'tradle.FormRequest'

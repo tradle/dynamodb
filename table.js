@@ -336,7 +336,6 @@ DynamoTable.prototype.del = co(function* (link, options) {
 })
 
 DynamoTable.prototype.search = co(function* (options) {
-  debugger
   const info = yield this.info()
   if (isEmptyTable(info)) {
     return { items: [] }
@@ -346,6 +345,7 @@ DynamoTable.prototype.search = co(function* (options) {
   options.table = this
   options.model = this.opts.model
   const results = yield filterDynamoDB(options)
+  this._debug(`search returned ${results.items.length} results`)
   results.items = yield Promise.all(results.items.map(item => {
     return maybeInflate(this, item, options)
   }))
