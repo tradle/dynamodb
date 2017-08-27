@@ -118,8 +118,15 @@ function DynamoTable (opts) {
 }
 
 DynamoTable.prototype.info = co(function* () {
+  if (this._info) return this._info
+
   try {
-    return yield this.table.describeTable()
+    const info = yield this.table.describeTable()
+    if (info.Table.TableStatus === 'ACTIVE') {
+      this._info = info
+    }
+
+    return info
   } catch (err) {
     if (err.name !== 'ResourceNotFoundException') {
       throw err
@@ -175,6 +182,7 @@ DynamoTable.prototype.waitTillActive = co(function* () {
 })
 
 DynamoTable.prototype.create = co(function* () {
+  delete this._info
   yield runWithBackoffWhile(() => this.table.createTable(), {
     shouldTryAgain: err => err.name === 'LimitExceededException'
   })
@@ -190,7 +198,7 @@ DynamoTable.prototype._getMin = function (link) {
 DynamoTable.prototype.get = co(function* (link) {
   typeforce(typeforce.String, link)
   const info = yield this.info()
-  if (isEmptyTable(info)) return
+  if (!isActive(info)) return
 
   // don't fetch directly from objects
   // as the item may have been deleted from the table
@@ -328,7 +336,7 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
 
 DynamoTable.prototype.del = co(function* (link, options) {
   const info = yield this.info()
-  if (isEmptyTable(info)) return
+  if (!isActive(info)) return
 
   yield this._tableCreateIfNotExistsPromise
   yield this.table.destroy(link, options)
@@ -337,7 +345,7 @@ DynamoTable.prototype.del = co(function* (link, options) {
 
 DynamoTable.prototype.search = co(function* (options) {
   const info = yield this.info()
-  if (isEmptyTable(info)) {
+  if (!isActive(info)) {
     return { items: [] }
   }
 
@@ -354,6 +362,7 @@ DynamoTable.prototype.search = co(function* (options) {
 })
 
 DynamoTable.prototype.destroy = co(function* () {
+  delete this._info
   yield this.table.deleteTable()
   this._active = false
   this._created = false
@@ -421,6 +430,6 @@ function wait (millis) {
   return new Promise(resolve => setTimeout(resolve, millis))
 }
 
-function isEmptyTable (info) {
-  return !info || info.Table.TableStatus !== 'ACTIVE'
+function isActive (info) {
+  return info && info.Table.TableStatus === 'ACTIVE'
 }
