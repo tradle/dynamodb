@@ -81,6 +81,7 @@ const COMPARATORS = {
 
 const filterViaDynamoDB = co(function* ({
   table,
+  models,
   model,
   filter,
   orderBy=defaultOrderBy,
@@ -148,12 +149,13 @@ const filterViaDynamoDB = co(function* ({
   if (fullScanRequired) {
     result = yield exec(builder)
     result.Items = filterResults({
+      models,
       model,
       filter,
       results: result.Items
     })
   } else {
-    result = yield collect({ model, builder, filter, limit })
+    result = yield collect({ models, model, builder, filter, limit })
   }
 
   let items = result.Items
@@ -242,7 +244,7 @@ function notNull (item) {
   return !!item
 }
 
-const collect = co(function* ({ model, builder, filter, limit }) {
+const collect = co(function* ({ models, model, builder, filter, limit }) {
   // limit how many items dynamodb iterates over before filtering
   // this is different from the sql-like notion of limit
 
@@ -256,6 +258,7 @@ const collect = co(function* ({ model, builder, filter, limit }) {
 
   const result = yield exec(builder)
   result.Items = filterResults({
+    models,
     model,
     filter,
     results: resultsToJson(result.Items)
@@ -268,6 +271,7 @@ const collect = co(function* ({ model, builder, filter, limit }) {
       result.Count += batch.Count
       result.ScannedCount += batch.ScannedCount
       result.Items = result.Items.concat(filterResults({
+        models,
         model,
         filter,
         results: resultsToJson(batch.Items)

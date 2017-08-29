@@ -352,6 +352,7 @@ DynamoTable.prototype.search = co(function* (options) {
   options = shallowClone(options)
   options.table = this
   options.model = this.opts.model
+  options.models = this.opts.models
   const results = yield filterDynamoDB(options)
   this._debug(`search returned ${results.items.length} results`)
   results.items = yield Promise.all(results.items.map(item => {

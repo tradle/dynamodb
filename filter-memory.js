@@ -1,4 +1,5 @@
 const dotProp = require('dot-prop')
+const { getRef } = require('@tradle/validate-resource').utils
 const OPERATORS = require('./operators')
 const {
   debug,
@@ -43,9 +44,14 @@ module.exports = {
 //   })
 // }
 
-function isEqual ({ model, property, condition, value }) {
+function isEqual ({ models, model, property, condition, value }) {
   const type = property && property.type
   if (type !== 'array' && type !== 'object') {
+    return deepEqual(condition, value)
+  }
+
+  const ref = getRef(property)
+  if (property.inlined || (ref && models[ref].inlined)) {
     return deepEqual(condition, value)
   }
 
@@ -58,7 +64,7 @@ function isEqual ({ model, property, condition, value }) {
   return metadata.link === value
 }
 
-function matchesFilter ({ model, object, filter }) {
+function matchesFilter ({ models, model, object, filter }) {
   if (!filter) return true
 
   for (let op in filter) {
@@ -76,6 +82,7 @@ function matchesFilter ({ model, object, filter }) {
 
       let property = model.properties[propertyName]
       let isMatch = compare({
+        models,
         model,
         propertyName,
         property,
@@ -90,13 +97,13 @@ function matchesFilter ({ model, object, filter }) {
   return true
 }
 
-function filterResults ({ model, results, filter }) {
+function filterResults ({ models, model, results, filter }) {
   if (!filter || !Object.keys(filter).length) {
     return results
   }
 
   return results.filter(object => {
-    return matchesFilter({ model, object, filter })
+    return matchesFilter({ models, model, object, filter })
   })
 }
 
