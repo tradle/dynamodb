@@ -23,12 +23,14 @@ dynogels.log = {
   level: 'info'
 }
 
-const formRequests = require('./fixtures')
-  .filter(fixture => {
-    return fixture._t === 'tradle.FormRequest'
-  })
+const fixtures = require('./fixtures')
+const formRequests = fixtures
+  .filter(fixture => fixture[TYPE] === 'tradle.FormRequest')
   .slice(0, 20)
-  // .sort(createSort(defaultOrderBy))
+
+const photoIds = fixtures
+  .filter(fixture => fixture[TYPE] === 'tradle.PhotoID')
+  .slice(0, 20)
 
 sortResults({ results: formRequests, orderBy: defaultOrderBy })
 
@@ -57,6 +59,50 @@ const tradleDynamo = require('../')
 const tables = tradleDynamo.createTables({ objects, models, maxItemSize: 1000, docClient })
 const table = tables['tradle.FormRequest']
 const db = tradleDynamo.db({ tables })
+
+test('sortResults', function (t) {
+  const asc = sortResults({
+    results: formRequests.slice(),
+    orderBy: { property: 'form' }
+  })
+
+  t.ok(asc.every((item, i) => {
+    return i === 0 || item.form >= asc[i - 1].form
+  }), 'sort asc')
+
+  const desc = sortResults({
+    results: formRequests.slice(),
+    orderBy: { property: 'form', desc: true }
+  })
+
+  t.ok(desc.every((item, i) => {
+    return i === 0 || item.form <= desc[i - 1].form
+  }), 'sort desc')
+
+  // nested
+  const ascById = sortResults({
+    results: photoIds.slice(),
+    orderBy: { property: 'documentType.id' }
+  })
+
+  t.ok(ascById.every((item, i) => {
+    return i === 0 ||
+      item.documentType.id >= ascById[i - 1].documentType.id
+  }), 'sort by nested prop')
+
+  // fallback to default
+  const fallback = sortResults({
+    results: photoIds.slice()
+  })
+
+  const expectedFallback = sortResults({
+    results: photoIds.slice(),
+    orderBy: defaultOrderBy
+  })
+
+  t.same(fallback, expectedFallback, 'fall back to default sorting order')
+  t.end()
+})
 
 test('backoff after create', loudCo(function* (t) {
   const backoffOpts = {

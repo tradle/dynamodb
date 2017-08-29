@@ -7,6 +7,7 @@ const pick = require('object.pick')
 const omit = require('object.omit')
 const co = require('co').wrap
 const promisify = require('pify')
+const dotProp = require('dot-prop')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
 const { hashKey, defaultIndexes, defaultOrderBy } = require('./constants')
 const OPERATORS = require('./operators')
@@ -21,32 +22,26 @@ function getIndexes (model) {
   return defaultIndexes.slice()
 }
 
-function sortResults ({ results, orderBy }) {
+function sortResults ({ results, orderBy=defaultOrderBy }) {
   const { property, desc } = orderBy
   const asc = !desc // easier to think about
+  if (property === defaultOrderBy.property) {
+    return results.sort((a, b) => compare(a, b, property, asc))
+  }
+
   return results.sort(function (a, b) {
-    const aVal = a[property]
-    const bVal = b[property]
-    if (aVal === bVal) {
-      if (defaultOrderBy.property !== orderBy.property) {
-        if (a[defaultOrderBy.property] < b[defaultOrderBy.property]) {
-          return -1
-        }
-
-        if (a[defaultOrderBy.property] > b[defaultOrderBy.property]) {
-          return 1
-        }
-      }
-
-      return 0
-    }
-
-    if (aVal < bVal) {
-      return asc ? -1 : 1
-    }
-
-    return asc ? 1 : -1
+    return compare(a, b, property, asc) ||
+      compare(a, b, defaultOrderBy.property, asc)
   })
+}
+
+function compare (a, b, propertyName, asc) {
+  const aVal = dotProp.get(a, propertyName)
+  const bVal = dotProp.get(b, propertyName)
+  if (aVal < bVal) return asc ? -1 : 1
+  if (aVal > bVal) return asc ? 1 : -1
+
+  return 0
 }
 
 function toObject (arr) {
