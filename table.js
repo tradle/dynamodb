@@ -202,11 +202,11 @@ DynamoTable.prototype.get = co(function* (link) {
 
   // don't fetch directly from objects
   // as the item may have been deleted from the table
-  // return this.objects.get(link)
+  // return this.opts.objects.get(link)
   const instance = yield this._getMin(link)
   if (!instance) return null
 
-  return yield maybeInflate(this, instance.toJSON())
+  return yield this._maybeInflate(instance.toJSON())
 })
 
 DynamoTable.prototype.latest = co(function* (permalink) {
@@ -226,7 +226,7 @@ DynamoTable.prototype.latest = co(function* (permalink) {
   })
 
   if (result && result.items.length) {
-    return yield maybeInflate(this, result.items[0])
+    return yield this._maybeInflate(result.items[0])
   }
 
   return null
@@ -355,7 +355,7 @@ DynamoTable.prototype.search = co(function* (options) {
   const results = yield filterDynamoDB(options)
   this._debug(`search returned ${results.items.length} results`)
   results.items = yield Promise.all(results.items.map(item => {
-    return maybeInflate(this, item, options)
+    return this._maybeInflate(item, options)
   }))
 
   return results
@@ -379,11 +379,11 @@ DynamoTable.prototype._wrapDBOperation = function (fn) {
     const { Item, Items } = result
     if (Item) {
       result.Item = Item.toJSON()
-      yield maybeInflate(self, result.Item)
+      yield self._maybeInflate(result.Item)
     } else if (Items) {
       result.Items = Items.map(Item => Item.toJSON())
       yield Promise.all(result.Items.map(Item => {
-        return maybeInflate(self, Item)
+        self._maybeInflate(Item)
       }))
     }
 
@@ -398,7 +398,7 @@ DynamoTable.prototype._wrapDBOperation = function (fn) {
   }
 }
 
-const maybeInflate = co(function* (dynamoTable, item, options={}) {
+DynamoTable.prototype._maybeInflate = co(function* (item, options={}) {
   const cut = item[minifiedFlag]
   if (cut && cut.length) {
     const { select } = options
@@ -408,7 +408,7 @@ const maybeInflate = co(function* (dynamoTable, item, options={}) {
     }
 
     const link = item[hashKey]
-    const full = yield dynamoTable.objects.get(link)
+    const full = yield this.opts.objects.get(link)
     extend(item, full)
   }
 
