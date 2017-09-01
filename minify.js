@@ -1,5 +1,4 @@
 const { pick, shallowClone, debug, getIndexes } = require('./utils')
-const DEFAULT_MAX_SIZE = 4000
 
 module.exports = minify
 
@@ -10,7 +9,11 @@ const MINIFY_PREFERENCES = [
   stripAll
 ]
 
-function minify ({ item, model, maxSize=DEFAULT_MAX_SIZE }) {
+function minify ({ item, model, maxSize }) {
+  if (!maxSize || maxSize < Infinity) {
+    return { min: item, diff: {} }
+  }
+
   const indexes = getIndexes(model)
   let min = shallowClone(item)
   let diff = {}
