@@ -18,6 +18,9 @@ module.exports = function createTables (opts) {
         }
 
         return table
+      },
+      set: function (value) {
+        table = value
       }
     })
   })
