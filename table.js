@@ -11,6 +11,7 @@ const toJoi = require('@tradle/schema-joi')
 const validateResource = require('@tradle/validate-resource')
 const { SIG } = require('@tradle/constants')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
+const Errors = require('./errors')
 const minify = require('./minify')
 const filterDynamoDB = require('./filter-dynamodb')
 const metadataTypes = toJoi({
@@ -51,7 +52,8 @@ function DynamoTable (opts) {
     maxItemSize,
     docClient,
     createIfNotExists=true,
-    requireSigned=true
+    requireSigned=true,
+    indexes
   } = opts
 
   bindAll(this)
@@ -88,7 +90,7 @@ function DynamoTable (opts) {
     createdAt: false,
     updatedAt: '_dateUpdated',
     schema: extend({}, joi, metadataTypes),
-    indexes: getIndexes(model),
+    indexes: indexes || getIndexes(model),
     validation: {
       allowUnknown: true
     }
@@ -343,6 +345,7 @@ DynamoTable.prototype.del = co(function* (link, options) {
   this._debug(`deleted ${link}`)
 })
 
+DynamoTable.prototype.find =
 DynamoTable.prototype.search = co(function* (options) {
   const info = yield this.info()
   if (!isActive(info)) {
@@ -360,6 +363,17 @@ DynamoTable.prototype.search = co(function* (options) {
   }))
 
   return results
+})
+
+DynamoTable.prototype.findOne = co(function* (options) {
+  options = shallowClone(options)
+  options.limit = 1
+  const { items=[] } = yield this.search(options)
+  if (!items.length) {
+    throw new Errors.NotFound()
+  }
+
+  return items[0]
 })
 
 DynamoTable.prototype.destroy = co(function* () {
