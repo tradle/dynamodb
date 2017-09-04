@@ -43,7 +43,6 @@ module.exports = DynamoTable
 
 function DynamoTable (opts) {
   const {
-    joi,
     models,
     model,
     objects,
@@ -58,9 +57,13 @@ function DynamoTable (opts) {
 
   bindAll(this)
 
-  if (!(joi && model)) {
-    throw new Error('joi and model are required')
+  if (!model) {
+    throw new Error('model is required')
   }
+
+  const {
+    joi=toJoi({ models, model })
+  } = opts
 
   this.opts = opts
   if (createIfNotExists) {
