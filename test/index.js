@@ -141,7 +141,6 @@ test('backoff after create', loudCo(function* (t) {
   }
 
   const start = Date.now()
-  const expectedTimeBeforeTimeout = backoffOpts.initialDelay
   try {
     result = yield runWithBackoffOnTableNotExists(co(function* () {
       throw errThatCausesBackoff
@@ -153,7 +152,7 @@ test('backoff after create', loudCo(function* (t) {
     const time = Date.now() - start
     // expected delta should be around a tick (15-20ms)
     // but let's give it some room
-    const delta = Math.abs(time - expectedTimeBeforeTimeout)
+    const delta = Math.abs(time - backoffOpts.maxTime)
     t.ok(delta < 100)
   }
 

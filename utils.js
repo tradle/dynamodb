@@ -201,12 +201,11 @@ const runWithBackoffWhile = co(function* (fn, opts) {
         throw err
       }
 
+      let haveTime = start + maxTime - Date.now() > 0
+      if (!haveTime) break
+
+      millisToWait = Math.min(maxDelay, millisToWait * factor)
       yield wait(millisToWait)
-      millisToWait = Math.min(
-        maxDelay,
-        millisToWait * factor,
-        maxTime - Date.now()
-      )
     }
   }
 
