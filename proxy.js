@@ -1,5 +1,6 @@
 const { TYPE } = require('@tradle/constants')
 const createTables = require('./tables')
+const { omit } = require('./utils')
 
 module.exports = function proxy (opts) {
   const {
@@ -26,6 +27,14 @@ module.exports = function proxy (opts) {
   ;['latest'].forEach(method => {
     proxy[method] = ({ type, permalink }) => {
       return tables[type][method](permalink)
+    }
+  })
+
+  ;['search'].forEach(method => {
+    proxy[method] = opts => {
+      const { type } = opts
+      const rest = omit(opts, ['type'])
+      return tables[type][method](rest)
     }
   })
 

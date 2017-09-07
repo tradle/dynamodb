@@ -352,6 +352,19 @@ test('db', loudCo(function* (t) {
   t.notOk(yield db.latest({ type, permalink }))
   yield db.put(req)
   t.same(yield db.get({ type, link }), req)
+
+  const searchResult = yield db.search({
+    type,
+    filter: {
+      EQ: {
+        form: req.form
+      }
+    }
+  })
+
+  const expectedSearchResult = formRequests.filter(({ form }) => form === req.form)
+  t.same(searchResult.items, expectedSearchResult)
+
   t.end()
 }))
 
