@@ -30,7 +30,7 @@ const {
 
 const types = {
   dated: typeforce.compile({
-    _time: typeforce.oneOf(typeforce.String, typeforce.Number),
+    _time: typeforce.Number
   }),
   signed: typeforce.compile({
     _author: typeforce.String,
