@@ -30,7 +30,7 @@ module.exports = function proxy (opts) {
     }
   })
 
-  ;['search'].forEach(method => {
+  ;['search', 'find', 'findOne'].forEach(method => {
     proxy[method] = opts => {
       const { type } = opts
       const rest = omit(opts, ['type'])
