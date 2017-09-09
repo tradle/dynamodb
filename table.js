@@ -234,7 +234,7 @@ DynamoTable.prototype.latest = co(function* (permalink) {
     return yield this._maybeInflate(result.items[0])
   }
 
-  return null
+  throw new Errors.NotFound()
 })
 
 DynamoTable.prototype.put = function (item, options) {

@@ -349,7 +349,13 @@ test('db', loudCo(function* (t) {
   yield db.del({ type, link })
 
   t.notOk(yield db.get({ type, link }))
-  t.notOk(yield db.latest({ type, permalink }))
+  try {
+    yield db.latest({ type, permalink })
+    t.fail('expected NotFound error')
+  } catch (err) {
+    t.equal(err.name, 'NotFound')
+  }
+
   yield db.put(req)
   t.same(yield db.get({ type, link }), req)
 
