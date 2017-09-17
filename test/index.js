@@ -7,6 +7,7 @@ const { TYPE, SIG, PREVLINK, PERMALINK } = require('@tradle/constants')
 const buildResource = require('@tradle/build-resource')
 const models = require('@tradle/merge-models')()
   .add(require('@tradle/models').models)
+  .add(require('@tradle/custom-models'))
   .get()
 
 const { defaultOrderBy } = require('../constants')
@@ -56,7 +57,14 @@ const objects = {
 }
 
 const tradleDynamo = require('../')
-const tables = tradleDynamo.createTables({ objects, models, maxItemSize: 1000, docClient })
+const tables = tradleDynamo.createTables({
+  objects,
+  models,
+  maxItemSize: 1000,
+  docClient,
+  validate: false
+})
+
 const table = tables['tradle.FormRequest']
 const db = tradleDynamo.db({ tables })
 
@@ -374,6 +382,96 @@ test('db', loudCo(function* (t) {
   t.end()
 }))
 
+test('filters', loudCo(function* (t) {
+  const type = 'tradle.PhotoID'
+  const photoIds = fixtures.filter(item => item[TYPE] === type)
+  // const byType = groupByType(fixtures)
+  yield db.batchPut(photoIds)
+  // yield Object.keys(byType).map(type => {
+  //   if (db.tables[type]) {
+  //     return db.batchPut(byType[type])
+  //   }
+
+  //   return Promise.resolve()
+  // })
+
+  const orderBy = {
+    property: '_time'
+  }
+
+  const orderByCombinations = getOrderByCombinations({
+    properties: ['_time', '_author', '_link']
+  })
+
+  const tests = orderByCombinations.map(orderBy => co(function* () {
+    const first = photoIds[0]
+    let expected
+
+    const startsWithStr = 'tradle.'
+    expected = photoIds.filter(photoId => {
+      return photoId.country.id.startsWith(startsWithStr)
+    })
+
+    sortResults({ results: expected, orderBy })
+
+    const countryIdStartsWith = yield db.search({
+      type,
+      orderBy,
+      filter: {
+        STARTS_WITH: {
+          'country.id': startsWithStr
+        }
+      }
+    })
+
+    t.same(countryIdStartsWith.items, expected, 'country.id STARTS_WITH')
+
+    const minTime = photoIds[0]._time
+    expected = photoIds.filter(photoId => {
+      return photoId._time > minTime
+    })
+
+    sortResults({ results: expected, orderBy })
+
+    const photoIdsGt = yield db.search({
+      type,
+      orderBy,
+      filter: {
+        GT: {
+          _time: minTime
+        }
+      }
+    })
+
+    t.same(photoIdsGt.items, expected, '_time GT')
+
+    const countries = ['tradle.Country_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da']
+    expected = photoIds.filter(photoId => {
+      return countries.includes(photoId.country.id)
+    })
+
+    sortResults({ results: expected, orderBy })
+
+    const photoIdsIn = yield db.search({
+      type,
+      orderBy,
+      filter: {
+        IN: {
+          'country.id': countries
+        }
+      }
+    })
+
+    t.same(photoIdsIn.items, expected, 'countries IN')
+  }))
+
+  for (const test of tests) {
+    yield test()
+  }
+
+  t.end()
+}))
+
 function loudCo (gen) {
   return co(function* (...args) {
     try {
@@ -387,4 +485,32 @@ function loudCo (gen) {
 
 function prettify (obj) {
   return JSON.stringify(obj, null, 2)
+}
+
+function groupByType (items) {
+  const byType = {}
+  for (const item of items) {
+    const type = item[TYPE]
+    if (!byType[type]) {
+      byType[type] = []
+    }
+
+    byType[type].push(item)
+  }
+
+  return byType
+}
+
+function getOrderByCombinations ({ properties }) {
+  return properties.map(property => ([
+    {
+      property
+    },
+    {
+      property,
+      desc: true
+    }
+  ]))
+  // flatten
+  .reduce((arr, batch) => arr.concat(batch), [])
 }
