@@ -11,7 +11,7 @@ const {
 const filterDynamodb = require('./filter-dynamodb')
 const primaryKey = require('./constants').hashKey
 
-module.exports = function createResolvers ({ tables, objects, models }) {
+module.exports = function createResolvers ({ tables, objects, models, postProcess }) {
 
   const update = co(function* ({ model, props }) {
     const result = yield tables[model.id].update(props)
@@ -55,9 +55,25 @@ module.exports = function createResolvers ({ tables, objects, models }) {
     }
   }
 
-  return {
+  const raw = {
     list,
     get,
     update
+  }
+
+  if (!postProcess) return raw
+
+  const wrapped = {}
+  for (let op in raw) {
+    wrapped[op] = withPostProcess(raw[op], op)
+  }
+
+  return wrapped
+
+  function withPostProcess (fn, op) {
+    return co(function* (...args) {
+      const result = yield fn(...args)
+      return postProcess(result, op)
+    })
   }
 }
