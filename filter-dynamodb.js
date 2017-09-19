@@ -86,7 +86,8 @@ const filterViaDynamoDB = co(function* ({
   filter,
   orderBy=defaultOrderBy,
   limit=DEFAULT_LIMIT,
-  after
+  after,
+  consistentRead
 }) {
   filter = clone(filter || {})
   const { EQ } = filter
@@ -133,6 +134,10 @@ const filterViaDynamoDB = co(function* ({
   if (fullScanRequired) {
     debug('full scan required')
     builder.loadAll()
+  }
+
+  if (consistentRead) {
+    builder.consistentRead()
   }
 
   addConditions({

@@ -42,6 +42,7 @@ const types = {
 module.exports = DynamoTable
 
 function DynamoTable (opts) {
+  opts = shallowClone(opts)
   const {
     models,
     model,
@@ -52,6 +53,7 @@ function DynamoTable (opts) {
     docClient,
     createIfNotExists=true,
     requireSigned=true,
+    defaultReadOptions={},
     indexes
   } = opts
 
@@ -66,6 +68,7 @@ function DynamoTable (opts) {
   } = opts
 
   this.opts = opts
+  this.opts.defaultReadOptions = defaultReadOptions
   if (createIfNotExists) {
     let promise
     Object.defineProperty(this, '_tableCreateIfNotExistsPromise', {
@@ -195,9 +198,10 @@ DynamoTable.prototype.create = co(function* () {
   this._created = true
 })
 
-DynamoTable.prototype._getMin = function (link) {
+DynamoTable.prototype._getMin = function (link, opts={}) {
   typeforce(typeforce.String, link)
-  return this.table.get(link)
+  opts = shallowClone(this.opts.defaultReadOptions, opts)
+  return this.table.get(link, opts)
 }
 
 DynamoTable.prototype.get = co(function* (link) {
@@ -359,6 +363,10 @@ DynamoTable.prototype.search = co(function* (options) {
   options.table = this
   options.model = this.opts.model
   options.models = this.opts.models
+  if (!('consistentRead' in options)) {
+    options.consistentRead = this.opts.defaultReadOptions.consistentRead
+  }
+
   const results = yield filterDynamoDB(options)
   this._debug(`search returned ${results.items.length} results`)
   results.items = yield Promise.all(results.items.map(item => {
