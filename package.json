@@ -15,6 +15,8 @@
     "@tradle/validate-model": "^2.1.1",
     "@tradle/validate-resource": "^2.8.0",
     "aws-sdk": "^2.100.0",
+    "commitizen": "^2.9.6",
+    "cz-conventional-changelog": "^2.0.0",
     "dynogels": "github:mvayngrib/dynogels",
     "eslint": "^3.19.0",
     "husky": "^0.13.3",
@@ -23,7 +25,8 @@
   "scripts": {
     "test": "node test",
     "lint": "eslint --quiet --ignore-path .gitignore .",
-    "prepush": "npm test"
+    "prepush": "npm test",
+    "commit": "git-cz"
   },
   "dependencies": {
     "@tradle/constants": "^2.1.0",

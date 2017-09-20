@@ -233,7 +233,6 @@ const waitTillActive = co(function* (table) {
         const message = `table "${tableName}" has unknown TableStatus "${TableStatus}"`
         debug(table.tableName, message)
         throw new Error(message)
-        return
     }
   }), {
     initialDelay: 1000,

@@ -57,7 +57,7 @@ const objects = {
 }
 
 const tradleDynamo = require('../')
-const tables = tradleDynamo.createTables({
+const db = tradleDynamo.db({
   objects,
   models,
   maxItemSize: 1000,
@@ -65,8 +65,8 @@ const tables = tradleDynamo.createTables({
   validate: false
 })
 
+const { tables } = db
 const table = tables['tradle.FormRequest']
-const db = tradleDynamo.db({ tables })
 
 test('sortResults', function (t) {
   const asc = sortResults({
@@ -469,6 +469,39 @@ test('filters', loudCo(function* (t) {
     yield test()
   }
 
+  t.end()
+}))
+
+test('addModels', loudCo(function* (t) {
+  const A_TYPE = 'mynamespace.modelA'
+  db.addModels({
+    A_TYPE: {
+      type: 'tradle.Model',
+      id: A_TYPE,
+      title: 'A',
+      properties: {
+        a: {
+          type: 'string'
+        }
+      }
+    }
+  })
+
+  t.ok(A_TYPE in db.tables, 'models added dynamically')
+  t.ok(A_TYPE in db.tables[A_TYPE].opts.models, 'latest models propagated in options to table')
+
+  const a = {
+    _link: 'alink',
+    _time: 1505941645561,
+    [TYPE]: A_TYPE,
+    a: 'a'
+  }
+
+  yield db.put(a)
+  t.same(yield db.get({
+    type: A_TYPE,
+    link: a._link
+  }), a)
   t.end()
 }))
 
