@@ -63,7 +63,8 @@ const db = tradleDynamo.db({
   models,
   maxItemSize: 1000,
   docClient,
-  validate: false
+  validate: false,
+  prefix: 'tradle-dynamodb-test-'
 })
 
 const { tables } = db
