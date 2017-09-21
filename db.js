@@ -2,7 +2,8 @@ const toJoi = require('@tradle/schema-joi')
 const { TYPE } = require('@tradle/constants')
 const mergeModels = require('@tradle/merge-models')
 const Table = require('./table')
-const { omit, shallowClone } = require('./utils')
+const utils = require('./utils')
+const { omit, shallowClone } = utils
 
 module.exports = function createTables (opts) {
   opts = shallowClone(opts)
@@ -58,22 +59,21 @@ module.exports = function createTables (opts) {
   })
 
   ;['get', 'del'].forEach(method => {
-    proxy[method] = ({ type, link }) => {
-      return tables[type][method](link)
+    proxy[method] = props => {
+      return tables[props[TYPE]][method](props)
     }
   })
 
   ;['latest'].forEach(method => {
-    proxy[method] = ({ type, permalink }) => {
-      return tables[type][method](permalink)
+    proxy[method] = props => {
+      return tables[props[TYPE]][method](props._permalink)
     }
   })
 
   ;['search', 'find', 'findOne'].forEach(method => {
     proxy[method] = opts => {
-      const { type } = opts
-      const rest = omit(opts, ['type'])
-      return tables[type][method](rest)
+      const type = opts.filter.EQ[TYPE]
+      return tables[type][method](opts)
     }
   })
 

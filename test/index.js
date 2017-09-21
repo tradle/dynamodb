@@ -5,7 +5,8 @@ const clone = require('clone')
 const dynogels = require('dynogels')
 const { TYPE, SIG, PREVLINK, PERMALINK } = require('@tradle/constants')
 const buildResource = require('@tradle/build-resource')
-const models = require('@tradle/merge-models')()
+const mergeModels = require('@tradle/merge-models')
+const models = mergeModels()
   .add(require('@tradle/models').models)
   .add(require('@tradle/custom-models'))
   .get()
@@ -352,25 +353,47 @@ test('db', loudCo(function* (t) {
   const type = req[TYPE]
   const link = req._link
   const permalink = req._permalink
-  t.same(yield db.get({ type, link }), req)
-  t.same(yield db.latest({ type, permalink }), req)
-  yield db.del({ type, link })
+  t.same(yield db.get({
+    [TYPE]: type,
+    _link: link
+  }), req)
 
-  t.notOk(yield db.get({ type, link }))
+  t.same(yield db.latest({
+    [TYPE]: type,
+    _permalink: permalink
+  }), req)
+
+  yield db.del({
+    [TYPE]: type,
+    _link: link
+  })
+
+  t.notOk(yield db.get({
+    [TYPE]: type,
+    _link: link
+  }))
+
   try {
-    yield db.latest({ type, permalink })
+    yield db.latest({
+      [TYPE]: type,
+      _permalink: permalink
+    })
+
     t.fail('expected NotFound error')
   } catch (err) {
     t.equal(err.name, 'NotFound')
   }
 
   yield db.put(req)
-  t.same(yield db.get({ type, link }), req)
+  t.same(yield db.get({
+    [TYPE]: type,
+    _link: link
+  }), req)
 
   const searchResult = yield db.search({
-    type,
     filter: {
       EQ: {
+        [TYPE]: type,
         form: req.form
       }
     }
@@ -415,9 +438,11 @@ test('filters', loudCo(function* (t) {
     sortResults({ results: expected, orderBy })
 
     const countryIdStartsWith = yield db.search({
-      type,
       orderBy,
       filter: {
+        EQ: {
+          [TYPE]: type
+        },
         STARTS_WITH: {
           'country.id': startsWithStr
         }
@@ -434,9 +459,11 @@ test('filters', loudCo(function* (t) {
     sortResults({ results: expected, orderBy })
 
     const photoIdsGt = yield db.search({
-      type,
       orderBy,
       filter: {
+        EQ: {
+          [TYPE]: type
+        },
         GT: {
           _time: minTime
         }
@@ -453,9 +480,11 @@ test('filters', loudCo(function* (t) {
     sortResults({ results: expected, orderBy })
 
     const photoIdsIn = yield db.search({
-      type,
       orderBy,
       filter: {
+        EQ: {
+          [TYPE]: type
+        },
         IN: {
           'country.id': countries
         }
@@ -499,9 +528,73 @@ test('addModels', loudCo(function* (t) {
 
   yield db.put(a)
   t.same(yield db.get({
-    type: A_TYPE,
-    link: a._link
+    [TYPE]: A_TYPE,
+    _link: a._link
   }), a)
+
+  t.end()
+}))
+
+test('custom primary keys', loudCo(function* (t) {
+  const ALIEN_CLASSIFIER = 'mynamespace.Alien'
+  const alienModel = {
+    type: 'tradle.Model',
+    id: ALIEN_CLASSIFIER,
+    title: 'Alien Classifier',
+    properties: {
+      color: {
+        type: 'string'
+      },
+      fingerCount: {
+        type: 'number'
+      },
+      iq: {
+        type: 'number'
+      }
+    },
+    primaryKeys: {
+      hashKey: 'color',
+      rangeKey: 'fingerCount'
+    }
+  }
+
+  db.addModels({
+    [ALIEN_CLASSIFIER]: alienModel
+  })
+
+  const updatedModels = db.models
+  const alien = buildResource({
+      models: updatedModels,
+      model: alienModel
+    })
+    .set({
+      _time: Date.now(),
+      color: '#0000ff',
+      fingerCount: 50,
+      iq: 1
+    })
+    .toJSON()
+
+  yield db.put(alien)
+  t.same(yield db.get(alien), alien)
+
+  const searchResult = yield db.search({
+    orderBy: {
+      property: 'fingerCount'
+    },
+    filter: {
+      EQ: {
+        [TYPE]: ALIEN_CLASSIFIER,
+        color: '#0000ff'
+      },
+      GT: {
+        fingerCount: 10
+      }
+    }
+  })
+
+  t.same(searchResult.items, [alien])
+
   t.end()
 }))
 

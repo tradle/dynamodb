@@ -10,7 +10,8 @@ const {
   sortResults,
   getQueryInfo,
   promisify,
-  deepEqual
+  deepEqual,
+  getModelPrimaryKeys
 } = require('./utils')
 
 const OPERATORS = require('./operators')
@@ -141,6 +142,7 @@ const filterViaDynamoDB = co(function* ({
   }
 
   addConditions({
+    model,
     builder,
     opType,
     filter,
@@ -289,15 +291,27 @@ const collect = co(function* ({ models, model, builder, filter, limit }) {
   return result
 })
 
-function addConditions ({ opType, builder, filter, after, orderBy, fullScanRequired }) {
+function addConditions ({
+  model,
+  opType,
+  builder,
+  filter,
+  after,
+  orderBy,
+  fullScanRequired
+}) {
+  const primaryKeys = getModelPrimaryKeys(model)
+  const conditionBuilders = {
+    where: builder.where && builder.where.bind(builder),
+    filter: builder.filter && builder.filter.bind(builder)
+  }
+
   if (after) {
     if (!fullScanRequired) {
       builder.startKey(after)
     }
   }
 
-  const conditionMethod = opType === 'query' ? 'filter' : 'where'
-  const conditionBuilder = builder[conditionMethod].bind(builder)
   for (let op in filter) {
     let setCondition = COMPARATORS[op]
     if (!setCondition) {
@@ -312,6 +326,11 @@ function addConditions ({ opType, builder, filter, after, orderBy, fullScanRequi
         continue
       }
 
+      let conditionMethod = !builder.filter || prop === primaryKeys.rangeKey
+        ? 'where'
+        : 'filter'
+
+      let conditionBuilder = conditionBuilders[conditionMethod]
       setCondition({
         where: conditionBuilder,
         key: prop,

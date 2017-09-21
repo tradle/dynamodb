@@ -9,7 +9,6 @@ const {
 
 // const { filterResults } = require('./filter-memory')
 const filterDynamodb = require('./filter-dynamodb')
-const primaryKey = require('./constants').hashKey
 
 module.exports = function createResolvers ({ tables, objects, models, postProcess }) {
 
@@ -32,27 +31,6 @@ module.exports = function createResolvers ({ tables, objects, models, postProces
       limit,
       after
     })
-  }
-
-  function getQueryBy ({ model, props }) {
-    if (primaryKey in props) {
-      return {
-        value: props[primaryKey],
-        // rangeKey: props[rangeKey]
-      }
-    }
-
-    // TODO: lazify, cachify
-    const index = getIndexes({ model, models })
-      .find(indexDef => indexDef.hashKey in props)
-
-    if (index) {
-      return {
-        index: index.name,
-        value: props[index.hashKey],
-        // rangeKey: props[index.rangeKey]
-      }
-    }
   }
 
   const raw = {

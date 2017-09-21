@@ -1,4 +1,5 @@
 const debug = require('debug')(require('./package.json').name)
+const bindAll = require('bindall')
 const clone = require('clone')
 const shallowClone = require('xtend')
 const extend = require('xtend/mutable')
@@ -9,9 +10,9 @@ const co = require('co').wrap
 const promisify = require('pify')
 const dotProp = require('dot-prop')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
-const { hashKey, defaultIndexes, defaultOrderBy } = require('./constants')
+const { TYPE } = require('@tradle/constants')
+const { defaultPrimaryKeys, defaultIndexes, defaultOrderBy } = require('./constants')
 const OPERATORS = require('./operators')
-const TYPE = '_t'
 
 function getTableName ({ model, prefix='', suffix='' }) {
   const name = (model.id || model).replace(/[.]/g, '_')
@@ -125,6 +126,9 @@ function getQueryInfo ({ model, filter }) {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
   const usedProps = getUsedProperties({ model, filter })
+  const modelPrimaryKeys = getModelPrimaryKeys(model)
+  const { hashKey, rangeKey } = modelPrimaryKeys
+  const modelPrimaryKeysArr = getValues(modelPrimaryKeys)
   const indexedProps = indexes.map(index => index.hashKey)
     .concat(hashKey)
 
@@ -159,8 +163,9 @@ function getQueryInfo ({ model, filter }) {
       return pick(item, [hashKey])
     }
 
-    const props = [hashKey, index.hashKey, index.rangeKey]
-      .filter(prop => prop)
+    const props = modelPrimaryKeysArr
+      .concat([index.hashKey, index.rangeKey])
+      .filter(notNull)
 
     return pick(item, props)
   }
@@ -168,6 +173,7 @@ function getQueryInfo ({ model, filter }) {
   return {
     opType,
     hashKey,
+    rangeKey,
     queryProp,
     index,
     itemToPosition
@@ -241,6 +247,31 @@ const waitTillActive = co(function* (table) {
   })
 })
 
+function getModelPrimaryKeys (model) {
+  return model.primaryKeys || defaultPrimaryKeys
+}
+
+function getResourcePrimaryKeys ({ model, resource }) {
+  const { hashKey, rangeKey } = getModelPrimaryKeys(model)
+  const primaryKeys = {
+    hashKey: resource[hashKey]
+  }
+
+  if (rangeKey) {
+    primaryKeys[rangeKey] = resource[rangeKey]
+  }
+
+  return primaryKeys
+}
+
+function getValues (obj) {
+  return Object.keys(obj).map(key => obj[key])
+}
+
+function notNull (val) {
+  return !!val
+}
+
 module.exports = {
   BaseObjectModel,
   fromResourceStub,
@@ -251,6 +282,7 @@ module.exports = {
   clone,
   shallowClone,
   extend,
+  bindAll,
   deepEqual,
   pick,
   omit,
@@ -261,5 +293,8 @@ module.exports = {
   getQueryInfo,
   runWithBackoffWhile,
   runWithBackoffOnTableNotExists,
-  waitTillActive
+  waitTillActive,
+  getModelPrimaryKeys,
+  getResourcePrimaryKeys,
+  getValues
 }

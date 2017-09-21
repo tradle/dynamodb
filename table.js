@@ -1,15 +1,8 @@
-const debug = require('debug')(require('./package.json').name)
-const co = require('co').wrap
-const bindAll = require('bindall')
 const typeforce = require('typeforce')
 const dynogels = require('dynogels')
-const extend = require('xtend/mutable')
-const shallowClone = require('xtend')
-const promisify = require('pify')
-const omit = require('object.omit')
 const toJoi = require('@tradle/schema-joi')
 const validateResource = require('@tradle/validate-resource')
-const { SIG } = require('@tradle/constants')
+const { TYPE, SIG } = require('@tradle/constants')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
 const Errors = require('./errors')
 const minify = require('./minify')
@@ -19,13 +12,25 @@ const metadataTypes = toJoi({
 })
 
 const RESOLVED = Promise.resolve()
-const { hashKey, minifiedFlag, defaultIndexes } = require('./constants')
+const { minifiedFlag } = require('./constants')
 const {
+  co,
+  promisify,
+  debug,
+  extend,
+  shallowClone,
+  clone,
+  omit,
+  pick,
+  bindAll,
+  getValues,
   getTableName,
   getIndexes,
   runWithBackoffOnTableNotExists,
   runWithBackoffWhile,
-  waitTillActive
+  waitTillActive,
+  getModelPrimaryKeys,
+  getResourcePrimaryKeys
 } = require('./utils')
 
 const types = {
@@ -67,6 +72,7 @@ function DynamoTable (opts) {
     joi=toJoi({ models, model })
   } = opts
 
+  this._primaryKeys = getModelPrimaryKeys(model)
   this.opts = opts
   this.opts.defaultReadOptions = defaultReadOptions
   if (createIfNotExists) {
@@ -89,8 +95,7 @@ function DynamoTable (opts) {
 
   this.name = opts.tableName || getTableName({ model, prefix, suffix })
 
-  const tableDef = {
-    hashKey,
+  const tableDef = extend({
     tableName: this.name,
     timestamps: true,
     createdAt: false,
@@ -100,7 +105,7 @@ function DynamoTable (opts) {
     validation: {
       allowUnknown: true
     }
-  }
+  }, this._primaryKeys)
 
   const table = dynogels.define(model.id, tableDef)
   this.table = promisify(table, {
@@ -198,21 +203,32 @@ DynamoTable.prototype.create = co(function* () {
   this._created = true
 })
 
-DynamoTable.prototype._getMin = function (link, opts={}) {
-  typeforce(typeforce.String, link)
-  opts = shallowClone(this.opts.defaultReadOptions, opts)
-  return this.table.get(link, opts)
+DynamoTable.prototype._getPrimaryKeys = function (props) {
+  let hashKey, rangeKey
+  if (typeof props === 'object') {
+    hashKey = props[this._primaryKeys.hashKey]
+    rangeKey = props[this._primaryKeys.rangeKey]
+  } else {
+    hashKey = props
+  }
+
+  return { hashKey, rangeKey }
 }
 
-DynamoTable.prototype.get = co(function* (link) {
-  typeforce(typeforce.String, link)
+DynamoTable.prototype._getMin = function (primaryKeys, opts={}) {
+  const { hashKey, rangeKey } = this._getPrimaryKeys(primaryKeys)
+  opts = shallowClone(this.opts.defaultReadOptions, opts)
+  return this.table.get(hashKey, rangeKey, opts)
+}
+
+DynamoTable.prototype.get = co(function* (primaryKeys) {
   const info = yield this.info()
   if (!isActive(info)) return
 
   // don't fetch directly from objects
   // as the item may have been deleted from the table
   // return this.opts.objects.get(link)
-  const instance = yield this._getMin(link)
+  const instance = yield this._getMin(primaryKeys)
   if (!instance) return null
 
   return yield this._maybeInflate(instance.toJSON())
@@ -259,7 +275,8 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
     return this.table[method](min, options)
   })
 
-  this._debug(`"${method}" ${item[hashKey]} successfully`)
+  const primaryKeys = getResourcePrimaryKeys({ model, resource: item })
+  this._debug(`"${method}" ${primaryKeys} successfully`)
   return extend(result.toJSON(), diff)
 })
 
@@ -343,13 +360,14 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
   throw err
 })
 
-DynamoTable.prototype.del = co(function* (link, options) {
+DynamoTable.prototype.del = co(function* (primaryKeys, options) {
   const info = yield this.info()
   if (!isActive(info)) return
 
   yield this._tableCreateIfNotExistsPromise
-  yield this.table.destroy(link, options)
-  this._debug(`deleted ${link}`)
+  const { hashKey, rangeKey } = this._getPrimaryKeys(primaryKeys)
+  yield this.table.destroy(hashKey, rangeKey, options)
+  this._debug(`deleted ${primaryKeys}`)
 })
 
 DynamoTable.prototype.find =
@@ -360,6 +378,12 @@ DynamoTable.prototype.search = co(function* (options) {
   }
 
   options = shallowClone(options)
+  const { filter } = options
+  if (filter && filter.EQ) {
+    options.filter = clone(filter)
+    filter.EQ = omit(filter.EQ, [TYPE])
+  }
+
   options.table = this
   options.model = this.opts.model
   options.models = this.opts.models
@@ -433,7 +457,7 @@ DynamoTable.prototype._maybeInflate = co(function* (item, options={}) {
       if (!needsInflate) return item
     }
 
-    const link = item[hashKey]
+    const link = item._link
     const full = yield this.opts.objects.get(link)
     extend(item, full)
   }
