@@ -75,6 +75,12 @@ function DynamoTable (opts) {
   this._primaryKeys = getModelPrimaryKeys(model)
   this.opts = opts
   this.opts.defaultReadOptions = defaultReadOptions
+  if (!this.opts.objects) {
+    if (maxItemSize && maxItemSize < Infinity) {
+      throw new Error('"maxItemSize" may only be specified if "objects" is provided')
+    }
+  }
+
   if (createIfNotExists) {
     let promise
     Object.defineProperty(this, '_tableCreateIfNotExistsPromise', {
@@ -381,7 +387,7 @@ DynamoTable.prototype.search = co(function* (options) {
   const { filter } = options
   if (filter && filter.EQ) {
     options.filter = clone(filter)
-    filter.EQ = omit(filter.EQ, [TYPE])
+    options.filter.EQ = omit(filter.EQ, [TYPE])
   }
 
   options.table = this

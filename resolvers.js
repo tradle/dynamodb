@@ -1,4 +1,5 @@
 const co = require('co').wrap
+const { TYPE } = require('@tradle/constants')
 const {
   sortResults,
   debug,
@@ -7,24 +8,27 @@ const {
   resultsToJson
 } = require('./utils')
 
-// const { filterResults } = require('./filter-memory')
 const filterDynamodb = require('./filter-dynamodb')
 
-module.exports = function createResolvers ({ tables, objects, models, postProcess }) {
+module.exports = function createResolvers ({ db, objects, models, postProcess }) {
 
   const update = co(function* ({ model, props }) {
-    const result = yield tables[model.id].update(props)
+    const result = yield db.update(props)
     return resultsToJson(result)
   })
 
   const get = co(function* ({ model, key }) {
-    const result = yield tables[model.id].get(key)
+    const result = yield db.get(key)
     return result ? resultsToJson(result) : null
   })
 
-  const list = function list ({ model, select, filter, orderBy, limit, after }) {
-    const table = tables[model.id]
-    return table.search({
+  const list = function list ({ model, select, filter={}, orderBy, limit, after }) {
+    if (!filter.EQ) {
+      filter.EQ = {}
+    }
+
+    filter.EQ[TYPE] = model.id
+    return db.search({
       select,
       filter,
       orderBy,

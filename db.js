@@ -9,10 +9,16 @@ module.exports = function createTables (opts) {
   opts = shallowClone(opts)
 
   let models = {}
-  const tables = {}
+  const {
+    tables={}
+  } = opts
+
   const proxy = {
-    tables,
     addModels,
+    setTableForType,
+    get tables() {
+      return tables
+    },
     get models() {
       return models
     }
@@ -60,19 +66,21 @@ module.exports = function createTables (opts) {
 
   ;['get', 'del'].forEach(method => {
     proxy[method] = props => {
-      return tables[props[TYPE]][method](props)
+      const type = getType(props)
+      return tables[type][method](props)
     }
   })
 
   ;['latest'].forEach(method => {
     proxy[method] = props => {
-      return tables[props[TYPE]][method](props._permalink)
+      const type = getType(props)
+      return tables[type][method](props._permalink)
     }
   })
 
   ;['search', 'find', 'findOne'].forEach(method => {
     proxy[method] = opts => {
-      const type = opts.filter.EQ[TYPE]
+      const type = getType(opts.filter.EQ)
       return tables[type][method](opts)
     }
   })
@@ -94,6 +102,20 @@ module.exports = function createTables (opts) {
 
   if (opts.models) {
     addModels(opts.models)
+  }
+
+  function setTableForType (type, table) {
+    tables[type] = table
+    return proxy
+  }
+
+  function getType (props) {
+    const type = props[TYPE]
+    if (!type) {
+      throw new Error(`"${TYPE}" is required`)
+    }
+
+    return type
   }
 
   return proxy
