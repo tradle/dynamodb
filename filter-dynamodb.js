@@ -98,7 +98,7 @@ const filterViaDynamoDB = co(function* ({
     queryProp,
     index,
     itemToPosition
-  } = getQueryInfo({ model, filter, orderBy })
+  } = getQueryInfo({ table, model, filter, orderBy })
 
   const createBuilder = table[opType]
   let builder

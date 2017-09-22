@@ -80,7 +80,7 @@ module.exports = function createTables (opts) {
 
   ;['search', 'find', 'findOne'].forEach(method => {
     proxy[method] = opts => {
-      const type = getType(opts.filter.EQ)
+      const type = opts.type || getType(opts.filter.EQ)
       return tables[type][method](opts)
     }
   })

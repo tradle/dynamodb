@@ -121,14 +121,14 @@ function flatten (filter) {
 //   }, [])
 // }
 
-function getQueryInfo ({ model, filter }) {
+function getQueryInfo ({ table, model, filter }) {
   const indexes = getIndexes({ model })
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
   const usedProps = getUsedProperties({ model, filter })
-  const modelPrimaryKeys = getModelPrimaryKeys(model)
-  const { hashKey, rangeKey } = modelPrimaryKeys
-  const modelPrimaryKeysArr = getValues(modelPrimaryKeys)
+  const { primaryKeys } = table
+  const { hashKey, rangeKey } = primaryKeys
+  const primaryKeysArr = getValues(primaryKeys)
   const indexedProps = indexes.map(index => index.hashKey)
     .concat(hashKey)
 
@@ -163,7 +163,7 @@ function getQueryInfo ({ model, filter }) {
       return pick(item, [hashKey])
     }
 
-    const props = modelPrimaryKeysArr
+    const props = primaryKeysArr
       .concat([index.hashKey, index.rangeKey])
       .filter(notNull)
 

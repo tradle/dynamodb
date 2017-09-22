@@ -59,6 +59,8 @@ function DynamoTable (opts) {
     createIfNotExists=true,
     requireSigned=true,
     defaultReadOptions={},
+    hashKey,
+    rangeKey,
     indexes
   } = opts
 
@@ -72,7 +74,10 @@ function DynamoTable (opts) {
     joi=toJoi({ models, model })
   } = opts
 
-  this._primaryKeys = getModelPrimaryKeys(model)
+  this.primaryKeys = hashKey
+    ? { hashKey, rangeKey }
+    : getModelPrimaryKeys(model)
+
   this.opts = opts
   this.opts.defaultReadOptions = defaultReadOptions
   if (!this.opts.objects) {
@@ -111,7 +116,7 @@ function DynamoTable (opts) {
     validation: {
       allowUnknown: true
     }
-  }, this._primaryKeys)
+  }, this.primaryKeys)
 
   const table = dynogels.define(model.id, tableDef)
   this.table = promisify(table, {
@@ -212,8 +217,8 @@ DynamoTable.prototype.create = co(function* () {
 DynamoTable.prototype._getPrimaryKeys = function (props) {
   let hashKey, rangeKey
   if (typeof props === 'object') {
-    hashKey = props[this._primaryKeys.hashKey]
-    rangeKey = props[this._primaryKeys.rangeKey]
+    hashKey = props[this.primaryKeys.hashKey]
+    rangeKey = props[this.primaryKeys.rangeKey]
   } else {
     hashKey = props
   }
@@ -383,7 +388,7 @@ DynamoTable.prototype.search = co(function* (options) {
     return { items: [] }
   }
 
-  options = shallowClone(options)
+  options = shallowClone(options, this.primaryKeys)
   const { filter } = options
   if (filter && filter.EQ) {
     options.filter = clone(filter)
