@@ -230,6 +230,10 @@ DynamoTable.prototype._getMin = function (primaryKeys, opts={}) {
   const { hashKey, rangeKey } = this._getPrimaryKeys(primaryKeys)
   opts = shallowClone(this.opts.defaultReadOptions, opts)
   return this.table.get(hashKey, rangeKey, opts)
+    .then(result => {
+      if (!result) throw new Errors.NotFound()
+      return result
+    })
 }
 
 DynamoTable.prototype.get = co(function* (primaryKeys) {
@@ -240,8 +244,6 @@ DynamoTable.prototype.get = co(function* (primaryKeys) {
   // as the item may have been deleted from the table
   // return this.opts.objects.get(link)
   const instance = yield this._getMin(primaryKeys)
-  if (!instance) return null
-
   return yield this._maybeInflate(instance.toJSON())
 })
 

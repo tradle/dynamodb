@@ -18,7 +18,17 @@ module.exports = function createResolvers ({ db, objects, models, postProcess })
   })
 
   const get = co(function* ({ model, key }) {
-    const result = yield db.get(key)
+    let result
+    try {
+      result = yield db.get(key)
+    } catch (err) {
+      if (err.name && err.name.toLowerCase() === 'notfound') {
+        return null
+      }
+
+      throw err
+    }
+
     return result ? resultsToJson(result) : null
   })
 

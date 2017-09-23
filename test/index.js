@@ -369,10 +369,16 @@ test('db', loudCo(function* (t) {
     _link: link
   })
 
-  t.notOk(yield db.get({
-    [TYPE]: type,
-    _link: link
-  }))
+  try {
+    yield db.get({
+      [TYPE]: type,
+      _link: link
+    })
+
+    t.fail('expected NotFound error')
+  } catch (err) {
+    t.equal(err.name, 'NotFound')
+  }
 
   try {
     yield db.latest({
