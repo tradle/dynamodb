@@ -13,6 +13,7 @@ module.exports = function createTables (opts) {
     tables={}
   } = opts
 
+  const overrides = {}
   const proxy = {
     addModels,
     setTableForType,
@@ -42,6 +43,10 @@ module.exports = function createTables (opts) {
       Object.defineProperty(tables, id, {
         enumerable: true,
         get: function () {
+          if (!table) {
+            table = overrides[id]
+          }
+
           if (!table) {
             const joi = toJoi({ models, model })
             const tableOpts = Object.assign({ joi, model }, opts)
@@ -105,7 +110,7 @@ module.exports = function createTables (opts) {
   }
 
   function setTableForType (type, table) {
-    tables[type] = table
+    overrides[type] = table
     return proxy
   }
 
