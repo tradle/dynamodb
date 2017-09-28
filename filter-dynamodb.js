@@ -25,7 +25,7 @@ const CREATE_EQUALITY_CHECK = method => {
   }
 
   return function addEqualityCheck ({ where, key, value }) {
-    if (method === 'ne' || typeof value !== 'object') {
+    if (method === 'ne' || (value == null || typeof value !== 'object')) {
       return checkStrict({ where, key, value })
     }
 
