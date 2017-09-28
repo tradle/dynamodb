@@ -6,6 +6,7 @@ const extend = require('xtend/mutable')
 const deepEqual = require('deep-equal')
 const pick = require('object.pick')
 const omit = require('object.omit')
+const traverse = require('traverse')
 const co = require('co').wrap
 const promisify = require('pify')
 const dotProp = require('dot-prop')
@@ -286,6 +287,7 @@ module.exports = {
   deepEqual,
   pick,
   omit,
+  traverse,
   toObject,
   getIndexes,
   getTableName,
