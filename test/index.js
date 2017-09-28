@@ -499,6 +499,40 @@ test('filters', loudCo(function* (t) {
     })
 
     t.same(photoIdsIn.items, expected, 'countries IN')
+
+    expected = []
+    sortResults({ results: expected, orderBy })
+
+    const photoIdsCountryNull = yield db.search({
+      orderBy,
+      filter: {
+        EQ: {
+          [TYPE]: type
+        },
+        NULL: {
+          country: true
+        }
+      }
+    })
+
+    t.same(photoIdsCountryNull.items, expected, 'country null')
+
+    expected = photoIds.slice()
+    sortResults({ results: expected, orderBy })
+
+    const photoIdsCountryNotNull = yield db.search({
+      orderBy,
+      filter: {
+        EQ: {
+          [TYPE]: type
+        },
+        NULL: {
+          country: false
+        }
+      }
+    })
+
+    t.same(photoIdsCountryNotNull.items, expected, 'country not null')
   }))
 
   for (const test of tests) {

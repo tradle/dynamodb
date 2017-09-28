@@ -5,6 +5,9 @@ module.exports = {
   NEQ: {
     type: 'any'
   },
+  NULL: {
+    type: 'any'
+  },
   IN: {
     type: 'array'
   },
@@ -36,9 +39,6 @@ module.exports = {
   GTE: {
     scalar: true
   },
-  EXISTS: {
-    type: 'any'
-  }
   // NOT IMPLEMENTED
   // OR: {
   //   type: 'array'

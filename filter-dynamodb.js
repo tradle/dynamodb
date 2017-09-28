@@ -57,18 +57,18 @@ const CREATE_EQUALITY_CHECK = method => {
   }
 }
 
-const CHECK_EXISTS = ({ where, key, value }) => {
+const CHECK_NULL = ({ where, key, value }) => {
   if (value) {
-    where(key).exists()
-  } else {
     where(key).null()
+  } else {
+    where(key).notNull()
   }
 }
 
 const COMPARATORS = {
   EQ: CREATE_EQUALITY_CHECK('eq'),
   NEQ: CREATE_EQUALITY_CHECK('ne'),
-  EXISTS: CHECK_EXISTS,
+  NULL: CHECK_NULL,
   CONTAINS: ({ where, key, value }) => where(key).contains(value),
   NOT_CONTAINS: ({ where, key, value }) => where(key).notContains(value),
   STARTS_WITH: ({ where, key, value }) => where(key).beginsWith(value),

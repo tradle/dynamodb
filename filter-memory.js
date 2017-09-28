@@ -21,7 +21,7 @@ const comparators = {
   LTE: ({ value, condition }) => value <= condition,
   GT: ({ value, condition }) => value > condition,
   GTE: ({ value, condition }) => value >= condition,
-  EXISTS: ({ value, condition }) => condition ? !!value : !value,
+  NULL: ({ value, condition }) => condition ? !value : !!value,
 }
 
 module.exports = {
