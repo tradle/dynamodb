@@ -11,6 +11,7 @@ const models = mergeModels()
   .add(require('@tradle/custom-models'))
   .get()
 
+const minify = require('../minify')
 const { defaultOrderBy } = require('../constants')
 const {
   debug,
@@ -48,20 +49,29 @@ AWS.config.update({
 })
 
 const docClient = new AWS.DynamoDB.DocumentClient({ endpoint })
-const objects = {
-  get: link => {
-    const match = formRequests.find(formRequest => formRequest._link === link)
-    if (match) return match
+const objects = (function () {
+  const cache = {}
+  const api = {
+    get: co(function* (link) {
+      const match = cache[link]
+      if (match) return match
 
-    throw new Error('NotFound')
+      throw new Error('NotFound')
+    }),
+    put: item => {
+      cache[item._link] = item
+    }
   }
-}
+
+  fixtures.forEach(api.put)
+  return api
+}())
 
 const tradleDynamo = require('../')
 const db = tradleDynamo.db({
   objects,
   models,
-  maxItemSize: 1000,
+  maxItemSize: 4000,
   docClient,
   validate: false,
   prefix: 'tradle-dynamodb-test-'
@@ -69,6 +79,84 @@ const db = tradleDynamo.db({
 
 const { tables } = db
 const table = tables['tradle.FormRequest']
+
+test('minify (big values)', function (t) {
+  const bigMsg = {
+    [TYPE]: 'tradle.SimpleMessage',
+    message: 'blah'.repeat(1000)
+  }
+
+  const minBigMsg = minify({
+    item: bigMsg,
+    model: models['tradle.SimpleMessage'],
+    maxSize: 1000
+  })
+
+  t.same(minBigMsg.diff, { message: bigMsg.message })
+  t.same(minBigMsg.min, {
+    [TYPE]: bigMsg[TYPE],
+    _cut: ['message']
+  })
+
+  const smallMsg = {
+    [TYPE]: 'tradle.SimpleMessage',
+    message: 'blah'.repeat(100)
+  }
+
+  const minSmallMsg = minify({
+    item: smallMsg,
+    model: models['tradle.SimpleMessage'],
+    maxSize: 1000
+  })
+
+  t.same(minSmallMsg.diff, {})
+  t.same(minSmallMsg.min, smallMsg)
+  t.end()
+})
+
+test('minify (embedded media)', function (t) {
+  const photoId = {
+    [TYPE]: 'tradle.PhotoID',
+    scan: {
+      url: 'data:image/jpeg;base64,' + 'blah'.repeat(1000)
+    }
+  }
+
+  const minPhotoId = minify({
+    item: photoId,
+    model: models[photoId[TYPE]],
+    maxSize: 1000
+  })
+
+  t.same(minPhotoId.min._cut, ['scan'])
+  t.end()
+})
+
+test('minify (optional props)', function (t) {
+  // optional
+  const thingy = {
+    [TYPE]: 'tradle.Thingy',
+    a: 'a'.repeat(99),
+    b: 'b'.repeat(99)
+  }
+
+  const minThingy = minify({
+    item: thingy,
+    model: {
+      properties: {
+        a: { type: 'string' },
+        b: { type: 'string' }
+      },
+      required: [
+        'a'
+      ]
+    },
+    maxSize: 200
+  })
+
+  t.same(minThingy.min._cut, ['b'])
+  t.end()
+})
 
 test('sortResults', function (t) {
   const asc = sortResults({
@@ -332,6 +420,7 @@ test('latest', loudCo(function* (t) {
     _link: crypto.randomBytes(32).toString('hex')
   })
 
+  objects.put(v2)
   yield table.put(v2)
   const {
     first,
@@ -416,6 +505,7 @@ test('filters', loudCo(function* (t) {
   const type = 'tradle.PhotoID'
   const photoIds = fixtures.filter(item => item[TYPE] === type)
   // const byType = groupByType(fixtures)
+  // photoIds.forEach(objects.put)
   yield db.batchPut(photoIds)
   // yield Object.keys(byType).map(type => {
   //   if (db.tables[type]) {

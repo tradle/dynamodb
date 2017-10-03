@@ -1,9 +1,11 @@
+const { TYPE } = require('@tradle/constants')
 const { pick, shallowClone, debug, getIndexes } = require('./utils')
+const { minifiedFlag } = require('./constants')
 
 module.exports = minify
 
 const MINIFY_PREFERENCES = [
-  stripPhotos,
+  stripEmbeddedMedia,
   stripBigValues,
   stripOptional,
   stripAll
@@ -20,11 +22,11 @@ function minify ({ item, model, maxSize }) {
 
   for (const filter of MINIFY_PREFERENCES) {
     // approximation
-    const size = Buffer.byteLength(JSON.stringify(min), 'utf8')
+    const size = byteLength(min)
     if (size < maxSize) break
 
     let slimmed
-    let currentCut = (min._cut || []).slice()
+    let currentCut = (min[minifiedFlag] || []).slice()
     for (let propertyName in min) {
       if (propertyName.startsWith('_')) {
         continue
@@ -53,17 +55,17 @@ function minify ({ item, model, maxSize }) {
 
       diff[propertyName] = item[propertyName]
       delete min[propertyName]
-      if (!min._cut) {
-        min._cut = []
+      if (!min[minifiedFlag]) {
+        min[minifiedFlag] = []
       }
 
-      min._cut.push(propertyName)
+      min[minifiedFlag].push(propertyName)
     }
+  }
 
-    if (!min._cut || currentCut.length === min._cut.length) {
-      // give up
-      break
-    }
+  if (min[minifiedFlag] && min[minifiedFlag].length) {
+    const cut = min[minifiedFlag]
+    debug(`minified ${item[TYPE]} per max item size (${maxSize}). Removed: ${cut.join(', ')}`)
   }
 
   return { min, diff }
@@ -75,13 +77,18 @@ function getRef (property) {
   return property.items && property.items.ref
 }
 
-function stripPhotos ({ property }) {
-  return getRef(property) !== 'tradle.Photo'
+function stripEmbeddedMedia ({ value, property }) {
+  if (getRef(property) === 'tradle.Photo') {
+    if (value && value.url && /data:/.test(value.url)) {
+      return false
+    }
+  }
+
+  return true // don't strip
 }
 
 function stripBigValues ({ value }) {
-  const str = typeof value === 'string' ? value : JSON.stringify(value)
-  return str.length < 50
+  return byteLength(value) < 100
 }
 
 function stripOptional ({ model, propertyName }) {
@@ -94,4 +101,9 @@ function stripAll () {
 
 function isRequired ({ model, propertyName }) {
   return model.required && model.required.includes(propertyName)
+}
+
+function byteLength (val) {
+  const str = typeof val === 'string' ? val : JSON.stringify(val)
+  return Buffer.byteLength(str, 'utf8')
 }

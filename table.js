@@ -472,7 +472,8 @@ DynamoTable.prototype._maybeInflate = co(function* (item, options={}) {
 
     const link = item._link
     const full = yield this.opts.objects.get(link)
-    extend(item, full)
+    item = shallowClone(item, full)
+    delete item[minifiedFlag]
   }
 
   return item
