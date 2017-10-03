@@ -10,7 +10,7 @@ const MINIFY_PREFERENCES = [
 ]
 
 function minify ({ item, model, maxSize }) {
-  if (!maxSize || maxSize < Infinity) {
+  if (!maxSize || maxSize === Infinity) {
     return { min: item, diff: {} }
   }
 
