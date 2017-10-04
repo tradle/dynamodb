@@ -13,7 +13,7 @@ module.exports = {
       name: 'AuthorAndDateIndex',
       type: 'global',
       projection: {
-        ProjectionType: 'ALL'
+        ProjectionType: 'KEYS_ONLY'
       }
     },
     {
@@ -22,7 +22,7 @@ module.exports = {
       name: 'PermalinkAndDateIndex',
       type: 'global',
       projection: {
-        ProjectionType: 'ALL'
+        ProjectionType: 'KEYS_ONLY'
       }
     }
   ],
