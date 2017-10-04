@@ -1,6 +1,7 @@
 const {
   co,
   clone,
+  extend,
   toObject,
   debug,
   getIndexes,
@@ -15,84 +16,49 @@ const {
 const OPERATORS = require('./operators')
 const { getComparators } = require('./comparators')
 const { filterResults } = require('./filter-memory')
-const { defaultOrderBy } = require('./constants')
-const DEFAULT_LIMIT = 50
+const { defaultOrderBy, defaultLimit } = require('./constants')
 
-const filterViaDynamoDB = co(function* ({
-  table,
-  models,
-  model,
-  filter,
-  orderBy=defaultOrderBy,
-  limit=DEFAULT_LIMIT,
-  after,
-  consistentRead
-}) {
-  filter = clone(filter || {})
-  const { EQ } = filter
+function FilterOp (opts) {
   const {
-    opType,
-    hashKey,
-    queryProp,
-    index,
-    itemToPosition
-  } = getQueryInfo({ table, model, filter, orderBy })
-
-  const createBuilder = table[opType]
-  let builder
-  let fullScanRequired = true
-  // if (!orderBy) {
-  //   orderBy = {
-  //     property: queryProp || '_time'
-  //   }
-  // }
-
-  if (opType === 'query') {
-  //   // supported key condition operators:
-  //   // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
-
-    builder = createBuilder(EQ[queryProp])
-    delete EQ[queryProp]
-    if (index) {
-      builder.usingIndex(index.name)
-    }
-
-    if (orderBy.property === queryProp) {
-      fullScanRequired = false
-      if (orderBy.desc) {
-        builder.descending()
-      } else {
-        builder.ascending()
-      }
-    }
-  } else {
-    // fullScanRequired = !!orderBy
-    builder = createBuilder()
-  }
-
-  if (fullScanRequired) {
-    debug('full scan required')
-    builder.loadAll()
-  }
-
-  if (consistentRead) {
-    builder.consistentRead()
-  }
-
-  addConditions({
+    table,
+    models,
     model,
-    builder,
-    opType,
-    filter,
-    // limit,
-    orderBy,
+    filter={},
+    orderBy=defaultOrderBy,
+    limit=defaultLimit,
     after,
-    fullScanRequired
-  })
+    consistentRead
+  } = opts
 
+  extend(this, opts)
+  this.filter = clone(filter)
+  this.limit = limit
+  this.orderBy = orderBy
+
+  extend(this, getQueryInfo(this))
+  this._configureBuilder()
+  this._addConditions()
+}
+
+FilterOp.prototype.exec = co(function* () {
   let result
+  const {
+    builder,
+    models,
+    model,
+    orderBy,
+    fullScanRequired,
+    filter,
+    after,
+    limit,
+    itemToPosition,
+    queryProp,
+    index
+  } = this
+
   if (fullScanRequired) {
     result = yield exec(builder)
+    yield this._postProcessResult(result)
     result.Items = filterResults({
       models,
       model,
@@ -100,7 +66,7 @@ const filterViaDynamoDB = co(function* ({
       results: result.Items
     })
   } else {
-    result = yield collect({ models, model, builder, filter, limit })
+    result = yield this.collectInBatches()
   }
 
   let items = result.Items
@@ -134,9 +100,9 @@ const filterViaDynamoDB = co(function* ({
 
   let startPosition
   if (items.length) {
-    startPosition = itemToPosition(items[0])
+    startPosition = this.itemToPosition(items[0])
   } else {
-    startPosition = after && itemToPosition(after)
+    startPosition = after && this.itemToPosition(after)
   }
 
   let endPosition
@@ -164,7 +130,6 @@ const filterViaDynamoDB = co(function* ({
   }
 })
 
-module.exports = filterViaDynamoDB
 const exec = co(function* (builder, method='exec') {
   try {
     return yield promisify(builder[method].bind(builder))()
@@ -181,15 +146,13 @@ const exec = co(function* (builder, method='exec') {
   }
 })
 
-function getStartKey (builder) {
+const getStartKey = builder => {
   return builder.request.ExclusiveStartKey
 }
 
-function notNull (item) {
-  return !!item
-}
+FilterOp.prototype.collectInBatches = co(function* () {
+  const { models, model, table, filter, limit, index, builder } = this
 
-const collect = co(function* ({ models, model, builder, filter, limit }) {
   // limit how many items dynamodb iterates over before filtering
   // this is different from the sql-like notion of limit
 
@@ -202,6 +165,7 @@ const collect = co(function* ({ models, model, builder, filter, limit }) {
   builder.limit(batchLimit)
 
   const result = yield exec(builder)
+  yield this._postProcessResult(result)
   result.Items = filterResults({
     models,
     model,
@@ -229,15 +193,16 @@ const collect = co(function* ({ models, model, builder, filter, limit }) {
   return result
 })
 
-function addConditions ({
-  model,
-  opType,
-  builder,
-  filter,
-  after,
-  orderBy,
-  fullScanRequired
-}) {
+FilterOp.prototype._postProcessResult = co(function* (result) {
+  const { table, index } = this
+  if (index && index.projection.ProjectionType !== 'ALL') {
+    debug('inflating due to use of index')
+    result.Items = yield result.Items.map(table.inflate)
+  }
+})
+
+FilterOp.prototype._addConditions = function () {
+  const { model, filter, after, opType, builder, fullScanRequired } = this
   const primaryKeys = getModelPrimaryKeys(model)
   const conditionBuilders = {
     where: builder.where && builder.where.bind(builder),
@@ -281,10 +246,60 @@ function addConditions ({
   return builder
 }
 
+FilterOp.prototype._configureBuilder = function _configureBuilder () {
+  const { opType, filter, orderBy, table, queryProp, index, consistentRead } = this
+  const { EQ } = filter
+  const createBuilder = table[opType]
+  let builder
+  let fullScanRequired = true
+  // if (!orderBy) {
+  //   orderBy = {
+  //     property: queryProp || '_time'
+  //   }
+  // }
+
+  if (opType === 'query') {
+  //   // supported key condition operators:
+  //   // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
+
+    builder = createBuilder(EQ[queryProp])
+    delete EQ[queryProp]
+    if (index) {
+      builder.usingIndex(index.name)
+    }
+
+    if (orderBy.property === queryProp) {
+      fullScanRequired = false
+      if (orderBy.desc) {
+        builder.descending()
+      } else {
+        builder.ascending()
+      }
+    }
+  } else {
+    // fullScanRequired = !!orderBy
+    builder = createBuilder()
+  }
+
+  if (fullScanRequired) {
+    debug('full scan required')
+    builder.loadAll()
+  }
+
+  if (consistentRead) {
+    builder.consistentRead()
+  }
+
+  this.builder = builder
+  this.fullScanRequired = fullScanRequired
+}
+
 // function usesNonPrimaryKeys ({ model, filter }) {
 //   return props.some(prop => !indexed[prop])
 // }
 
-function isEmpty (obj) {
+const isEmpty = obj => {
   return !obj || Object.keys(obj).length === 0
 }
+
+module.exports = opts => new FilterOp(opts).exec()

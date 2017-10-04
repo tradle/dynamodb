@@ -177,7 +177,8 @@ function getQueryInfo ({ table, model, filter }) {
     rangeKey,
     queryProp,
     index,
-    itemToPosition
+    itemToPosition,
+    filterProps: usedProps
   }
 }
 

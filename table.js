@@ -462,20 +462,25 @@ DynamoTable.prototype._wrapDBOperation = function (fn) {
 }
 
 DynamoTable.prototype._maybeInflate = co(function* (item, options={}) {
+  const { force, select } = options
   const cut = item[minifiedFlag]
-  if (cut && cut.length) {
-    const { select } = options
+  if (force || (cut && cut.length)) {
     if (select) {
       const needsInflate = cut.some(prop => prop in options.select)
       if (!needsInflate) return item
     }
 
-    const link = item._link
-    const full = yield this.opts.objects.get(link)
-    item = shallowClone(item, full)
-    delete item[minifiedFlag]
+    item = yield this.inflate(item)
   }
 
+  return item
+})
+
+DynamoTable.prototype.inflate = co(function* (item) {
+  const link = item._link
+  const full = yield this.opts.objects.get(link)
+  item = shallowClone(item, full)
+  delete item[minifiedFlag]
   return item
 })
 

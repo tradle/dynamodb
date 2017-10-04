@@ -304,6 +304,7 @@ test('load fixtures', loudCo(function* (t) {
 }))
 
 test('basic pagination', loudCo(function* (t) {
+  yield table.batchPut(formRequests)
   const page1 = yield table.search({
     limit: 5
   })
@@ -324,6 +325,7 @@ test('basic pagination', loudCo(function* (t) {
 }))
 
 test('orderBy', loudCo(function* (t) {
+  yield table.batchPut(formRequests)
   const expected = formRequests.slice()
   const orderBy = {
     property: 'form'
@@ -367,6 +369,7 @@ test('orderBy', loudCo(function* (t) {
 }))
 
 test('indexed props', loudCo(function* (t) {
+  yield table.batchPut(formRequests)
   const _author = formRequests[0]._author
   const expected = formRequests.slice()
     .filter(fr => fr._author === _author)
@@ -410,6 +413,7 @@ test('indexed props', loudCo(function* (t) {
 }))
 
 test('latest', loudCo(function* (t) {
+  yield table.batchPut(formRequests)
   const v1 = formRequests[0]
   const v2 = clone(v1)
   v2[SIG] = crypto.randomBytes(128).toString('base64')
@@ -422,6 +426,9 @@ test('latest', loudCo(function* (t) {
 
   objects.put(v2)
   yield table.put(v2)
+  // console.log('v1', v1._permalink)
+  // console.log('v2', v2._link)
+  debugger
   const {
     first,
     latest

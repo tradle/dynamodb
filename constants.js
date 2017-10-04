@@ -29,5 +29,6 @@ module.exports = {
   defaultOrderBy: {
     property: '_time',
     desc: true
-  }
+  },
+  defaultLimit: 50
 }

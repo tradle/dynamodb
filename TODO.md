@@ -21,3 +21,6 @@ how would this work if tables were not per-type, but rather buckets of types?
     tradle.SimpleMessage and tradle.PersonalInfo share a table
     primary keys:
       hashKey: _t + _link (default for all)
+
+because of minification:
+  - when running a search, for every condition need to check if _cut contains that property
