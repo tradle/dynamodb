@@ -466,7 +466,7 @@ DynamoTable.prototype._maybeInflate = co(function* (item, options={}) {
   const cut = item[minifiedFlag]
   if (force || (cut && cut.length)) {
     if (select) {
-      const needsInflate = cut.some(prop => prop in options.select)
+      const needsInflate = cut.some(prop => select.includes(prop))
       if (!needsInflate) return item
     }
 
