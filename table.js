@@ -231,7 +231,10 @@ DynamoTable.prototype._getMin = function (primaryKeys, opts={}) {
   opts = shallowClone(this.opts.defaultReadOptions, opts)
   return this.table.get(hashKey, rangeKey, opts)
     .then(result => {
-      if (!result) throw new Errors.NotFound()
+      if (!result) {
+        throw new Errors.NotFound(`primaryKeys: ${JSON.stringify(primaryKeys)}`)
+      }
+
       return result
     })
 }
@@ -267,7 +270,30 @@ DynamoTable.prototype.latest = co(function* (permalink) {
     return yield this._maybeInflate(result.items[0])
   }
 
-  throw new Errors.NotFound()
+  throw new Errors.NotFound('permalink: ' + permalink)
+})
+
+DynamoTable.prototype.getVersions = co(function* ({ permalink }) {
+  const { items } = yield this.find({
+    select: ['_link'],
+    filter: {
+      EQ: {
+        _permalink: permalink
+      }
+    }
+  })
+
+  return items
+})
+
+DynamoTable.prototype.deleteAllVersions = co(function* ({ permalink }) {
+  const versions = yield this.getVersions({ permalink })
+  return Promise.all(versions.map(({ _link }) => {
+    return this.del({
+      [TYPE]: this.opts.model.id,
+      _link
+    })
+  }))
 })
 
 DynamoTable.prototype.put = function (item, options) {
@@ -295,6 +321,10 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
 
 DynamoTable.prototype._validateResource = function (item) {
   const { models, model, requireSigned } = this.opts
+
+  if (item[TYPE] !== model.id) {
+    throw new Error(`expected ${TYPE} ${model.id}, got ${item[TYPE]}`)
+  }
 
   typeforce(types.dated, item)
   if (requireSigned) {
@@ -331,6 +361,8 @@ DynamoTable.prototype.batchPut = co(function* (items, options={}) {
 })
 
 DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
+  debug(`putting batch of ${items.length}`)
+
   const params = {
     RequestItems: {
       [this.name]: items.map(Item => ({
@@ -356,6 +388,7 @@ DynamoTable.prototype._batchPut = co(function* (items, backoffOptions={}) {
   let failed
   while (tries < maxTries) {
     let result = yield runWithBackoffOnTableNotExists(() => {
+      debug('attempting batchWrite')
       return docClient.batchWrite(params).promise()
     })
 
@@ -418,7 +451,7 @@ DynamoTable.prototype.findOne = co(function* (options) {
   options.limit = 1
   const { items=[] } = yield this.search(options)
   if (!items.length) {
-    throw new Errors.NotFound()
+    throw new Errors.NotFound(`query: ${JSON.stringify(options)}`)
   }
 
   return items[0]

@@ -68,17 +68,23 @@ const objects = (function () {
 }())
 
 const tradleDynamo = require('../')
-const db = tradleDynamo.db({
-  objects,
-  models,
-  maxItemSize: 4000,
-  docClient,
-  validate: false,
-  prefix: 'tradle-dynamodb-test-'
-})
+let db
+let table
+let counter = 0
 
-const { tables } = db
-const table = tables['tradle.FormRequest']
+const reload = co(function* () {
+  db = tradleDynamo.db({
+    objects,
+    models,
+    maxItemSize: 4000,
+    docClient,
+    validate: false,
+    prefix: 'tradle-dynamodb-test-' + Date.now() + (counter++)
+  })
+
+  table = db.tables['tradle.FormRequest']
+  yield table.batchPut(formRequests)
+})
 
 test('minify (big values)', function (t) {
   const bigMsg = {
@@ -258,6 +264,7 @@ test('backoff after create', loudCo(function* (t) {
 }))
 
 test('no autocreate on read/del', loudCo(function* (t) {
+  yield reload()
   try {
     yield table.destroy()
   } catch (err) {
@@ -288,23 +295,8 @@ test('no autocreate on read/del', loudCo(function* (t) {
   t.end()
 }))
 
-test('load fixtures', loudCo(function* (t) {
-  try {
-    yield table.destroy()
-  } catch (err) {
-    if (err.code !== 'ResourceNotFoundException') {
-      throw err
-    }
-  }
-
-  yield table.batchPut(formRequests)
-  const result = yield table.search()
-  t.equal(result.items.length, formRequests.length)
-  t.end()
-}))
-
 test('basic pagination', loudCo(function* (t) {
-  yield table.batchPut(formRequests)
+  yield reload()
   const page1 = yield table.search({
     limit: 5
   })
@@ -325,7 +317,7 @@ test('basic pagination', loudCo(function* (t) {
 }))
 
 test('orderBy', loudCo(function* (t) {
-  yield table.batchPut(formRequests)
+  yield reload()
   const expected = formRequests.slice()
   const orderBy = {
     property: 'form'
@@ -369,7 +361,7 @@ test('orderBy', loudCo(function* (t) {
 }))
 
 test('indexed props', loudCo(function* (t) {
-  yield table.batchPut(formRequests)
+  yield reload()
   const _author = formRequests[0]._author
   const expected = formRequests.slice()
     .filter(fr => fr._author === _author)
@@ -413,7 +405,7 @@ test('indexed props', loudCo(function* (t) {
 }))
 
 test('latest', loudCo(function* (t) {
-  yield table.batchPut(formRequests)
+  yield reload()
   const v1 = formRequests[0]
   const v2 = clone(v1)
   v2[SIG] = crypto.randomBytes(128).toString('base64')
@@ -426,9 +418,6 @@ test('latest', loudCo(function* (t) {
 
   objects.put(v2)
   yield table.put(v2)
-  // console.log('v1', v1._permalink)
-  // console.log('v2', v2._link)
-  debugger
   const {
     first,
     latest
@@ -442,10 +431,31 @@ test('latest', loudCo(function* (t) {
   yield table.del(v2._link)
   t.same(yield table.latest(v1._permalink), first)
 
+  objects.put(v2)
+  yield table.put(v2)
+  const versions = yield table.getVersions({ permalink: v1._permalink })
+  t.same(versions.sort(byLink), [v1, v2].sort(byLink))
+
+  yield table.deleteAllVersions({ permalink: v1._permalink })
+  try {
+    const storedV1 = yield table.get(v1._permalink)
+    t.fail('expected v1 to have been deleted')
+  } catch (err) {
+    t.notEqual(err.message.indexOf(v1._permalink), -1)
+  }
+
+  try {
+    const storedV2 = yield table.get(v2._permalink)
+    t.fail('expected v2 to have been deleted')
+  } catch (err) {
+    t.notEqual(err.message.indexOf(v2._permalink), -1)
+  }
+
   t.end()
 }))
 
 test('db', loudCo(function* (t) {
+  yield reload()
   const req = formRequests[0]
   const type = req[TYPE]
   const link = req._link
@@ -453,12 +463,12 @@ test('db', loudCo(function* (t) {
   t.same(yield db.get({
     [TYPE]: type,
     _link: link
-  }), req)
+  }), req, 'db.get')
 
   t.same(yield db.latest({
     [TYPE]: type,
     _permalink: permalink
-  }), req)
+  }), req, 'db.latest')
 
   yield db.del({
     [TYPE]: type,
@@ -777,4 +787,8 @@ function getOrderByCombinations ({ properties }) {
   ]))
   // flatten
   .reduce((arr, batch) => arr.concat(batch), [])
+}
+
+function byLink (a, b) {
+  return a._link < b._link ? -1 : a._link > b._link ? 1 : 0
 }

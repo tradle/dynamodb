@@ -105,6 +105,12 @@ module.exports = function createTables (opts) {
     }
   })
 
+  ;['getVersions', 'deleteAllVersions'].forEach(method => {
+    proxy[method] = ({ type, permalink }) => {
+      return tables[type][method]({ permalink })
+    }
+  })
+
   if (opts.models) {
     addModels(opts.models)
   }

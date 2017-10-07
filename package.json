@@ -13,7 +13,7 @@
     "@tradle/models": "github:tradle/models",
     "@tradle/schema-joi": "github:tradle/schema-joi",
     "@tradle/validate-model": "^2.2.0",
-    "@tradle/validate-resource": "^2.8.0",
+    "@tradle/validate-resource": "^2.10.1",
     "aws-sdk": "^2.100.0",
     "commitizen": "^2.9.6",
     "cz-conventional-changelog": "^2.0.0",
