@@ -315,7 +315,7 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
   })
 
   const primaryKeys = getResourcePrimaryKeys({ model, resource: item })
-  this._debug(`"${method}" ${primaryKeys} successfully`)
+  this._debug(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
   return extend(result.toJSON(), diff)
 })
 
@@ -413,7 +413,7 @@ DynamoTable.prototype.del = co(function* (primaryKeys, options) {
   yield this._tableCreateIfNotExistsPromise
   const { hashKey, rangeKey } = this._getPrimaryKeys(primaryKeys)
   yield this.table.destroy(hashKey, rangeKey, options)
-  this._debug(`deleted ${primaryKeys}`)
+  this._debug(`deleted ${JSON.stringify(primaryKeys)}`)
 })
 
 DynamoTable.prototype.find =
