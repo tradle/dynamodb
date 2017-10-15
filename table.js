@@ -78,6 +78,8 @@ function DynamoTable (opts) {
     ? { hashKey, rangeKey }
     : getModelPrimaryKeys(model)
 
+  this.hashKey = this.primaryKeys.hashKey
+  this.rangeKey = this.primaryKeys.rangeKey
   this.opts = opts
   this.opts.defaultReadOptions = defaultReadOptions
   if (!this.opts.objects) {
@@ -227,7 +229,7 @@ DynamoTable.prototype._getPrimaryKeys = function (props) {
 }
 
 DynamoTable.prototype._getMin = function (primaryKeys, opts={}) {
-  const { hashKey, rangeKey } = this._getPrimaryKeys(primaryKeys)
+  const { hashKey, rangeKey } = primaryKeys
   opts = shallowClone(this.opts.defaultReadOptions, opts)
   return this.table.get(hashKey, rangeKey, opts)
     .then(result => {
@@ -243,15 +245,20 @@ DynamoTable.prototype.get = co(function* (primaryKeys) {
   const info = yield this.info()
   if (!isActive(info)) return
 
-  // don't fetch directly from objects
-  // as the item may have been deleted from the table
-  // return this.opts.objects.get(link)
-  const instance = yield this._getMin(primaryKeys)
+  const { hashKey, rangeKey } = this._getPrimaryKeys(primaryKeys)
+  if (this.primaryKeys.hashKey  === '_link') {
+    return this.opts.objects.get(hashKey)
+  }
+
+  const instance = yield this._getMin({ hashKey, rangeKey })
   return yield this._maybeInflate(instance.toJSON())
 })
 
 DynamoTable.prototype.latest = co(function* (permalink) {
   typeforce(typeforce.String, permalink)
+  if (this.hashKey === '_permalink') {
+    return this.get(permalink)
+  }
 
   const result = yield this.search({
     orderBy: {
@@ -296,7 +303,49 @@ DynamoTable.prototype.deleteAllVersions = co(function* ({ permalink }) {
   }))
 })
 
-DynamoTable.prototype.put = function (item, options) {
+// DynamoTable.prototype.setLatest = function (item) {
+//   // if (this.primaryKeys.hashKey !== '_permalink') {
+//   //   throw new Error('this operation is only for "hashKey" === "_permalink"')
+//   // }
+
+//   const time = item.time || item._time
+//   if (!time) {
+//     throw new Error('expected "time"')
+//   }
+
+//   const options = {
+//     ConditionExpression: '#time < :time',
+//     ExpressionAttributeNames: {
+//       '#time' : 'id'
+//     },
+//     ExpressionAttributeValues: {
+//       ':time' : item._time || item.time
+//     }
+//   }
+
+//   return this._write('update', item, options)
+// }
+
+DynamoTable.prototype.put = function (item, options={}) {
+  if (this.hashKey === '_permalink') {
+    if (Object.keys(options).length) {
+      throw new Error('"options" not supported for hashKey _permalink')
+    }
+
+    options = {
+      ConditionExpression: '#link = :link OR attribute_not_exists(#permalink) OR #time < :time',
+      ExpressionAttributeNames: {
+        '#time' : '_time',
+        '#permalink': '_permalink',
+        '#link': '_link',
+      },
+      ExpressionAttributeValues: {
+        ':time' : item._time,
+        ':link': item._link
+      }
+    }
+  }
+
   return this._write('create', item, options)
 }
 

@@ -2,7 +2,7 @@
 module.exports = {
   minifiedFlag: '_cut',
   defaultPrimaryKeys: {
-    hashKey: '_link'
+    hashKey: '_permalink'
   },
   defaultIndexes: [
     // expensive
@@ -11,15 +11,6 @@ module.exports = {
       hashKey: '_author',
       rangeKey: '_time',
       name: 'AuthorAndDateIndex',
-      type: 'global',
-      projection: {
-        ProjectionType: 'ALL'
-      }
-    },
-    {
-      hashKey: '_permalink',
-      rangeKey: '_time',
-      name: 'PermalinkAndDateIndex',
       type: 'global',
       projection: {
         ProjectionType: 'ALL'

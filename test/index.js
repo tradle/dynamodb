@@ -407,52 +407,82 @@ test('indexed props', loudCo(function* (t) {
 test('latest', loudCo(function* (t) {
   yield reload()
   const v1 = formRequests[0]
+  yield table.put(v1)
+
   const v2 = clone(v1)
   v2[SIG] = crypto.randomBytes(128).toString('base64')
   v2[PERMALINK] = v2._permalink
   v2[PREVLINK] = v2._link
   buildResource.setVirtual(v2, {
-    _time: Date.now(),
+    _time: v1._time - 1,
     _link: crypto.randomBytes(32).toString('hex')
   })
 
-  objects.put(v2)
-  yield table.put(v2)
-  const {
-    first,
-    latest
-  } = yield {
-    first: yield table.get(v1._permalink),
-    latest: yield table.latest(v1._permalink)
-  }
-
-  t.same(first, v1)
-  t.same(latest, v2)
-  yield table.del(v2._link)
-  t.same(yield table.latest(v1._permalink), first)
-
-  objects.put(v2)
-  yield table.put(v2)
-  const versions = yield table.getVersions({ permalink: v1._permalink })
-  t.same(versions.sort(byLink), [v1, v2].sort(byLink))
-
-  yield table.deleteAllVersions({ permalink: v1._permalink })
   try {
-    const storedV1 = yield table.get(v1._permalink)
-    t.fail('expected v1 to have been deleted')
+    yield table.put(v2)
   } catch (err) {
-    t.notEqual(err.message.indexOf(v1._permalink), -1)
+    t.equals(err.name, 'ConditionalCheckFailedException')
   }
 
-  try {
-    const storedV2 = yield table.get(v2._permalink)
-    t.fail('expected v2 to have been deleted')
-  } catch (err) {
-    t.notEqual(err.message.indexOf(v2._permalink), -1)
-  }
+  buildResource.setVirtual(v2, {
+    _time: v1._time + 1,
+    _link: crypto.randomBytes(32).toString('hex')
+  })
 
+  yield table.put(v2)
+  t.same(yield table.get(v2._permalink), v2)
   t.end()
 }))
+
+// test('latest', loudCo(function* (t) {
+//   yield reload()
+//   const v1 = formRequests[0]
+//   const v2 = clone(v1)
+//   v2[SIG] = crypto.randomBytes(128).toString('base64')
+//   v2[PERMALINK] = v2._permalink
+//   v2[PREVLINK] = v2._link
+//   buildResource.setVirtual(v2, {
+//     _time: Date.now(),
+//     _link: crypto.randomBytes(32).toString('hex')
+//   })
+
+//   objects.put(v2)
+//   yield table.put(v2)
+//   const {
+//     first,
+//     latest
+//   } = yield {
+//     first: yield table.get(v1._permalink),
+//     latest: yield table.latest(v1._permalink)
+//   }
+
+//   t.same(first, v1)
+//   t.same(latest, v2)
+//   yield table.del(v2._link)
+//   t.same(yield table.latest(v1._permalink), first)
+
+//   objects.put(v2)
+//   yield table.put(v2)
+//   const versions = yield table.getVersions({ permalink: v1._permalink })
+//   t.same(versions.sort(byLink), [v1, v2].sort(byLink))
+
+//   yield table.deleteAllVersions({ permalink: v1._permalink })
+//   try {
+//     const storedV1 = yield table.get(v1._permalink)
+//     t.fail('expected v1 to have been deleted')
+//   } catch (err) {
+//     t.notEqual(err.message.indexOf(v1._permalink), -1)
+//   }
+
+//   try {
+//     const storedV2 = yield table.get(v2._permalink)
+//     t.fail('expected v2 to have been deleted')
+//   } catch (err) {
+//     t.notEqual(err.message.indexOf(v2._permalink), -1)
+//   }
+
+//   t.end()
+// }))
 
 test('db', loudCo(function* (t) {
   yield reload()
@@ -462,7 +492,7 @@ test('db', loudCo(function* (t) {
   const permalink = req._permalink
   t.same(yield db.get({
     [TYPE]: type,
-    _link: link
+    _permalink: permalink
   }), req, 'db.get')
 
   t.same(yield db.latest({
@@ -472,13 +502,13 @@ test('db', loudCo(function* (t) {
 
   yield db.del({
     [TYPE]: type,
-    _link: link
+    _permalink: permalink
   })
 
   try {
     yield db.get({
       [TYPE]: type,
-      _link: link
+      _permalink: permalink
     })
 
     t.fail('expected NotFound error')
@@ -500,7 +530,7 @@ test('db', loudCo(function* (t) {
   yield db.put(req)
   t.same(yield db.get({
     [TYPE]: type,
-    _link: link
+    _permalink: permalink
   }), req)
 
   const searchResult = yield db.search({
@@ -519,6 +549,7 @@ test('db', loudCo(function* (t) {
 }))
 
 test('filters', loudCo(function* (t) {
+  yield reload()
   const type = 'tradle.PhotoID'
   const photoIds = fixtures.filter(item => item[TYPE] === type)
   // const byType = groupByType(fixtures)
@@ -650,6 +681,7 @@ test('filters', loudCo(function* (t) {
 }))
 
 test('addModels', loudCo(function* (t) {
+  yield reload()
   const A_TYPE = 'mynamespace.modelA'
   db.addModels({
     A_TYPE: {
@@ -669,6 +701,7 @@ test('addModels', loudCo(function* (t) {
 
   const a = {
     _link: 'alink',
+    _permalink: 'alink',
     _time: 1505941645561,
     [TYPE]: A_TYPE,
     a: 'a'
@@ -677,7 +710,8 @@ test('addModels', loudCo(function* (t) {
   yield db.put(a)
   t.same(yield db.get({
     [TYPE]: A_TYPE,
-    _link: a._link
+    _link: a._link,
+    _permalink: a._link
   }), a)
 
   t.end()
