@@ -280,6 +280,25 @@ function notNull (val) {
   return !!val
 }
 
+function minBy (arr, fn) {
+  let min
+  let minVal
+  for (const item of arr) {
+    if (typeof min === 'undefined') {
+      min = item
+      minVal = fn(item)
+    } else {
+      const val = fn(item)
+      if (val < minVal) {
+        min = item
+        minVal = val
+      }
+    }
+  }
+
+  return min
+}
+
 module.exports = {
   BaseObjectModel,
   fromResourceStub,
@@ -305,5 +324,6 @@ module.exports = {
   waitTillActive,
   getModelPrimaryKeys,
   getResourcePrimaryKeys,
-  getValues
+  getValues,
+  minBy
 }

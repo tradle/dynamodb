@@ -1,8 +1,10 @@
 
 module.exports = {
   minifiedFlag: '_cut',
+  separate: '_',
   defaultPrimaryKeys: {
-    hashKey: '_permalink'
+    hashKey: '_type',
+    rangeKey: '_permalink'
   },
   defaultIndexes: [
     // expensive

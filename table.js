@@ -51,7 +51,6 @@ function DynamoTable (opts) {
   opts = shallowClone(opts)
   const {
     models,
-    model,
     objects,
     prefix,
     suffix,
@@ -73,17 +72,16 @@ function DynamoTable (opts) {
     throw new Error('model is required')
   }
 
-  const {
-    joi=toJoi({ models, model })
-  } = opts
+  // const {
+  //   joi=toJoi({ models, model })
+  // } = opts
 
-  this.primaryKeys = hashKey
-    ? { hashKey, rangeKey }
-    : getModelPrimaryKeys(model)
+  // this.primaryKeys = hashKey
+  //   ? { hashKey, rangeKey }
+  //   : getModelPrimaryKeys(model)
 
-  this.hashKey = this.primaryKeys.hashKey
-  this.rangeKey = this.primaryKeys.rangeKey
-  this.indexes = indexes || getIndexes(model)
+  // this.hashKey = this.primaryKeys.hashKey
+  // this.rangeKey = this.primaryKeys.rangeKey
   this.opts = opts
   this.opts.defaultReadOptions = defaultReadOptions
   if (!this.opts.objects) {
@@ -117,8 +115,8 @@ function DynamoTable (opts) {
     timestamps: true,
     createdAt: false,
     updatedAt: '_dateUpdated',
-    schema: extend({}, joi, metadataTypes),
-    indexes: this.indexes,
+    schema: metadataTypes,
+    indexes: indexes || getIndexes(model),
     validation: {
       allowUnknown: true
     }
