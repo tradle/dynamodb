@@ -26,6 +26,7 @@ const {
   getValues,
   getTableName,
   getIndexes,
+  traverse,
   runWithBackoffOnTableNotExists,
   runWithBackoffWhile,
   waitTillActive,
@@ -246,7 +247,7 @@ DynamoTable.prototype.get = co(function* (primaryKeys) {
   if (!isActive(info)) return
 
   const { hashKey, rangeKey } = this._getPrimaryKeys(primaryKeys)
-  if (this.primaryKeys.hashKey  === '_link') {
+  if (this.primaryKeys.hashKey === '_link') {
     return this.opts.objects.get(hashKey)
   }
 
@@ -369,6 +370,7 @@ DynamoTable.prototype._write = co(function* (method, item, options) {
 })
 
 DynamoTable.prototype._validateResource = function (item) {
+  const self = this
   const { models, model, requireSigned } = this.opts
 
   if (item[TYPE] !== model.id) {
@@ -381,6 +383,16 @@ DynamoTable.prototype._validateResource = function (item) {
   }
 
   validateResource({ models, model, resource: item })
+  traverse(item).forEach(function (value) {
+    if (value === '') {
+      self._debug(
+        `object contains empty string at path ${this.path.join('.')}`,
+        JSON.stringify(item, null, 2)
+      )
+
+      throw new Error('object cannot contain empty string values')
+    }
+  })
 }
 
 DynamoTable.prototype._debug = function (...args) {
