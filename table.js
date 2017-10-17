@@ -59,6 +59,7 @@ function DynamoTable (opts) {
     docClient,
     createIfNotExists=true,
     requireSigned=true,
+    bodyInObjects=true,
     defaultReadOptions={},
     hashKey,
     rangeKey,
@@ -81,6 +82,8 @@ function DynamoTable (opts) {
 
   this.hashKey = this.primaryKeys.hashKey
   this.rangeKey = this.primaryKeys.rangeKey
+  this.indexes = indexes || getIndexes(model)
+  this.bodyInObjects = bodyInObjects
   this.opts = opts
   this.opts.defaultReadOptions = defaultReadOptions
   if (!this.opts.objects) {
@@ -115,7 +118,7 @@ function DynamoTable (opts) {
     createdAt: false,
     updatedAt: '_dateUpdated',
     schema: extend({}, joi, metadataTypes),
-    indexes: indexes || getIndexes(model),
+    indexes: this.indexes,
     validation: {
       allowUnknown: true
     }
@@ -247,7 +250,7 @@ DynamoTable.prototype.get = co(function* (primaryKeys) {
   if (!isActive(info)) return
 
   const { hashKey, rangeKey } = this._getPrimaryKeys(primaryKeys)
-  if (this.primaryKeys.hashKey === '_link') {
+  if (this.bodyInObjects && this.primaryKeys.hashKey === '_link') {
     return this.opts.objects.get(hashKey)
   }
 

@@ -4,7 +4,6 @@ const {
   extend,
   toObject,
   debug,
-  getIndexes,
   resultsToJson,
   sortResults,
   getQueryInfo,
@@ -47,7 +46,7 @@ FilterOp.prototype.exec = co(function* () {
     models,
     model,
     orderBy,
-    fullScanRequired,
+    resultsAreInOrder,
     filter,
     after,
     limit,
@@ -56,7 +55,12 @@ FilterOp.prototype.exec = co(function* () {
     index
   } = this
 
-  if (fullScanRequired) {
+  if (resultsAreInOrder) {
+    // results come back filtered, post-processed
+    result = yield this.collectInBatches()
+  } else {
+    // scan the whole table,
+    // otherwise we can't apply filter, orderBy
     result = yield exec(builder)
     yield this._postProcessResult(result)
     result.Items = filterResults({
@@ -65,20 +69,15 @@ FilterOp.prototype.exec = co(function* () {
       filter,
       results: result.Items
     })
-  } else {
-    result = yield this.collectInBatches()
   }
 
   let items = result.Items
-  // if (orderBy) {
-  // sort first
-  // when fullScanRequired === true, ExclusiveStartKey is meaningless
-  // because we first need to scan the whole table before we can sort
-  items = sortResults({
-    results: items,
-    orderBy
-  })
-  // }
+  if (!resultsAreInOrder) {
+    items = sortResults({
+      results: items,
+      orderBy
+    })
+  }
 
   if (after) {
     // if we're running a scan
@@ -164,18 +163,23 @@ FilterOp.prototype.collectInBatches = co(function* () {
 
   builder.limit(batchLimit)
 
-  const result = yield exec(builder)
-  yield this._postProcessResult(result)
-  result.Items = filterResults({
-    models,
-    model,
-    filter,
-    results: resultsToJson(result.Items)
-  })
+  const getNextBatch = co(function* (started) {
+    const promiseBatch = started ? exec(builder, 'continue') : exec(builder)
+    const batch = yield promiseBatch
+    yield this._postProcessResult(batch)
+    return batch
+  }).bind(this)
 
-  const getNextBatch = exec.bind(null, builder, 'continue')
-  while (result.Count < limit && builder.canContinue()) {
-    let batch = yield getNextBatch()
+  const result = {
+    Count: 0,
+    ScannedCount: 0,
+    Items: []
+  }
+
+  let started
+  do {
+    let batch = yield getNextBatch(started)
+    started = true
     if (batch.Count) {
       result.Count += batch.Count
       result.ScannedCount += batch.ScannedCount
@@ -188,7 +192,7 @@ FilterOp.prototype.collectInBatches = co(function* () {
     }
 
     if (!batch.LastEvaluatedKey) break
-  }
+  } while (result.Count < limit && builder.canContinue())
 
   return result
 })
@@ -197,12 +201,16 @@ FilterOp.prototype._postProcessResult = co(function* (result) {
   const { table, index } = this
   if (index && index.projection.ProjectionType !== 'ALL') {
     debug('inflating due to use of index')
-    result.Items = yield result.Items.map(table.inflate)
+    if (table.bodyInObjects) {
+      result.Items = yield result.Items.map(table.inflate)
+    } else {
+      result.Items = yield result.Items.map(table.get)
+    }
   }
 })
 
 FilterOp.prototype._addConditions = function () {
-  const { model, filter, after, opType, builder, fullScanRequired } = this
+  const { model, filter, after, opType, builder, resultsAreInOrder } = this
   const primaryKeys = getModelPrimaryKeys(model)
   const conditionBuilders = {
     where: builder.where && builder.where.bind(builder),
@@ -210,7 +218,7 @@ FilterOp.prototype._addConditions = function () {
   }
 
   if (after) {
-    if (!fullScanRequired) {
+    if (resultsAreInOrder) {
       builder.startKey(after)
     }
   }
@@ -247,11 +255,20 @@ FilterOp.prototype._addConditions = function () {
 }
 
 FilterOp.prototype._configureBuilder = function _configureBuilder () {
-  const { opType, filter, orderBy, table, queryProp, index, consistentRead } = this
+  const {
+    opType,
+    filter,
+    orderBy,
+    table,
+    queryProp,
+    index,
+    consistentRead,
+    resultsAreInOrder
+  } = this
+
   const { EQ } = filter
   const createBuilder = table[opType]
   let builder
-  let fullScanRequired = true
   // if (!orderBy) {
   //   orderBy = {
   //     property: queryProp || '_time'
@@ -268,8 +285,7 @@ FilterOp.prototype._configureBuilder = function _configureBuilder () {
       builder.usingIndex(index.name)
     }
 
-    if (orderBy.property === queryProp) {
-      fullScanRequired = false
+    if (!resultsAreInOrder) {
       if (orderBy.desc) {
         builder.descending()
       } else {
@@ -277,11 +293,11 @@ FilterOp.prototype._configureBuilder = function _configureBuilder () {
       }
     }
   } else {
-    // fullScanRequired = !!orderBy
+    // resultsAreInOrder = !!orderBy
     builder = createBuilder()
   }
 
-  if (fullScanRequired) {
+  if (!resultsAreInOrder) {
     debug('full scan required')
     builder.loadAll()
   }
@@ -291,7 +307,6 @@ FilterOp.prototype._configureBuilder = function _configureBuilder () {
   }
 
   this.builder = builder
-  this.fullScanRequired = fullScanRequired
 }
 
 // function usesNonPrimaryKeys ({ model, filter }) {

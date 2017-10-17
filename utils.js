@@ -122,12 +122,11 @@ function flatten (filter) {
 //   }, [])
 // }
 
-function getQueryInfo ({ table, model, filter }) {
-  const indexes = getIndexes({ model })
+function getQueryInfo ({ table, model, filter, orderBy }) {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
   const usedProps = getUsedProperties({ model, filter })
-  const { primaryKeys } = table
+  const { indexes, primaryKeys } = table
   const { hashKey, rangeKey } = primaryKeys
   const primaryKeysArr = getValues(primaryKeys)
   const indexedProps = indexes.map(index => index.hashKey)
@@ -145,18 +144,24 @@ function getQueryInfo ({ table, model, filter }) {
 
   let builder
   let queryProp
-  let fullScanRequired = true
+  let resultsAreInOrder
   let index
   if (opType === 'query') {
     // supported key condition operators:
     // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
-
     if (usedIndexedProps.includes(hashKey)) {
       queryProp = hashKey
+      if (orderBy.property === rangeKey) {
+        resultsAreInOrder = true
+      }
     } else {
       queryProp = usedIndexedProps[0]
       index = indexes.find(i => i.hashKey === queryProp)
+      if (orderBy.property === index.rangeKey) {
+        resultsAreInOrder = true
+      }
     }
+
   }
 
   const itemToPosition = function itemToPosition (item) {
@@ -178,7 +183,8 @@ function getQueryInfo ({ table, model, filter }) {
     queryProp,
     index,
     itemToPosition,
-    filterProps: usedProps
+    filterProps: usedProps,
+    resultsAreInOrder
   }
 }
 
