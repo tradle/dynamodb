@@ -17,6 +17,7 @@ module.exports = function createResolvers ({ db, objects, models, postProcess })
     return resultsToJson(result)
   })
 
+  const getByLink = objects && objects.get
   const get = co(function* ({ model, key }) {
     let result
     try {
@@ -50,6 +51,7 @@ module.exports = function createResolvers ({ db, objects, models, postProcess })
   const raw = {
     list,
     get,
+    getByLink,
     update
   }
 
