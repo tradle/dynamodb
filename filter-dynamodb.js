@@ -26,7 +26,9 @@ function FilterOp (opts) {
     orderBy=defaultOrderBy,
     limit=defaultLimit,
     after,
-    consistentRead
+    consistentRead,
+    forbidScan,
+    bodyInObjects
   } = opts
 
   extend(this, opts)
@@ -201,7 +203,7 @@ FilterOp.prototype._postProcessResult = co(function* (result) {
   const { table, index } = this
   if (index && index.projection.ProjectionType !== 'ALL') {
     debug('inflating due to use of index')
-    if (table.bodyInObjects) {
+    if (this.bodyInObjects) {
       result.Items = yield result.Items.map(table.inflate)
     } else {
       result.Items = yield result.Items.map(table.get)
@@ -293,11 +295,13 @@ FilterOp.prototype._configureBuilder = function _configureBuilder () {
       }
     }
   } else {
+    this._throwIfScanForbidden()
     // resultsAreInOrder = !!orderBy
     builder = createBuilder()
   }
 
   if (!resultsAreInOrder) {
+    this._throwIfScanForbidden()
     debug('full scan required')
     builder.loadAll()
   }
@@ -309,6 +313,25 @@ FilterOp.prototype._configureBuilder = function _configureBuilder () {
   this.builder = builder
 }
 
+FilterOp.prototype._throwIfScanForbidden = function () {
+  if (!this.forbidScan) return
+
+  const propsMap = (this.table.indexes || []).concat(this.table)
+    .map(({ rangeKey }) => rangeKey)
+    .filter(notNull)
+    .reduce((have, next) => {
+      have[next] = true
+      return have
+    }, {})
+
+  const props = Object.keys(propsMap)
+  const hint = props.length
+    ? `Specify a limit and one of the following orderBy properties: ${props.join(', ')}`
+    : ''
+
+  throw new Error(`this table does not allow scans or full reads. ${hint}`)
+}
+
 // function usesNonPrimaryKeys ({ model, filter }) {
 //   return props.some(prop => !indexed[prop])
 // }
@@ -316,5 +339,7 @@ FilterOp.prototype._configureBuilder = function _configureBuilder () {
 const isEmpty = obj => {
   return !obj || Object.keys(obj).length === 0
 }
+
+const notNull = val => !!val
 
 module.exports = opts => new FilterOp(opts).exec()

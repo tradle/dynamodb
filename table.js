@@ -60,6 +60,7 @@ function DynamoTable (opts) {
     createIfNotExists=true,
     requireSigned=true,
     bodyInObjects=true,
+    forbidScan,
     defaultReadOptions={},
     hashKey,
     rangeKey,
@@ -83,7 +84,6 @@ function DynamoTable (opts) {
   this.hashKey = this.primaryKeys.hashKey
   this.rangeKey = this.primaryKeys.rangeKey
   this.indexes = indexes || getIndexes(model)
-  this.bodyInObjects = bodyInObjects
   this.opts = opts
   this.opts.defaultReadOptions = defaultReadOptions
   if (!this.opts.objects) {
@@ -250,7 +250,7 @@ DynamoTable.prototype.get = co(function* (primaryKeys) {
   if (!isActive(info)) return
 
   const { hashKey, rangeKey } = this._getPrimaryKeys(primaryKeys)
-  if (this.bodyInObjects && this.primaryKeys.hashKey === '_link') {
+  if (this.opts.bodyInObjects && this.primaryKeys.hashKey === '_link') {
     return this.opts.objects.get(hashKey)
   }
 
@@ -495,8 +495,13 @@ DynamoTable.prototype.search = co(function* (options) {
   }
 
   options.table = this
-  options.model = this.opts.model
-  options.models = this.opts.models
+  Object.assign(options, pick(this.opts, [
+    'model',
+    'models',
+    'forbidScan',
+    'bodyInObjects'
+  ]))
+
   if (!('consistentRead' in options)) {
     options.consistentRead = this.opts.defaultReadOptions.consistentRead
   }
