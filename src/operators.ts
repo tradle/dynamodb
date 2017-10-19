@@ -1,4 +1,4 @@
-module.exports = {
+export = {
   EQ: {
     type: 'any'
   },

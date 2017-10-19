@@ -86,6 +86,6 @@ function forEachLeaf (obj, fn) {
   })
 }
 
-module.exports = {
+export {
   getComparators
 }

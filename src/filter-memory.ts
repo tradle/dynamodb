@@ -1,13 +1,15 @@
-const dotProp = require('dot-prop')
-const { getRef } = require('@tradle/validate-resource').utils
-const OPERATORS = require('./operators')
-const {
+import dotProp = require('dot-prop')
+import validateResource = require('@tradle/validate-resource')
+import { TYPE } from '@tradle/constants'
+import OPERATORS = require('./operators')
+const { getRef } = validateResource.utils
+import {
   debug,
   omit,
   deepEqual,
   fromResourceStub,
   BaseObjectModel
-} = require('./utils')
+} from './utils'
 
 const comparators = {
   EQ: isEqual,
@@ -24,7 +26,7 @@ const comparators = {
   NULL: ({ value, condition }) => condition ? !value : !!value,
 }
 
-module.exports = {
+export {
   filterResults,
   // matchesProps,
   isEqual,
@@ -44,7 +46,7 @@ module.exports = {
 //   })
 // }
 
-function isEqual ({ models, model, property, condition, value }) {
+function isEqual ({ models, property, condition, value }) {
   const type = property && property.type
   if (type !== 'array' && type !== 'object') {
     return deepEqual(condition, value)
@@ -64,9 +66,10 @@ function isEqual ({ models, model, property, condition, value }) {
   return metadata.link === value
 }
 
-function matchesFilter ({ models, model, object, filter }) {
+function matchesFilter ({ models, object, filter }) {
   if (!filter) return true
 
+  const model = models[object[TYPE]]
   for (let op in filter) {
     if (!(op in comparators)) {
       throw new Error(`operator "${op}" not supported (yet)`)
@@ -97,13 +100,13 @@ function matchesFilter ({ models, model, object, filter }) {
   return true
 }
 
-function filterResults ({ models, model, results, filter }) {
+function filterResults ({ models, results, filter }) {
   if (!filter || !Object.keys(filter).length) {
     return results
   }
 
   return results.filter(object => {
-    return matchesFilter({ models, model, object, filter })
+    return matchesFilter({ models, object, filter })
   })
 }
 

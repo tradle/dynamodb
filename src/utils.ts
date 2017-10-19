@@ -1,13 +1,12 @@
-const debug = require('debug')(require('./package.json').name)
-const bindAll = require('bindall')
-const clone = require('clone')
-const shallowClone = require('xtend')
-const extend = require('xtend/mutable')
-const deepEqual = require('deep-equal')
-const pick = require('object.pick')
-const omit = require('object.omit')
-const traverse = require('traverse')
-const co = require('co').wrap
+import crypto = require('crypto')
+const debug = require('debug')(require('../package.json').name)
+import bindAll = require('bindall')
+import clone = require('clone')
+import shallowClone = require('xtend')
+import extend = require('xtend/mutable')
+import deepEqual = require('deep-equal')
+import pick = require('object.pick')
+import omit = require('object.omit')
 const promisify = require('pify')
 const dotProp = require('dot-prop')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
@@ -75,7 +74,7 @@ function resultsToJson (items) {
   return items.toJSON ? items.toJSON() : items
 }
 
-function getUsedProperties ({ model, filter }) {
+function getUsedProperties (filter) {
   const flat = flatten(filter)
   return flat.reduce((all, obj) => {
     return all.concat(Object.keys(obj))
@@ -122,11 +121,11 @@ function flatten (filter) {
 //   }, [])
 // }
 
-function getQueryInfo ({ table, model, filter, orderBy }) {
+function getQueryInfo ({ bucket, filter, orderBy }) {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
-  const usedProps = getUsedProperties({ model, filter })
-  const { indexes, primaryKeys } = table
+  const usedProps = getUsedProperties(filter)
+  const { indexes, primaryKeys } = bucket
   const { hashKey, rangeKey } = primaryKeys
   const primaryKeysArr = getValues(primaryKeys)
   const indexedProps = indexes.map(index => index.hashKey)
@@ -194,7 +193,7 @@ function runWithBackoffOnTableNotExists (fn, opts={}) {
   return runWithBackoffWhile(fn, opts)
 }
 
-const runWithBackoffWhile = co(function* (fn, opts) {
+const runWithBackoffWhile = async (fn, opts) => {
   const {
     initialDelay=1000,
     maxAttempts=10,
@@ -209,7 +208,7 @@ const runWithBackoffWhile = co(function* (fn, opts) {
   let attempts = 0
   while (Date.now() - start < maxTime && attempts++ < maxAttempts) {
     try {
-      return yield fn()
+      return await fn()
     } catch (err) {
       if (!shouldTryAgain(err)) {
         throw err
@@ -219,22 +218,22 @@ const runWithBackoffWhile = co(function* (fn, opts) {
       if (!haveTime) break
 
       millisToWait = Math.min(maxDelay, millisToWait * factor)
-      yield wait(millisToWait)
+      await wait(millisToWait)
     }
   }
 
   throw new Error('timed out')
-})
+}
 
 function wait (millis) {
   return new Promise(resolve => setTimeout(resolve, millis))
 }
 
-const waitTillActive = co(function* (table) {
+const waitTillActive = async (table) => {
   const { tableName } = table
   const notReadyErr = new Error('not ready')
-  yield runWithBackoffWhile(co(function* () {
-    const { Table: { TableStatus } } = yield table.describeTable()
+  await runWithBackoffWhile(async () => {
+    const { Table: { TableStatus } } = await table.describeTable()
     switch (TableStatus) {
       case 'CREATING':
       case 'UPDATING':
@@ -248,12 +247,12 @@ const waitTillActive = co(function* (table) {
         debug(table.tableName, message)
         throw new Error(message)
     }
-  }), {
+  }, {
     initialDelay: 1000,
     maxDelay: 10000,
     shouldTryAgain: err => err === notReadyErr
   })
-})
+}
 
 function getModelPrimaryKeys (model) {
   return model.primaryKeys || defaultPrimaryKeys
@@ -280,30 +279,82 @@ function notNull (val) {
   return !!val
 }
 
-function minBy (arr, fn) {
+function minBy<T> (arr:T[], fn:(T, i:number) => number):T {
   let min
   let minVal
-  for (const item of arr) {
+  arr.forEach((item, i) => {
     if (typeof min === 'undefined') {
       min = item
-      minVal = fn(item)
+      minVal = fn(item, i)
     } else {
-      const val = fn(item)
+      const val = fn(item, i)
       if (val < minVal) {
         min = item
         minVal = val
       }
     }
-  }
+  })
 
   return min
 }
 
-module.exports = {
+function sha256 (data):string {
+  return crypto.createHash('sha256').update(data).digest('hex')
+}
+
+function defaultBackoffFunction (retryCount) {
+  const delay = Math.pow(2, retryCount) * 500
+  return Math.min(jitter(delay, 0.1), 10000)
+}
+
+function jitter (val, percent) {
+  // jitter by val * percent
+  // eslint-disable-next-line no-mixed-operators
+  return val * (1 + 2 * percent * Math.random() - percent)
+}
+
+const tableNameErrMsg = "Table/index names must be between 3 and 255 characters long, and may contain only the characters a-z, A-Z, 0-9, '_', '-', and '.'"
+const tableNameRegex = /^[a-zA-Z0-9-_.]{3,}$/
+const validateTableName = (name:string) => {
+  if (!tableNameRegex.test(name)) {
+    throw new Error(`invalid table name "${name}", ${tableNameErrMsg}`)
+  }
+}
+
+const expectedFilterTypeErrMsg = `filter.EQ.${[TYPE]} is required`
+const getFilterType = (opts):string => {
+  const { filter } = opts
+  const EQ = filter && filter.EQ
+  const type = EQ && EQ[TYPE]
+  if (typeof type !== 'string') {
+    throw new Error(expectedFilterTypeErrMsg)
+  }
+
+  return type
+}
+
+const lazyDefine = (obj:any, keys:string[], definer:Function):void => {
+  keys.forEach(key => {
+    let cachedValue
+    Object.defineProperty(obj, key, {
+      get: () => {
+        if (!cachedValue) {
+          cachedValue = definer(key)
+        }
+
+        return cachedValue
+      },
+      set: value => {
+        cachedValue = value
+      }
+    })
+  })
+}
+
+const utils = {
   BaseObjectModel,
   fromResourceStub,
   sortResults,
-  co,
   promisify,
   debug,
   clone,
@@ -313,7 +364,6 @@ module.exports = {
   deepEqual,
   pick,
   omit,
-  traverse,
   toObject,
   getIndexes,
   getTableName,
@@ -325,5 +375,13 @@ module.exports = {
   getModelPrimaryKeys,
   getResourcePrimaryKeys,
   getValues,
-  minBy
+  minBy,
+  sha256,
+  wait,
+  defaultBackoffFunction,
+  validateTableName,
+  getFilterType,
+  lazyDefine
 }
+
+export = utils

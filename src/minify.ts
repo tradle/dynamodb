@@ -2,16 +2,14 @@ const { TYPE } = require('@tradle/constants')
 const { pick, shallowClone, debug, getIndexes } = require('./utils')
 const { minifiedFlag } = require('./constants')
 
-module.exports = minify
-
-const MINIFY_PREFERENCES = [
+const MINIFY_PREFERENCES:Array<(...any) => boolean> = [
   stripEmbeddedMedia,
   stripBigValues,
   stripOptional,
   stripAll
 ]
 
-function minify ({ item, model, maxSize }) {
+export default function minify ({ item, model, maxSize }) {
   if (!maxSize || maxSize === Infinity) {
     return { min: item, diff: {} }
   }
@@ -77,7 +75,7 @@ function getRef (property) {
   return property.items && property.items.ref
 }
 
-function stripEmbeddedMedia ({ value, property }) {
+function stripEmbeddedMedia ({ value, property }):boolean {
   if (getRef(property) === 'tradle.Photo') {
     if (value && value.url && /data:/.test(value.url)) {
       return false
@@ -87,11 +85,11 @@ function stripEmbeddedMedia ({ value, property }) {
   return true // don't strip
 }
 
-function stripBigValues ({ value }) {
+function stripBigValues ({ value }):boolean {
   return byteLength(value) < 100
 }
 
-function stripOptional ({ model, propertyName }) {
+function stripOptional ({ model, propertyName }):boolean {
   return isRequired({ model, propertyName })
 }
 

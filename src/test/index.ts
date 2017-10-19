@@ -1,17 +1,18 @@
-const crypto = require('crypto')
-const test = require('tape')
-const co = require('co').wrap
-const clone = require('clone')
-const dynogels = require('dynogels')
-const { TYPE, SIG, PREVLINK, PERMALINK } = require('@tradle/constants')
-const buildResource = require('@tradle/build-resource')
-const mergeModels = require('@tradle/merge-models')
+require('source-map-support').install()
+
+import crypto = require('crypto')
+import test = require('tape')
+import dynogels = require('dynogels')
+import { TYPE, SIG, PREVLINK, PERMALINK } from '@tradle/constants'
+import buildResource = require('@tradle/build-resource')
+import mergeModels = require('@tradle/merge-models')
 const models = mergeModels()
   .add(require('@tradle/models').models)
   .add(require('@tradle/custom-models'))
   .get()
 
-const minify = require('../minify')
+import { OrderBy } from '../types'
+import minify from '../minify'
 const { defaultOrderBy } = require('../constants')
 const {
   debug,
@@ -20,15 +21,16 @@ const {
   runWithBackoffOnTableNotExists
 } = require('../utils')
 
-dynogels.log = {
-  info: debug,
-  warn: debug,
-  level: 'info'
-}
+// dynogels.log = {
+//   info: debug,
+//   warn: debug,
+//   level: 'info'
+// }
 
 const fixtures = require('./fixtures')
+const FORM_REQUEST = 'tradle.FormRequest'
 const formRequests = fixtures
-  .filter(fixture => fixture[TYPE] === 'tradle.FormRequest')
+  .filter(fixture => fixture[TYPE] === FORM_REQUEST)
   .slice(0, 20)
 
 const photoIds = fixtures
@@ -52,12 +54,12 @@ const docClient = new AWS.DynamoDB.DocumentClient({ endpoint })
 const objects = (function () {
   const cache = {}
   const api = {
-    get: co(function* (link) {
+    get: async (link) => {
       const match = cache[link]
       if (match) return match
 
       throw new Error('NotFound')
-    }),
+    },
     put: item => {
       cache[item._link] = item
     }
@@ -67,24 +69,29 @@ const objects = (function () {
   return api
 }())
 
-const tradleDynamo = require('../')
+import { DB } from '../'
 let db
 let table
-let counter = 0
+let offset = Date.now()
 
-const reload = co(function* () {
-  db = tradleDynamo.db({
-    objects,
-    models,
-    maxItemSize: 4000,
-    docClient,
-    validate: false,
-    prefix: 'tradle-dynamodb-test-' + Date.now() + (counter++)
+const reload = async () => {
+  const prefix = '' + (offset++)
+  db = new DB({
+    tableNames: ['a', 'b', 'c', 'd', 'e'].map(name => prefix + name),
+    tableOpts: {
+      objects,
+      models,
+      maxItemSize: 4000,
+      docClient,
+      validate: false,
+    }
   })
 
-  table = db.tables['tradle.FormRequest']
-  yield table.batchPut(formRequests)
-})
+  await db.createTables()
+  await db.batchPut(formRequests)
+  // table = db.tables[FORM_REQUEST]
+  // await db.batchPut(formRequests)
+}
 
 test('minify (big values)', function (t) {
   const bigMsg = {
@@ -208,7 +215,7 @@ test('sortResults', function (t) {
   t.end()
 })
 
-test('backoff after create', loudCo(function* (t) {
+test('backoff after create', loudAsync(async (t) => {
   const backoffOpts = {
     initialDelay: 50,
     maxDelay: 100,
@@ -224,20 +231,20 @@ test('backoff after create', loudCo(function* (t) {
   const errThatCausesExit = new Error('nay')
   errThatCausesExit.name = 'ResourceIsStupidException'
 
-  let result = yield runWithBackoffOnTableNotExists(co(function* () {
+  let result = await runWithBackoffOnTableNotExists(async () => {
     if (failsLeft-- > 0) {
       throw errThatCausesBackoff
     }
 
     return expectedResult
-  }), backoffOpts)
+  }, backoffOpts)
 
   t.equal(result, expectedResult)
 
   try {
-    result = yield runWithBackoffOnTableNotExists(co(function* () {
+    result = await runWithBackoffOnTableNotExists(async () => {
       throw errThatCausesExit
-    }), backoffOpts)
+    }, backoffOpts)
 
     t.fail('expected error')
   } catch (err) {
@@ -246,9 +253,9 @@ test('backoff after create', loudCo(function* (t) {
 
   const start = Date.now()
   try {
-    result = yield runWithBackoffOnTableNotExists(co(function* () {
+    result = await runWithBackoffOnTableNotExists(async () => {
       throw errThatCausesBackoff
-    }), backoffOpts)
+    }, backoffOpts)
 
     t.fail('expected operation to time out')
   } catch (err) {
@@ -263,52 +270,29 @@ test('backoff after create', loudCo(function* (t) {
   t.end()
 }))
 
-test('no autocreate on read/del', loudCo(function* (t) {
-  yield reload()
-  try {
-    yield table.destroy()
-  } catch (err) {
-    if (err.code !== 'ResourceNotFoundException') {
-      throw err
+test('basic pagination', loudAsync(async (t) => {
+  await reload()
+  const filter = {
+    EQ: {
+      [TYPE]: FORM_REQUEST
     }
   }
 
-  const { create } = table
-  table.create = () => {
-    t.fail('should not create table on read or del ops')
-    return Promise.resolve()
-  }
-
-  t.notOk(yield table.get('some resource id'))
-  t.same(yield table.search({
-    filter: {
-      EQ: {
-        form: 'tradle.AboutYou'
-      }
-    }
-  }), { items: [] })
-
-  yield table.del('some resource id')
-
-  // restore
-  table.create = create
-  t.end()
-}))
-
-test('basic pagination', loudCo(function* (t) {
-  yield reload()
-  const page1 = yield table.search({
+  const page1 = await db.find({
+    filter,
     limit: 5
   })
 
   t.same(page1.items, formRequests.slice(0, 5))
-  const page2 = yield table.search({
+  const page2 = await db.find({
+    filter,
     after: page1.endPosition,
     limit: 5
   })
 
   t.same(page2.items, formRequests.slice(5, 10))
-  const page3 = yield table.search({
+  const page3 = await db.find({
+    filter,
     after: page2.endPosition
   })
 
@@ -316,29 +300,38 @@ test('basic pagination', loudCo(function* (t) {
   t.end()
 }))
 
-test('orderBy', loudCo(function* (t) {
-  yield reload()
+test('orderBy', loudAsync(async (t) => {
+  await reload()
+  const filter = {
+    EQ: {
+      [TYPE]: FORM_REQUEST
+    }
+  }
+
   const expected = formRequests.slice()
-  const orderBy = {
+  const orderBy:OrderBy = {
     property: 'form'
   }
 
   sortResults({ results: expected, orderBy })
 
-  const page1 = yield table.search({
+  const page1 = await db.find({
+    filter,
     orderBy,
     limit: 5
   })
 
   t.same(page1.items, expected.slice(0, 5))
-  const page2 = yield table.search({
+  const page2 = await db.find({
+    filter,
     after: page1.endPosition,
     orderBy,
     limit: 5
   })
 
   t.same(page2.items, expected.slice(5, 10))
-  const page3 = yield table.search({
+  const page3 = await db.find({
+    filter,
     after: page2.endPosition,
     orderBy
   })
@@ -347,10 +340,11 @@ test('orderBy', loudCo(function* (t) {
 
   // and in reverse
   expected.reverse()
-  orderBy.descending = true
+  orderBy.desc = true
 
   sortResults({ results: expected, orderBy })
-  const desc1 = yield table.search({
+  const desc1 = await db.find({
+    filter,
     orderBy,
     limit: 5
   })
@@ -360,8 +354,8 @@ test('orderBy', loudCo(function* (t) {
   t.end()
 }))
 
-test('indexed props', loudCo(function* (t) {
-  yield reload()
+test('indexed props', loudAsync(async (t) => {
+  await reload()
   const _author = formRequests[0]._author
   const expected = formRequests.slice()
     .filter(fr => fr._author === _author)
@@ -369,23 +363,26 @@ test('indexed props', loudCo(function* (t) {
   t.ok(expected.length >= 20)
 
   const orderBy = {
-    property: '_author'
+    property: '_time'
   }
 
   const filter = {
-    EQ: { _author }
+    EQ: {
+      [TYPE]: FORM_REQUEST,
+      _author
+    }
   }
 
   sortResults({ results: expected, orderBy })
 
-  const page1 = yield table.search({
+  const page1 = await db.find({
     orderBy,
     filter,
     limit: 5
   })
 
   t.same(page1.items, expected.slice(0, 5))
-  const page2 = yield table.search({
+  const page2 = await db.find({
     after: page1.endPosition,
     filter,
     orderBy,
@@ -393,7 +390,7 @@ test('indexed props', loudCo(function* (t) {
   })
 
   t.same(page2.items, expected.slice(5, 10))
-  const page3 = yield table.search({
+  const page3 = await db.find({
     after: page2.endPosition,
     filter,
     orderBy,
@@ -404,12 +401,12 @@ test('indexed props', loudCo(function* (t) {
   t.end()
 }))
 
-test('latest', loudCo(function* (t) {
-  yield reload()
+test('latest', loudAsync(async (t) => {
+  await reload()
   const v1 = formRequests[0]
-  yield table.put(v1)
+  await db.put(v1)
 
-  const v2 = clone(v1)
+  const v2 = { ...v1 }
   v2[SIG] = crypto.randomBytes(128).toString('base64')
   v2[PERMALINK] = v2._permalink
   v2[PREVLINK] = v2._link
@@ -419,7 +416,8 @@ test('latest', loudCo(function* (t) {
   })
 
   try {
-    yield table.put(v2)
+    await db.put(v2)
+    t.fail('conditional check should have failed')
   } catch (err) {
     t.equals(err.name, 'ConditionalCheckFailedException')
   }
@@ -429,13 +427,17 @@ test('latest', loudCo(function* (t) {
     _link: crypto.randomBytes(32).toString('hex')
   })
 
-  yield table.put(v2)
-  t.same(yield table.get(v2._permalink), v2)
+  await db.put(v2)
+  t.same(await db.get({
+    [TYPE]: FORM_REQUEST,
+    _permalink: v2._permalink
+  }), v2)
+
   t.end()
 }))
 
-// test('latest', loudCo(function* (t) {
-//   yield reload()
+// test('latest', loudAsync(async (t) => {
+//   await reload()
 //   const v1 = formRequests[0]
 //   const v2 = clone(v1)
 //   v2[SIG] = crypto.randomBytes(128).toString('base64')
@@ -447,35 +449,35 @@ test('latest', loudCo(function* (t) {
 //   })
 
 //   objects.put(v2)
-//   yield table.put(v2)
+//   await db.put(v2)
 //   const {
 //     first,
 //     latest
-//   } = yield {
-//     first: yield table.get(v1._permalink),
-//     latest: yield table.latest(v1._permalink)
+//   } = await {
+//     first: await db.get(v1._permalink),
+//     latest: await db.latest(v1._permalink)
 //   }
 
 //   t.same(first, v1)
 //   t.same(latest, v2)
-//   yield table.del(v2._link)
-//   t.same(yield table.latest(v1._permalink), first)
+//   await db.del(v2._link)
+//   t.same(await db.latest(v1._permalink), first)
 
 //   objects.put(v2)
-//   yield table.put(v2)
-//   const versions = yield table.getVersions({ permalink: v1._permalink })
+//   await db.put(v2)
+//   const versions = await db.getVersions({ permalink: v1._permalink })
 //   t.same(versions.sort(byLink), [v1, v2].sort(byLink))
 
-//   yield table.deleteAllVersions({ permalink: v1._permalink })
+//   await db.deleteAllVersions({ permalink: v1._permalink })
 //   try {
-//     const storedV1 = yield table.get(v1._permalink)
+//     const storedV1 = await db.get(v1._permalink)
 //     t.fail('expected v1 to have been deleted')
 //   } catch (err) {
 //     t.notEqual(err.message.indexOf(v1._permalink), -1)
 //   }
 
 //   try {
-//     const storedV2 = yield table.get(v2._permalink)
+//     const storedV2 = await db.get(v2._permalink)
 //     t.fail('expected v2 to have been deleted')
 //   } catch (err) {
 //     t.notEqual(err.message.indexOf(v2._permalink), -1)
@@ -484,29 +486,29 @@ test('latest', loudCo(function* (t) {
 //   t.end()
 // }))
 
-test('db', loudCo(function* (t) {
-  yield reload()
+test('db', loudAsync(async (t) => {
+  await reload()
   const req = formRequests[0]
   const type = req[TYPE]
   const link = req._link
   const permalink = req._permalink
-  t.same(yield db.get({
+  t.same(await db.get({
     [TYPE]: type,
     _permalink: permalink
   }), req, 'db.get')
 
-  t.same(yield db.latest({
+  t.same(await db.latest({
     [TYPE]: type,
     _permalink: permalink
   }), req, 'db.latest')
 
-  yield db.del({
+  await db.del({
     [TYPE]: type,
     _permalink: permalink
   })
 
   try {
-    yield db.get({
+    await db.get({
       [TYPE]: type,
       _permalink: permalink
     })
@@ -517,7 +519,7 @@ test('db', loudCo(function* (t) {
   }
 
   try {
-    yield db.latest({
+    await db.latest({
       [TYPE]: type,
       _permalink: permalink
     })
@@ -527,13 +529,13 @@ test('db', loudCo(function* (t) {
     t.equal(err.name, 'NotFound')
   }
 
-  yield db.put(req)
-  t.same(yield db.get({
+  await db.put(req)
+  t.same(await db.get({
     [TYPE]: type,
     _permalink: permalink
   }), req)
 
-  const searchResult = yield db.search({
+  const searchResult = await db.find({
     filter: {
       EQ: {
         [TYPE]: type,
@@ -548,14 +550,14 @@ test('db', loudCo(function* (t) {
   t.end()
 }))
 
-test('filters', loudCo(function* (t) {
-  yield reload()
+test('filters', loudAsync(async (t) => {
+  await reload()
   const type = 'tradle.PhotoID'
   const photoIds = fixtures.filter(item => item[TYPE] === type)
   // const byType = groupByType(fixtures)
   // photoIds.forEach(objects.put)
-  yield db.batchPut(photoIds)
-  // yield Object.keys(byType).map(type => {
+  await db.batchPut(photoIds)
+  // await Object.keys(byType).map(type => {
   //   if (db.tables[type]) {
   //     return db.batchPut(byType[type])
   //   }
@@ -571,7 +573,7 @@ test('filters', loudCo(function* (t) {
     properties: ['_time', '_author', '_link']
   })
 
-  const tests = orderByCombinations.map(orderBy => co(function* () {
+  const tests = orderByCombinations.map(orderBy => async () => {
     const first = photoIds[0]
     let expected
 
@@ -582,7 +584,7 @@ test('filters', loudCo(function* (t) {
 
     sortResults({ results: expected, orderBy })
 
-    const countryIdStartsWith = yield db.search({
+    const countryIdStartsWith = await db.find({
       orderBy,
       filter: {
         EQ: {
@@ -603,7 +605,7 @@ test('filters', loudCo(function* (t) {
 
     sortResults({ results: expected, orderBy })
 
-    const photoIdsGt = yield db.search({
+    const photoIdsGt = await db.find({
       orderBy,
       filter: {
         EQ: {
@@ -624,7 +626,7 @@ test('filters', loudCo(function* (t) {
 
     sortResults({ results: expected, orderBy })
 
-    const photoIdsIn = yield db.search({
+    const photoIdsIn = await db.find({
       orderBy,
       filter: {
         EQ: {
@@ -641,7 +643,7 @@ test('filters', loudCo(function* (t) {
     expected = []
     sortResults({ results: expected, orderBy })
 
-    const photoIdsCountryNull = yield db.search({
+    const photoIdsCountryNull = await db.find({
       orderBy,
       filter: {
         EQ: {
@@ -658,7 +660,7 @@ test('filters', loudCo(function* (t) {
     expected = photoIds.slice()
     sortResults({ results: expected, orderBy })
 
-    const photoIdsCountryNotNull = yield db.search({
+    const photoIdsCountryNotNull = await db.find({
       orderBy,
       filter: {
         EQ: {
@@ -671,20 +673,20 @@ test('filters', loudCo(function* (t) {
     })
 
     t.same(photoIdsCountryNotNull.items, expected, 'country not null')
-  }))
+  })
 
   for (const test of tests) {
-    yield test()
+    await test()
   }
 
   t.end()
 }))
 
-test('addModels', loudCo(function* (t) {
-  yield reload()
+test('addModels', loudAsync(async (t) => {
+  await reload()
   const A_TYPE = 'mynamespace.modelA'
   db.addModels({
-    A_TYPE: {
+    [A_TYPE]: {
       type: 'tradle.Model',
       id: A_TYPE,
       title: 'A',
@@ -696,8 +698,8 @@ test('addModels', loudCo(function* (t) {
     }
   })
 
-  t.ok(A_TYPE in db.tables, 'models added dynamically')
-  t.ok(A_TYPE in db.tables[A_TYPE].opts.models, 'latest models propagated in options to table')
+  t.ok(db.tables[A_TYPE], 'models added dynamically')
+  t.ok(db.tables[A_TYPE].opts.models, 'latest models propagated in options to table')
 
   const a = {
     _link: 'alink',
@@ -707,17 +709,17 @@ test('addModels', loudCo(function* (t) {
     a: 'a'
   }
 
-  yield db.put(a)
-  t.same(yield db.get({
+  await db.put(a)
+  t.same(await db.get({
     [TYPE]: A_TYPE,
-    _link: a._link,
     _permalink: a._link
   }), a)
 
   t.end()
 }))
 
-test('custom primary keys', loudCo(function* (t) {
+test('custom primary keys', loudAsync(async (t) => {
+  await reload()
   const ALIEN_CLASSIFIER = 'mynamespace.Alien'
   const alienModel = {
     type: 'tradle.Model',
@@ -744,6 +746,12 @@ test('custom primary keys', loudCo(function* (t) {
     [ALIEN_CLASSIFIER]: alienModel
   })
 
+  db.setExclusive({
+    model: alienModel
+  })
+
+  await db.tables[ALIEN_CLASSIFIER].create()
+
   const updatedModels = db.models
   const alien = buildResource({
       models: updatedModels,
@@ -757,10 +765,10 @@ test('custom primary keys', loudCo(function* (t) {
     })
     .toJSON()
 
-  yield db.put(alien)
-  t.same(yield db.get(alien), alien)
+  await db.put(alien)
+  t.same(await db.get(alien), alien)
 
-  const searchResult = yield db.search({
+  const searchResult = await db.find({
     orderBy: {
       property: 'fingerCount'
     },
@@ -780,15 +788,15 @@ test('custom primary keys', loudCo(function* (t) {
   t.end()
 }))
 
-function loudCo (gen) {
-  return co(function* (...args) {
+function loudAsync (asyncFn) {
+  return async (...args) => {
     try {
-      return yield co(gen).apply(this, args)
+      return await asyncFn(...args)
     } catch (err) {
       console.error(err)
       throw err
     }
-  })
+  }
 }
 
 function prettify (obj) {

@@ -1,7 +1,7 @@
 {
   "name": "@tradle/dynamodb",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "lib/index.js",
   "repository": "https://github.com/tradle/dynamodb",
   "author": "Mark Vayngrib <mark@tradle.io>",
   "license": "MIT",
@@ -13,19 +13,22 @@
     "@tradle/models": "github:tradle/models",
     "@tradle/schema-joi": "github:tradle/schema-joi",
     "@tradle/validate-model": "^2.2.0",
-    "@tradle/validate-resource": "^2.10.1",
+    "@tradle/validate-resource": "^2.12.0",
+    "@types/node": "^8.0.46",
     "aws-sdk": "^2.100.0",
     "commitizen": "^2.9.6",
     "cz-conventional-changelog": "^2.0.0",
     "eslint": "^3.19.0",
     "husky": "^0.13.3",
-    "tape": "^4.6.3"
+    "tape": "^4.6.3",
+    "typescript": "^2.5.3"
   },
   "scripts": {
-    "test": "node test",
+    "test": "npm run copy-static-assets && node lib/test",
     "lint": "eslint --quiet --ignore-path .gitignore .",
     "prepush": "npm test",
-    "commit": "git-cz"
+    "commit": "git-cz",
+    "copy-static-assets": "cp src/test/fixtures.json lib/test/"
   },
   "dependencies": {
     "@tradle/constants": "^2.1.0",
@@ -37,10 +40,10 @@
     "dot-prop": "^4.2.0",
     "dynogels": "github:mvayngrib/dynogels",
     "error-ex": "^1.3.1",
+    "fast-levenshtein": "^2.0.6",
     "object.omit": "^2.0.1",
     "object.pick": "^1.2.0",
     "pify": "^3.0.0",
-    "traverse": "^0.6.6",
     "typeforce": "^1.11.1",
     "xtend": "^4.0.1"
   },
