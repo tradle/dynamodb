@@ -1,7 +1,6 @@
 const ex = require('error-ex')
-const errors = {}
-;[
-  'NotFound'
-].forEach(name => errors[name] = ex(name))
+const NotFound = ex('NotFound')
 
-module.exports = errors
+export {
+  NotFound
+}

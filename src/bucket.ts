@@ -23,7 +23,7 @@ import {
 } from './utils'
 
 import minify from './minify'
-import Errors = require('./errors')
+import { NotFound } from './errors'
 import filterDynamoDB from './filter-dynamodb'
 import OPERATORS = require('./operators')
 import {
@@ -220,7 +220,7 @@ export default class Bucket extends EventEmitter {
     })
 
     if (!result) {
-      throw new Errors.NotFound(`query: ${JSON.stringify(query)}`)
+      throw new NotFound(`query: ${JSON.stringify(query)}`)
     }
 
     const resource = await this._maybeInflate(this.fromDBFormat(result.toJSON()))

@@ -7,12 +7,13 @@ import extend = require('xtend/mutable')
 import deepEqual = require('deep-equal')
 import pick = require('object.pick')
 import omit = require('object.omit')
-const promisify = require('pify')
-const dotProp = require('dot-prop')
+import promisify = require('pify')
+import dotProp = require('dot-prop')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
-const { TYPE } = require('@tradle/constants')
-const { defaultPrimaryKeys, defaultIndexes, defaultOrderBy } = require('./constants')
-const OPERATORS = require('./operators')
+import { TYPE } from '@tradle/constants'
+import { defaultPrimaryKeys, defaultIndexes, defaultOrderBy } from './constants'
+import OPERATORS = require('./operators')
+import { OrderBy } from './types'
 
 function getTableName ({ model, prefix='', suffix='' }) {
   const name = (model.id || model).replace(/[.]/g, '_')
@@ -23,7 +24,10 @@ function getIndexes (model) {
   return defaultIndexes.slice()
 }
 
-function sortResults ({ results, orderBy=defaultOrderBy }) {
+function sortResults ({ results, orderBy=defaultOrderBy }: {
+  results:any[],
+  orderBy?:OrderBy
+}) {
   const { property, desc } = orderBy
   const asc = !desc // easier to think about
   if (property === defaultOrderBy.property) {

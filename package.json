@@ -2,6 +2,7 @@
   "name": "@tradle/dynamodb",
   "version": "1.0.0",
   "main": "lib/index.js",
+  "types": "lib/typings.d.ts",
   "repository": "https://github.com/tradle/dynamodb",
   "author": "Mark Vayngrib <mark@tradle.io>",
   "license": "MIT",
