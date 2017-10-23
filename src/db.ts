@@ -12,7 +12,7 @@ import {
 } from './utils'
 
 import Bucket from './bucket'
-import { IIndex, IBucketOpts, Models, BucketChooser, FindOpts } from './types'
+import { DynogelIndex, IBucketOpts, Models, BucketChooser, FindOpts } from './types'
 import { NotFound } from './errors'
 const { isInstantiable } = validateResource.utils
 
@@ -36,7 +36,6 @@ export default class DB {
   public exclusive: { [key:string]: Bucket }
   private tableOpts: IBucketOpts
   private tableBucketNames: string[]
-  // private tableNameHashes: string[]
   private _choose:BucketChooser
   constructor ({
     tableOpts,
@@ -51,22 +50,12 @@ export default class DB {
 
     const { models, objects } = tableOpts
     this.tableBucketNames = tableNames
-    // this.tableNameHashes = tableNames.map(sha256)
-    this.models = models
     this.objects = objects
     this.tableOpts = { ...tableOpts }
     this.exclusive = {}
     this.setModels(models)
     this._choose = chooseTable
   }
-
-  // public getTableForType = (type:string):Bucket => {
-  //   return this.exclusive[type] || this.tables[type]
-  // }
-
-  // public getTableForModel = (model):Bucket => {
-  //   return this.getTableForType(model.id)
-  // }
 
   public setExclusive = ({ name, model, opts, table }: {
     model: any,

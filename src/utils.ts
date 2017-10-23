@@ -10,11 +10,23 @@ import omit = require('object.omit')
 import promisify = require('pify')
 import dotProp = require('dot-prop')
 import levenshtein = require('fast-levenshtein')
-const BaseObjectModel = require('@tradle/models')['tradle.Object']
+import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
 import { defaultPrimaryKeys, defaultIndexes, defaultOrderBy } from './constants'
 import OPERATORS = require('./operators')
-import { IIndex, OrderBy, BucketChooser } from './types'
+import {
+  Model,
+  Models,
+  DynogelIndex,
+  DynogelTableDefinition,
+  OrderBy,
+  BucketChooser
+} from './types'
+
+import BaseObjectModel from './object-model'
+const metadataTypes = toJoi({
+  model: BaseObjectModel
+})
 
 const levenshteinDistance = (a:string, b:string) => levenshtein.get(a, b)
 
@@ -358,8 +370,58 @@ const lazyDefine = (obj:any, keys:string[], definer:Function):void => {
   })
 }
 
+const getIndexForPrimaryKeys = ({ model }: {
+  model:Model
+}):DynogelIndex => {
+  return {
+    ...model.primaryKeys,
+    type: 'global',
+    name: model.primaryKeys.hashKey,
+    projection: {
+      ProjectionType: 'KEYS_ONLY'
+    }
+  }
+}
+
+const getTableDefinitionForModel = ({ models, model }: {
+  models: Models,
+  model:Model
+}):DynogelTableDefinition => {
+  const primaryKeys = model.primaryKeys || defaultPrimaryKeys
+  return {
+    // values are prefixed with type
+    ...primaryKeys,
+    tableName: getTableName({ model }),
+    timestamps: true,
+    createdAt: false,
+    updatedAt: '_dateModified',
+    schema: toJoi({ models, model }),
+    indexes: model.primaryKeys ? [] : defaultIndexes,
+    validation: {
+      allowUnknown: true
+    }
+  }
+}
+
+const getDefaultTableDefinition = ({ tableName }: {
+  tableName:string
+}):DynogelTableDefinition => {
+  return {
+    // values are prefixed with type
+    ...defaultPrimaryKeys,
+    tableName,
+    timestamps: true,
+    createdAt: false,
+    updatedAt: '_dateModified',
+    schema: metadataTypes,
+    indexes: defaultIndexes,
+    validation: {
+      allowUnknown: true
+    }
+  }
+}
+
 const utils = {
-  BaseObjectModel,
   fromResourceStub,
   sortResults,
   promisify,
@@ -389,7 +451,10 @@ const utils = {
   validateTableName,
   getFilterType,
   lazyDefine,
-  levenshteinDistance
+  levenshteinDistance,
+  getIndexForPrimaryKeys,
+  getTableDefinitionForModel,
+  getDefaultTableDefinition
 }
 
 export = utils

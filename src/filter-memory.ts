@@ -7,9 +7,10 @@ import {
   debug,
   omit,
   deepEqual,
-  fromResourceStub,
-  BaseObjectModel
+  fromResourceStub
 } from './utils'
+
+import BaseObjectModel from './object-model'
 
 const comparators = {
   EQ: isEqual,

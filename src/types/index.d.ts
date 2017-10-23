@@ -4,7 +4,7 @@ import AWS = require('aws-sdk')
 
 type IndexType = 'global'|'local'
 
-export interface IIndex {
+export type DynogelIndex = {
   hashKey: string
   rangeKey?: string
   name: string
@@ -17,6 +17,7 @@ export interface IIndex {
 export type Model = {
   id: string
   properties: any
+  primaryKeys?: KeyProps
 }
 
 export type Models = {
@@ -29,10 +30,15 @@ export interface Objects {
   [key: string]: any
 }
 
+export type ReadOptions = {
+  consistentRead?: boolean
+}
+
 export interface IBucketOpts {
   models: Models
   objects: Objects
   docClient: AWS.DynamoDB.DocumentClient
+  tableDefinition?: DynogelTableDefinition
   requireSigned?: boolean
   validate?: boolean
   exclusive?: boolean
@@ -41,9 +47,9 @@ export interface IBucketOpts {
   rangeKey?: string
   forbidScan?: boolean
   bodyInObjects?: boolean
-  defaultReadOptions?: any
+  defaultReadOptions?: ReadOptions
   maxItemSize?: number
-  indexes?: IIndex[]
+  indexes?: DynogelIndex[]
 }
 
 export type KeyProps = {
@@ -104,4 +110,16 @@ export type FindOpts = {
   select?: string[]
   after?: any
   limit?: number
+}
+
+export type DynogelTableDefinition = {
+  tableName: string,
+  hashKey: string
+  rangeKey?: string
+  schema: any
+  indexes?: DynogelIndex[]
+  timestamps?: boolean
+  createdAt?: string|boolean
+  updatedAt?: string|boolean
+  validation?: any
 }

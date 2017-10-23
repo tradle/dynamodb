@@ -1,13 +1,20 @@
 import { EventEmitter } from 'events'
 import dynogels = require('dynogels')
 import { TYPE, SIG } from '@tradle/constants'
-import toJoi = require('@tradle/schema-joi')
 import BaseModels = require('@tradle/models')
 import validateResource = require('@tradle/validate-resource')
 import promisify = require('pify')
-import { minifiedFlag, batchWriteLimit, defaultOrderBy, defaultIndexes } from './constants'
 import {
-  IIndex,
+  minifiedFlag,
+  batchWriteLimit,
+  defaultOrderBy,
+  defaultIndexes,
+  defaultPrimaryKeys
+} from './constants'
+
+import {
+  DynogelIndex,
+  DynogelTableDefinition,
   KeyProps,
   IBucketOpts,
   BackoffOptions,
@@ -15,7 +22,8 @@ import {
   Model,
   Models,
   BucketChooser,
-  FindOpts
+  FindOpts,
+  ReadOptions
 } from './types'
 
 import {
@@ -29,7 +37,10 @@ import {
   validateTableName,
   getFilterType,
   getValues,
-  getTableName
+  getTableName,
+  getIndexForPrimaryKeys,
+  getDefaultTableDefinition,
+  getTableDefinitionForModel
 } from './utils'
 
 import minify from './minify'
@@ -43,27 +54,14 @@ import {
   getUniquePrefix
 } from './prefix'
 
-const DEFAULT_PRIMARY_KEYS:KeyProps = {
-  hashKey: '_tpermalink'
-}
+import BaseObjectModel from './object-model'
 
 // TODO: add this prop to tradle.Object
-const DATE_MODIFIED_PROPERTY = '_dateModified'
 
-const BaseObjectModel = clone(BaseModels['tradle.Object'])
-BaseObjectModel.properties._tpermalink = {
-  type: 'string',
-  virtual: true
-}
-
-BaseObjectModel.required.push('_tpermalink')
 const DONT_PREFIX = Object.keys(BaseObjectModel.properties)
-const metadataTypes = toJoi({
-  model: BaseObjectModel
-})
 
 const defaultOpts = {
-  maxresourceSize: Infinity,
+  maxItemSize: Infinity,
   requireSigned: true,
   bodyInObjects: true,
   forbidScan: false,
@@ -83,9 +81,9 @@ export default class Bucket extends EventEmitter {
   public model?:Model
   private opts:any
   private modelsStored:Models
-  private indexes:IIndex[]
+  private indexes:DynogelIndex[]
   private _prefix:{[key:string]: string}
-  private tableDef:any
+  private tableDefinition:DynogelTableDefinition
   private table:any
   private exclusive:boolean
   private findOpts:object
@@ -113,7 +111,8 @@ export default class Bucket extends EventEmitter {
       forbidScan,
       bodyInObjects,
       defaultReadOptions={},
-      indexes
+      indexes,
+      tableDefinition
     } = this.opts
 
     if (exclusive && !model) {
@@ -128,9 +127,10 @@ export default class Bucket extends EventEmitter {
     this.model = model
     this._prefix = {}
     if (exclusive) {
+      this.modelsStored[model.id] = model
       this.primaryKeys = primaryKeys || model.primaryKeys
     } else {
-      this.primaryKeys = DEFAULT_PRIMARY_KEYS
+      this.primaryKeys = defaultPrimaryKeys
     }
 
     this.findOpts = pick(opts, [
@@ -178,9 +178,15 @@ export default class Bucket extends EventEmitter {
   }
 
   public addModel = ({ model, indexes }: {
-    model,
-    indexes?:IIndex[]
+    model: Model,
+    indexes?:DynogelIndex[]
   }) => {
+    if (this.exclusive) {
+      if (model.id === this.model.id) return
+
+      throw new Error(`this table is exclusive to type: ${model.id}`)
+    }
+
     if (!this.modelsStored[model.id]) {
       this.modelsStored[model.id] = model
       this._debug(`will store resources of model ${model.id}`)
@@ -202,8 +208,8 @@ export default class Bucket extends EventEmitter {
       }
     }))
 
-    this.tableDef = this._getTableDef()
-    this.emit('def:update')
+    this.tableDefinition.indexes = this.indexes
+    this._defineTable()
   }
 
   public get = async (query, opts={}):Promise<any> => {
@@ -327,7 +333,7 @@ export default class Bucket extends EventEmitter {
   public destroy = async ():Promise<void> => {
     this._debug('destroy() table')
     try {
-      await this.table.destroyTable()
+      await this.table.deleteTable()
     } catch (err) {
       if (err.code === 'ResourceNotFoundException') {
         this._debug('table does not exist')
@@ -344,32 +350,20 @@ export default class Bucket extends EventEmitter {
     debug(...args)
   }
 
-  private _getTableDef = () => {
-    const { models, model } = this
-    return {
-      // values are prefixed with type
-      ...this.primaryKeys,
-      tableName: this.name,
-      timestamps: true,
-      createdAt: false,
-      updatedAt: DATE_MODIFIED_PROPERTY,
-      schema: this.exclusive
-        ? toJoi({ models, model })
-        : metadataTypes,
-      indexes: this.indexes,
-      validation: {
-        allowUnknown: true
+  private _defineTable = () => {
+    if (!this.tableDefinition) {
+      this._debug('using default definition for table')
+      if (this.exclusive) {
+        const { models, model } = this
+        this.tableDefinition = getTableDefinitionForModel({ models, model })
+      } else {
+        this.tableDefinition = getDefaultTableDefinition({
+          tableName: this.name
+        })
       }
     }
-  }
 
-  private _defineTable = () => {
-    if (!this.tableDef) {
-      this._debug('using default definition for table')
-      this.tableDef = this._getTableDef()
-    }
-
-    const table = dynogels.define(this.name, this.tableDef)
+    const table = dynogels.define(this.name, this.tableDefinition)
     this.table = promisify(table, {
       include: [
         'createTable',

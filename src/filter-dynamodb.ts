@@ -15,7 +15,7 @@ import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
 import { defaultOrderBy, defaultLimit } from './constants'
-import { OrderBy, Models, IIndex } from './types'
+import { OrderBy, Models, DynogelIndex } from './types'
 import Bucket from './bucket'
 
 class FilterOp {
@@ -30,7 +30,7 @@ class FilterOp {
   public queryProp:string
   public opType:string
   public itemToPosition:Function
-  public index?:IIndex
+  public index?:DynogelIndex
   public forbidScan:boolean
   public bodyInObjects:boolean
   public consistentRead:boolean

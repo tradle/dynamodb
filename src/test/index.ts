@@ -73,11 +73,31 @@ import { DB } from '../'
 let db
 let table
 let offset = Date.now()
+let lastCreated = []
+
+const cleanup = async () => {
+  if (!lastCreated.length) return
+
+  db = new DB({
+    tableNames: lastCreated,
+    tableOpts: {
+      objects,
+      models,
+      maxItemSize: 4000,
+      docClient,
+      validate: false,
+    }
+  })
+
+  await db.destroyTables()
+}
 
 const reload = async () => {
+  await cleanup()
   const prefix = '' + (offset++)
+  lastCreated = ['a', 'b', 'c', 'd', 'e'].map(name => prefix + name)
   db = new DB({
-    tableNames: ['a', 'b', 'c', 'd', 'e'].map(name => prefix + name),
+    tableNames: lastCreated,
     tableOpts: {
       objects,
       models,
@@ -787,6 +807,11 @@ test('custom primary keys', loudAsync(async (t) => {
 
   t.end()
 }))
+
+test('cleanup', async (t) => {
+  await cleanup()
+  t.end()
+})
 
 function loudAsync (asyncFn) {
   return async (...args) => {
