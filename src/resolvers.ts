@@ -8,7 +8,13 @@ import {
 } from './utils'
 
 import filterDynamodb from './filter-dynamodb'
-import { Model, Models, Objects } from './types'
+import {
+  Model,
+  Models,
+  Objects,
+  Filter,
+  OrderBy
+} from './types'
 import DB from './db'
 
 export = function createResolvers ({ db, objects, models, postProcess }: {
@@ -44,12 +50,18 @@ export = function createResolvers ({ db, objects, models, postProcess }: {
     return result ? resultsToJson(result) : null
   }
 
-  const list = async ({ model, select, filter={}, orderBy, limit, after }) => {
-    if (!filter.EQ) {
-      filter.EQ = {}
-    }
-
+  const list = async ({ model, select, filter, orderBy, limit, after }: {
+    model: Model
+    select?: string[]
+    filter?: Filter,
+    orderBy?: OrderBy,
+    limit?: number
+    after?: any
+  }) => {
+    if (!filter) filter = { EQ: {} }
+    if (!filter.EQ) filter.EQ = {}
     filter.EQ[TYPE] = model.id
+
     return db.find({
       select,
       filter,

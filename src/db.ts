@@ -7,12 +7,24 @@ import {
   getTableName,
   validateTableName,
   getFilterType,
-  lazyDefine
+  lazyDefine,
+  levenshteinDistance,
 } from './utils'
+
 import Bucket from './bucket'
-import { IBucketOpts, Models } from './types'
+import { IIndex, IBucketOpts, Models, BucketChooser, FindOpts } from './types'
 import { NotFound } from './errors'
 const { isInstantiable } = validateResource.utils
+
+const defaultBucketChooser:BucketChooser = ({
+  tables,
+  type
+}) => {
+  return minBy(
+    tables,
+    (table, i) => levenshteinDistance(sha256(type), sha256(table.name))
+  )
+}
 
 export default class DB {
   public models: any
@@ -24,21 +36,28 @@ export default class DB {
   public exclusive: { [key:string]: Bucket }
   private tableOpts: IBucketOpts
   private tableBucketNames: string[]
-  private tableNameHashes: string[]
-  constructor ({ tableOpts, tableNames }: {
+  // private tableNameHashes: string[]
+  private _choose:BucketChooser
+  constructor ({
+    tableOpts,
+    tableNames,
+    chooseTable=defaultBucketChooser
+  }: {
     tableNames: string[]
     tableOpts: IBucketOpts
+    chooseTable?: BucketChooser
   }) {
     tableNames.forEach(validateTableName)
 
     const { models, objects } = tableOpts
     this.tableBucketNames = tableNames
-    this.tableNameHashes = tableNames.map(sha256)
+    // this.tableNameHashes = tableNames.map(sha256)
     this.models = models
     this.objects = objects
     this.tableOpts = { ...tableOpts }
     this.exclusive = {}
     this.setModels(models)
+    this._choose = chooseTable
   }
 
   // public getTableForType = (type:string):Bucket => {
@@ -71,13 +90,13 @@ export default class DB {
   }
 
   public choose = (type:string):Bucket => {
-    const hash = sha256(type)
-    const tableName = minBy(this.tableBucketNames, (name, i) => {
-      return Bucket.distanceRaw(hash, this.tableNameHashes[i])
+    const table = this._choose({
+      tables: this.tableBucketNames.map(name => this.tablesByName[name]),
+      type
     })
 
     // save alias
-    const table = this.tables[type] = this.tablesByName[tableName]
+    this.tables[type] = table
     table.addModel({
       model: this.models[type]
     })
@@ -117,7 +136,7 @@ export default class DB {
     }))
   }
 
-  public find = async (opts) => {
+  public find = async (opts:FindOpts) => {
     const type = getFilterType(opts)
     return this.tables[type].find(opts)
   }
@@ -168,9 +187,9 @@ export default class DB {
     )
 
     for (let id in this.exclusive) {
-      let { name } = this.exclusive[id]
-      this.tables[name] = table
-      this.tablesByName[name] = table
+      let table = this.exclusive[id]
+      this.tables[table.model.id] = table
+      this.tablesByName[table.name] = table
     }
   }
 

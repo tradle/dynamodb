@@ -1,5 +1,6 @@
 
 import AWS = require('aws-sdk')
+// import Bucket from '../bucket'
 
 type IndexType = 'global'|'local'
 
@@ -55,7 +56,52 @@ export type BackoffOptions = {
   maxTries: number
 }
 
+// export type BucketChooser = ({
+//   buckets:Bucket[],
+//   type:string
+// }) => Bucket
+
+
+export type BucketChooserInput = {
+  tables:Bucket[]
+  type:string
+}
+
+export type BucketChooser = (BucketChooserInput) => Bucket
+
+export type Pojo = {
+  [key: string]: any
+}
+
+export type EQ = {
+  _t: string
+  [key: string]: any
+}
+
+export type Filter = {
+  EQ
+  NEQ?: Pojo
+  NULL?: Pojo
+  IN?: any[]
+  BETWEEN?: any[]
+  STARTS_WITH?: Pojo
+  CONTAINS?: Pojo
+  NOT_CONTAINS?: Pojo
+  LT?: string|number
+  LTE?: string|number
+  GT?: string|number
+  GTE?: string|number
+}
+
 export type OrderBy = {
   property: string
   desc?: boolean
+}
+
+export type FindOpts = {
+  filter?: Filter
+  orderBy?: OrderBy
+  select?: string[]
+  after?: any
+  limit?: number
 }

@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events'
-import levenshtein = require('fast-levenshtein')
 import dynogels = require('dynogels')
 import { TYPE, SIG } from '@tradle/constants'
 import toJoi = require('@tradle/schema-joi')
@@ -7,7 +6,18 @@ import BaseModels = require('@tradle/models')
 import validateResource = require('@tradle/validate-resource')
 import promisify = require('pify')
 import { minifiedFlag, batchWriteLimit, defaultOrderBy, defaultIndexes } from './constants'
-import { IIndex, KeyProps, IBucketOpts, BackoffOptions } from './types'
+import {
+  IIndex,
+  KeyProps,
+  IBucketOpts,
+  BackoffOptions,
+  Objects,
+  Model,
+  Models,
+  BucketChooser,
+  FindOpts
+} from './types'
+
 import {
   debug,
   wait,
@@ -66,21 +76,13 @@ const defaultBackoffOpts:BackoffOptions = {
   maxTries: 6
 }
 
-function distance (a, b) {
-  return levenshtein.get(a, b)
-}
-
-// function getClosestBucket (str, buckets) {
-//   const hash = sha256(str)
-//   return minBy(buckets, candidate => distance(candidate, hash))
-// }
-
 export default class Bucket extends EventEmitter {
   public name:string
-  public models:any
-  public objects:any
+  public models:Models
+  public objects:Objects
+  public model?:Model
   private opts:any
-  private modelsStored:{[key:string]: any}
+  private modelsStored:Models
   private indexes:IIndex[]
   private _prefix:{[key:string]: string}
   private tableDef:any
@@ -89,12 +91,6 @@ export default class Bucket extends EventEmitter {
   private findOpts:object
   private primaryKeys:KeyProps
   private primaryKeyProps:string[]
-  public static distance = (a:string, b:string):number => {
-    return Bucket.distanceRaw(sha256(a), b)
-  }
-
-  public static distanceRaw = (a:string, b:string):number => distance(a, b)
-
   get hashKey() {
     return this.primaryKeys.hashKey
   }
@@ -278,7 +274,7 @@ export default class Bucket extends EventEmitter {
     await this._write('update', resource)
   }
 
-  public find = async (opts) => {
+  public find = async (opts:FindOpts) => {
     opts = {
       ...this.findOpts,
       ...clone(opts),

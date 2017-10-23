@@ -9,11 +9,14 @@ import pick = require('object.pick')
 import omit = require('object.omit')
 import promisify = require('pify')
 import dotProp = require('dot-prop')
+import levenshtein = require('fast-levenshtein')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
 import { TYPE } from '@tradle/constants'
 import { defaultPrimaryKeys, defaultIndexes, defaultOrderBy } from './constants'
 import OPERATORS = require('./operators')
-import { OrderBy } from './types'
+import { IIndex, OrderBy, BucketChooser } from './types'
+
+const levenshteinDistance = (a:string, b:string) => levenshtein.get(a, b)
 
 function getTableName ({ model, prefix='', suffix='' }) {
   const name = (model.id || model).replace(/[.]/g, '_')
@@ -385,7 +388,8 @@ const utils = {
   defaultBackoffFunction,
   validateTableName,
   getFilterType,
-  lazyDefine
+  lazyDefine,
+  levenshteinDistance
 }
 
 export = utils
