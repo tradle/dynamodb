@@ -7,4 +7,9 @@ copy.properties[typeAndPermalinkProperty] = {
   virtual: true
 }
 
+copy.properties._dateModified = {
+  type: 'number',
+  virtual: true
+}
+
 export default copy
