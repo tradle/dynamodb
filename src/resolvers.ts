@@ -38,7 +38,7 @@ export = function createResolvers ({ db, objects, models, postProcess }: {
   const get = async ({ model, key }: { model: Model, key: any }) => {
     let result
     try {
-      result = await db.get(model.id, key)
+      result = await db.get(key)
     } catch (err) {
       if (err.name && err.name.toLowerCase() === 'notfound') {
         return null
