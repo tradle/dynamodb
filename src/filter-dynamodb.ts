@@ -155,7 +155,7 @@ class FilterOp {
       }
     }
 
-    if (!endPosition) {
+    if (items.length && !endPosition) {
       const length = Math.min(limit, items.length)
       endPosition = itemToPosition(items[length - 1])
     }

@@ -184,6 +184,8 @@ function getQueryInfo ({ table, filter, orderBy }) {
   }
 
   const itemToPosition = function itemToPosition (item) {
+    if (!item) throw new Error('expected database record')
+
     if (queryProp === hashKey || opType === 'scan') {
       return pick(item, [hashKey])
     }

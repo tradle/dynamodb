@@ -147,9 +147,14 @@ export default class Table extends EventEmitter {
     this.findOpts.primaryKeys = this.primaryKeys
     this.primaryKeyProps = getValues(this.primaryKeys)
 
-    // easier to think of everything as indexes
-    // even the main table schema
-    this.indexes = indexes || defaultIndexes.slice()
+    if (tableDefinition) {
+      if (indexes) throw new Error('expected "tableDefinition" or "indexes" but not both')
+
+      this.indexes = tableDefinition.indexes
+    } else {
+      // easier to think of everything as indexes
+      // even the main table schema
+      this.indexes = indexes || defaultIndexes.slice()
       // {
       //   ...this.primaryKeys,
       //   name: this.primaryKeys.hashKey,
@@ -158,6 +163,7 @@ export default class Table extends EventEmitter {
       //     ProjectionType: 'ALL'
       //   }
       // }
+    }
 
     // invalidate cached table
     if (exclusive) {
@@ -194,6 +200,10 @@ export default class Table extends EventEmitter {
     }
 
     if (!(indexes && indexes.length)) return
+
+    if (this.opts.tableDefinition) {
+      throw new Error(`can't add indexes to table with pre-defined "tableDefinition"`)
+    }
 
     this.indexes = this.indexes.concat(indexes.map(index => {
       return {
@@ -581,7 +591,6 @@ export default class Table extends EventEmitter {
     if (resource._tpermalink) return resource._tpermalink
 
     if (!(resource._permalink && resource[TYPE])) {
-      debugger
       throw new Error(`missing one of required props: _permalink, ${TYPE}`)
     }
 
