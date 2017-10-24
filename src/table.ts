@@ -87,6 +87,7 @@ export default class Table extends EventEmitter {
   private tableDefinition:DynogelTableDefinition
   private table:any
   private exclusive:boolean
+  private readOnly:boolean
   private findOpts:object
   private primaryKeys:KeyProps
   private primaryKeyProps:string[]
@@ -110,6 +111,7 @@ export default class Table extends EventEmitter {
       primaryKeys,
       requireSigned,
       forbidScan,
+      readOnly,
       bodyInObjects,
       defaultReadOptions={},
       indexes,
@@ -124,6 +126,7 @@ export default class Table extends EventEmitter {
     this.models = models
     this.objects = objects
     this.modelsStored = {}
+    this.readOnly = readOnly
     this.exclusive = exclusive
     this.model = model
     this._prefix = {}
@@ -249,6 +252,8 @@ export default class Table extends EventEmitter {
   }
 
   public del = async (query, opts={}):Promise<any> => {
+    this._ensureWritable()
+
     query = this.toDBFormat(query)
     const keys = getValues(this.getPrimaryKeys(query))
     const result = await this.table.destroy(...keys, opts)
@@ -260,6 +265,8 @@ export default class Table extends EventEmitter {
     resources:any[],
     backoffOpts=defaultBackoffOpts
   ) => {
+    this._ensureWritable()
+
     const { maxItemSize } = this.opts
     resources.forEach(this._validateResource)
 
@@ -486,6 +493,8 @@ export default class Table extends EventEmitter {
   }
 
   private _write = async (method:string, resource:any):Promise<void> => {
+    this._ensureWritable()
+
     const type = resource[TYPE]
     const model = this.modelsStored[type]
     if (!model) throw new Error(`model not found: ${type}`)
@@ -599,6 +608,12 @@ export default class Table extends EventEmitter {
     }
 
     return prefixString(resource._permalink, resource[TYPE])
+  }
+
+  private _ensureWritable = () => {
+    if (this.readOnly) {
+      throw new Error('this table is read-only!')
+    }
   }
 
   // private getPrimaryKeys = (props:string|any):KeyProps => {

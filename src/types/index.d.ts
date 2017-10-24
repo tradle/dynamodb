@@ -44,6 +44,7 @@ export interface ITableOpts {
   hashKey?: string
   rangeKey?: string
   forbidScan?: boolean
+  readOnly?: boolean
   bodyInObjects?: boolean
   defaultReadOptions?: ReadOptions
   maxItemSize?: number

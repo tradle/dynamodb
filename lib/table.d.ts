@@ -13,6 +13,7 @@ export default class Table extends EventEmitter {
     private tableDefinition;
     private table;
     private exclusive;
+    private readOnly;
     private findOpts;
     private primaryKeys;
     private primaryKeyProps;
@@ -62,4 +63,5 @@ export default class Table extends EventEmitter {
     private _batchPut;
     private getPrimaryKeys;
     private calcTypeAndPermalinkProperty;
+    private _ensureWritable;
 }
