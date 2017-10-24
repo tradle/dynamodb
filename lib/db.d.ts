@@ -30,6 +30,8 @@ export default class DB extends EventEmitter {
     }) => void;
     choose: (type: string) => Table;
     put: (item: any) => Promise<void>;
+    update: (resource: any) => Promise<void>;
+    merge: (resource: any) => Promise<void>;
     get: (keys: any) => Promise<any>;
     latest: (keys: any) => Promise<any>;
     del: (keys: any) => Promise<void>;

@@ -291,6 +291,10 @@ export default class Table extends EventEmitter {
     await this._write('update', resource)
   }
 
+  public merge = async (resource):Promise<void> => {
+    await this.update(resource)
+  }
+
   public find = async (opts:FindOpts) => {
     opts = {
       ...this.findOpts,

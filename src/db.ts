@@ -104,6 +104,14 @@ export default class DB extends EventEmitter {
     await this.tables[item[TYPE]].put(item)
   }
 
+  public update = async (resource):Promise<void> => {
+    return await this.tables[resource[TYPE]].update(resource)
+  }
+
+  public merge = async (resource):Promise<void> => {
+    return await this.tables[resource[TYPE]].merge(resource)
+  }
+
   public get = async (keys:any):Promise<any> => {
     return await this.tables[keys[TYPE]].get(keys)
   }
