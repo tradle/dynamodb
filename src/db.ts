@@ -1,3 +1,4 @@
+import { EventEmitter } from 'events'
 import validateResource = require('@tradle/validate-resource')
 import { TYPE } from '@tradle/constants'
 import {
@@ -26,7 +27,7 @@ const defaultBucketChooser:BucketChooser = ({
   )
 }
 
-export default class DB {
+export default class DB extends EventEmitter {
   public models: any
   public objects: any
   // bucket name => bucket
@@ -46,6 +47,8 @@ export default class DB {
     tableOpts: IBucketOpts
     chooseTable?: BucketChooser
   }) {
+    super()
+
     tableNames.forEach(validateTableName)
 
     const { models, objects } = tableOpts
@@ -83,6 +86,10 @@ export default class DB {
       tables: this.tableBucketNames.map(name => this.tablesByName[name]),
       type
     })
+
+    if (!table) {
+      throw new Error(`table not found for type ${type}`)
+    }
 
     // save alias
     this.tables[type] = table
@@ -155,7 +162,9 @@ export default class DB {
   }
 
   public addModels = (models:Models):void => {
-    this.setModels({ ...this.models, ...models })
+    if (Object.keys(models).length) {
+      this.setModels({ ...this.models, ...models })
+    }
   }
 
   public setModels = (models:Models):void => {
@@ -180,6 +189,8 @@ export default class DB {
       this.tables[table.model.id] = table
       this.tablesByName[table.name] = table
     }
+
+    this.emit('update:models', { models })
   }
 
   private _getTablesNames = ():string[] => {

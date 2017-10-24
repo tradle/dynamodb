@@ -1,6 +1,6 @@
 
 import AWS = require('aws-sdk')
-// import Bucket from '../bucket'
+import Bucket from '../bucket'
 
 type IndexType = 'global'|'local'
 

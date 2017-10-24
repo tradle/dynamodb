@@ -421,6 +421,43 @@ const getDefaultTableDefinition = ({ tableName }: {
   }
 }
 
+const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):DynogelTableDefinition => {
+  const { TableName, KeySchema, GlobalSecondaryIndexes, AttributeDefinitions } = cloudformation
+  const hashKey = KeySchema.find(key => key.KeyType === 'HASH').AttributeName
+  const rangeKeyDef = KeySchema.find(key => key.KeyType === 'RANGE')
+  const rangeKey = rangeKeyDef && rangeKeyDef.AttributeName
+  const indexes = GlobalSecondaryIndexes.map(toDynogelIndexDefinition)
+  const schema = {}
+  return {
+    tableName: TableName,
+    hashKey,
+    rangeKey,
+    schema: {},
+    indexes,
+    timestamps: false,
+    createdAt: false,
+    updatedAt: false,
+    validation: {
+      allowUnknown: true
+    }
+  }
+}
+
+const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryIndex):DynogelIndex => {
+  const { KeySchema, Projection, ProvisionedThroughput, IndexName } = cloudformation
+  const hashKey = KeySchema.find(key => key.KeyType === 'HASH').AttributeName
+  const rangeKeyDef = KeySchema.find(key => key.KeyType === 'RANGE')
+  return {
+    hashKey,
+    name: IndexName,
+    type: 'global',
+    rangeKey: rangeKeyDef && rangeKeyDef.AttributeName,
+    projection: {
+      ProjectionType: Projection.ProjectionType
+    }
+  }
+}
+
 const utils = {
   fromResourceStub,
   sortResults,
@@ -454,7 +491,9 @@ const utils = {
   levenshteinDistance,
   getIndexForPrimaryKeys,
   getTableDefinitionForModel,
-  getDefaultTableDefinition
+  getDefaultTableDefinition,
+  toDynogelTableDefinition,
+  toDynogelIndexDefinition,
 }
 
 export = utils
