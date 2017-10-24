@@ -16,7 +16,7 @@ import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
 import { defaultOrderBy, defaultLimit } from './constants'
 import { OrderBy, Models, DynogelIndex } from './types'
-import Bucket from './bucket'
+import Table from './table'
 
 class FilterOp {
   public models:Models
@@ -36,10 +36,10 @@ class FilterOp {
   public consistentRead:boolean
   public primaryKeys:any
   public builder:any
-  public bucket:Bucket
+  public table:Table
   constructor (opts) {
     const {
-      bucket,
+      table,
       models,
       filter={},
       orderBy=defaultOrderBy,
@@ -60,16 +60,16 @@ class FilterOp {
 
     const type = filter.EQ[TYPE]
     this.prefixedOrderBy = {
-      property: bucket.prefixKey({
+      property: table.prefixKey({
         type,
-        key: orderBy.property || bucket.rangeKey
+        key: orderBy.property || table.rangeKey
       }),
       desc: orderBy.desc
     }
 
     for (let operator in OPERATORS) {
       if (operator in filter) {
-        this.prefixedFilter[operator] = bucket.prefixPropertiesForType(type, filter[operator])
+        this.prefixedFilter[operator] = table.prefixPropertiesForType(type, filter[operator])
       }
     }
 
@@ -104,7 +104,7 @@ class FilterOp {
       // results come back filtered, post-processed
       result = await this.collectInBatches()
     } else {
-      // scan the whole bucket,
+      // scan the whole table,
       // otherwise we can't apply filter, orderBy
       result = await exec(builder)
       await this._postProcessResult(result)
@@ -174,7 +174,7 @@ class FilterOp {
   }
 
   collectInBatches = async () => {
-    const { models, bucket, filter, limit, index, builder } = this
+    const { models, table, filter, limit, index, builder } = this
 
     // limit how many items dynamodb iterates over before filtering
     // this is different from the sql-like notion of limit
@@ -221,13 +221,13 @@ class FilterOp {
   }
 
   _postProcessResult = async (result) => {
-    const { bucket, index } = this
+    const { table, index } = this
     if (index && index.projection.ProjectionType !== 'ALL') {
       this._debug('inflating due to use of index')
       if (this.bodyInObjects) {
-        result.Items = await result.Items.map(bucket.inflate)
+        result.Items = await Promise.all(result.Items.map(table.inflate))
       } else {
-        result.Items = await result.Items.map(bucket.get)
+        result.Items = await Promise.all(result.Items.map(table.get))
       }
     }
   }
@@ -281,7 +281,7 @@ class FilterOp {
       opType,
       filter,
       orderBy,
-      bucket,
+      table,
       queryProp,
       index,
       consistentRead,
@@ -290,7 +290,7 @@ class FilterOp {
 
     const { EQ } = filter
     const { type } = EQ
-    const createBuilder = bucket[opType]
+    const createBuilder = table[opType]
     let builder
     // if (!orderBy) {
     //   orderBy = {
@@ -328,7 +328,8 @@ class FilterOp {
       builder.loadAll()
     }
 
-    if (consistentRead) {
+    // indexes cannot be queried with consistent read
+    if (consistentRead && !index) {
       builder.consistentRead()
     }
 
@@ -338,7 +339,7 @@ class FilterOp {
   _throwIfScanForbidden = function () {
     if (!this.forbidScan) return
 
-    const propsMap = (this.bucket.indexes || []).concat(this.bucket)
+    const propsMap = (this.table.indexes || []).concat(this.table)
       .map(({ rangeKey }) => rangeKey)
       .filter(notNull)
       .reduce((have, next) => {

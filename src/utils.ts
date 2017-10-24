@@ -10,6 +10,7 @@ import omit = require('object.omit')
 import promisify = require('pify')
 import dotProp = require('dot-prop')
 import levenshtein = require('fast-levenshtein')
+import AWS = require('aws-sdk')
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
 import { defaultPrimaryKeys, defaultIndexes, defaultOrderBy } from './constants'
@@ -20,7 +21,7 @@ import {
   DynogelIndex,
   DynogelTableDefinition,
   OrderBy,
-  BucketChooser
+  TableChooser
 } from './types'
 
 import BaseObjectModel from './object-model'
@@ -140,11 +141,11 @@ function flatten (filter) {
 //   }, [])
 // }
 
-function getQueryInfo ({ bucket, filter, orderBy }) {
+function getQueryInfo ({ table, filter, orderBy }) {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
   const usedProps = getUsedProperties(filter)
-  const { indexes, primaryKeys } = bucket
+  const { indexes, primaryKeys } = table
   const { hashKey, rangeKey } = primaryKeys
   const primaryKeysArr = getValues(primaryKeys)
   const indexedProps = indexes.map(index => index.hashKey)
@@ -187,11 +188,12 @@ function getQueryInfo ({ bucket, filter, orderBy }) {
       return pick(item, [hashKey])
     }
 
-    const props = primaryKeysArr
-      .concat([index.hashKey, index.rangeKey])
-      .filter(notNull)
-
-    return pick(item, props)
+    const props = [index.hashKey, index.rangeKey].filter(notNull)
+    const indexed = pick(item, props)
+    return {
+      ...indexed,
+      ...table.getPrimaryKeys(item)
+    }
   }
 
   return {

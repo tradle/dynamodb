@@ -1,4 +1,5 @@
 import { DynogelIndex } from './types'
+import { TYPE } from '@tradle/constants'
 
 const defaultIndex:DynogelIndex = {
   hashKey: '_author',
@@ -8,17 +9,20 @@ const defaultIndex:DynogelIndex = {
   // expensive
   // can we get away with ProjectionType KEYS_ONLY?
   projection: {
-    ProjectionType: 'ALL'
+    ProjectionType: 'INCLUDE',
+    NonKeyAttributes: [TYPE]
   }
 }
 
 const defaultIndexes:DynogelIndex[] = [defaultIndex]
 
+const typeAndPermalinkProperty = '_tpermalink'
 const constants = {
+  typeAndPermalinkProperty,
   minifiedFlag: '_cut',
   separator: '_',
   defaultPrimaryKeys: {
-    hashKey: '_tpermalink'
+    hashKey: typeAndPermalinkProperty
   },
   defaultIndexes,
   defaultOrderBy: {

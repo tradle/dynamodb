@@ -9,15 +9,16 @@ const MINIFY_PREFERENCES:Array<(...any) => boolean> = [
   stripAll
 ]
 
-export default function minify ({ item, model, maxSize }) {
+export default function minify ({ table, item, maxSize }) {
   if (!maxSize || maxSize === Infinity) {
     return { min: item, diff: {} }
   }
 
-  const indexes = getIndexes(model)
+  const { indexes } = table
   let min = shallowClone(item)
   let diff = {}
 
+  const model = table.models[item[TYPE]]
   for (const filter of MINIFY_PREFERENCES) {
     // approximation
     const size = byteLength(min)

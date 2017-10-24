@@ -1,6 +1,6 @@
 
 import AWS = require('aws-sdk')
-import Bucket from '../bucket'
+import Table from '../table'
 
 type IndexType = 'global'|'local'
 
@@ -9,9 +9,7 @@ export type DynogelIndex = {
   rangeKey?: string
   name: string
   type: IndexType
-  projection: {
-    ProjectionType: AWS.DynamoDB.Types.ProjectionType
-  }
+  projection: AWS.DynamoDB.Types.Projection
 }
 
 export type Model = {
@@ -34,7 +32,7 @@ export type ReadOptions = {
   consistentRead?: boolean
 }
 
-export interface IBucketOpts {
+export interface ITableOpts {
   models: Models
   objects: Objects
   docClient: AWS.DynamoDB.DocumentClient
@@ -62,18 +60,12 @@ export type BackoffOptions = {
   maxTries: number
 }
 
-// export type BucketChooser = ({
-//   buckets:Bucket[],
-//   type:string
-// }) => Bucket
-
-
-export type BucketChooserInput = {
-  tables:Bucket[]
+export type TableChooserInput = {
+  tables:Table[]
   type:string
 }
 
-export type BucketChooser = (BucketChooserInput) => Bucket
+export type TableChooser = (TableChooserInput) => Table
 
 export type Pojo = {
   [key: string]: any

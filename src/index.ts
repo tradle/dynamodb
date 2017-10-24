@@ -1,4 +1,4 @@
-import Table from './bucket'
+import Table from './table'
 import DB from './db'
 import utils = require('./utils')
 import constants = require('./constants')

@@ -12,12 +12,12 @@ import {
   levenshteinDistance,
 } from './utils'
 
-import Bucket from './bucket'
-import { DynogelIndex, IBucketOpts, Models, BucketChooser, FindOpts } from './types'
+import Table from './table'
+import { DynogelIndex, ITableOpts, Models, TableChooser, FindOpts } from './types'
 import { NotFound } from './errors'
 const { isInstantiable } = validateResource.utils
 
-const defaultBucketChooser:BucketChooser = ({
+const defaultTableChooser:TableChooser = ({
   tables,
   type
 }) => {
@@ -30,29 +30,29 @@ const defaultBucketChooser:BucketChooser = ({
 export default class DB extends EventEmitter {
   public models: any
   public objects: any
-  // bucket name => bucket
-  public tablesByName:{ [key:string]: Bucket }
+  // table bucket name => bucket
+  public tablesByName:{ [key:string]: Table }
   // tables by type (model.id)
-  public tables:{ [key:string]: Bucket }
-  public exclusive: { [key:string]: Bucket }
-  private tableOpts: IBucketOpts
-  private tableBucketNames: string[]
-  private _choose:BucketChooser
+  public tables:{ [key:string]: Table }
+  public exclusive: { [key:string]: Table }
+  private tableOpts: ITableOpts
+  private tableTableNames: string[]
+  private _choose:TableChooser
   constructor ({
     tableOpts,
     tableNames,
-    chooseTable=defaultBucketChooser
+    chooseTable=defaultTableChooser
   }: {
     tableNames: string[]
-    tableOpts: IBucketOpts
-    chooseTable?: BucketChooser
+    tableOpts: ITableOpts
+    chooseTable?: TableChooser
   }) {
     super()
 
     tableNames.forEach(validateTableName)
 
     const { models, objects } = tableOpts
-    this.tableBucketNames = tableNames
+    this.tableTableNames = tableNames
     this.objects = objects
     this.tableOpts = { ...tableOpts }
     this.exclusive = {}
@@ -63,13 +63,13 @@ export default class DB extends EventEmitter {
   public setExclusive = ({ name, model, opts, table }: {
     model: any,
     name?: string,
-    opts?: IBucketOpts,
-    table?: Bucket
+    opts?: ITableOpts,
+    table?: Table
   }):void => {
     if (!table) {
       if (!name) name = getTableName({ model })
 
-      table = new Bucket(name, {
+      table = new Table(name, {
         ...this.tableOpts,
         exclusive: true,
         model
@@ -81,9 +81,9 @@ export default class DB extends EventEmitter {
     this.exclusive[model.id] = table
   }
 
-  public choose = (type:string):Bucket => {
+  public choose = (type:string):Table => {
     const table = this._choose({
-      tables: this.tableBucketNames.map(name => this.tablesByName[name]),
+      tables: this.tableTableNames.map(name => this.tablesByName[name]),
       type
     })
 
@@ -117,7 +117,7 @@ export default class DB extends EventEmitter {
   }
 
   public batchPut = async (resources:any[]):Promise<void> => {
-    const byTable = new Map<Bucket, any[]>()
+    const byTable = new Map<Table, any[]>()
     for (const resource of resources) {
       const type = resource[TYPE]
       const table = this.tables[type]
@@ -174,8 +174,8 @@ export default class DB extends EventEmitter {
     this.tablesByName = {}
     lazyDefine(
       this.tablesByName,
-      this.tableBucketNames,
-      tableName => new Bucket(tableName, this.tableOpts)
+      this.tableTableNames,
+      tableName => new Table(tableName, this.tableOpts)
     )
 
     lazyDefine(
@@ -194,6 +194,6 @@ export default class DB extends EventEmitter {
   }
 
   private _getTablesNames = ():string[] => {
-    return this.tableBucketNames.concat(Object.keys(this.exclusive))
+    return this.tableTableNames.concat(Object.keys(this.exclusive))
   }
 }

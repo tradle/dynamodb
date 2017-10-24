@@ -1,10 +1,10 @@
 import clone = require('clone')
 const BaseObjectModel = require('@tradle/models')['tradle.Object']
 const copy = clone(BaseObjectModel)
-copy.properties._tpermalink = {
+const { typeAndPermalinkProperty } = require('./constants')
+copy.properties[typeAndPermalinkProperty] = {
   type: 'string',
   virtual: true
 }
 
-copy.required.push('_tpermalink')
 export default copy

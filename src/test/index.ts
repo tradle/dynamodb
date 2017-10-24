@@ -13,7 +13,7 @@ const models = mergeModels()
 
 import { OrderBy } from '../types'
 import minify from '../minify'
-const { defaultOrderBy } = require('../constants')
+const { defaultOrderBy, defaultIndexes } = require('../constants')
 const {
   debug,
   sortResults,
@@ -119,9 +119,15 @@ test('minify (big values)', function (t) {
     message: 'blah'.repeat(1000)
   }
 
+  // fake table
+  const table = {
+    models,
+    indexes: defaultIndexes
+  }
+
   const minBigMsg = minify({
+    table,
     item: bigMsg,
-    model: models['tradle.SimpleMessage'],
     maxSize: 1000
   })
 
@@ -138,7 +144,7 @@ test('minify (big values)', function (t) {
 
   const minSmallMsg = minify({
     item: smallMsg,
-    model: models['tradle.SimpleMessage'],
+    table,
     maxSize: 1000
   })
 
@@ -155,9 +161,15 @@ test('minify (embedded media)', function (t) {
     }
   }
 
+  // fake table
+  const table = {
+    models,
+    indexes: defaultIndexes
+  }
+
   const minPhotoId = minify({
     item: photoId,
-    model: models[photoId[TYPE]],
+    table,
     maxSize: 1000
   })
 
@@ -173,9 +185,9 @@ test('minify (optional props)', function (t) {
     b: 'b'.repeat(99)
   }
 
-  const minThingy = minify({
-    item: thingy,
-    model: {
+  const customModels = {
+    ...models,
+    [thingy[TYPE]]: {
       properties: {
         a: { type: 'string' },
         b: { type: 'string' }
@@ -183,7 +195,18 @@ test('minify (optional props)', function (t) {
       required: [
         'a'
       ]
-    },
+    }
+  }
+
+  // fake table
+  const table = {
+    models: customModels,
+    indexes: defaultIndexes
+  }
+
+  const minThingy = minify({
+    item: thingy,
+    table,
     maxSize: 200
   })
 
