@@ -195,7 +195,6 @@ class FilterOp {
     }
 
     const result = {
-      Count: 0,
       ScannedCount: 0,
       Items: []
     }
@@ -205,7 +204,6 @@ class FilterOp {
       let batch = await getNextBatch(started)
       started = true
       if (batch.Count) {
-        result.Count += batch.Count
         result.ScannedCount += batch.ScannedCount
         result.Items = result.Items.concat(filterResults({
           models,
@@ -215,7 +213,7 @@ class FilterOp {
       }
 
       if (!batch.LastEvaluatedKey) break
-    } while (result.Count < limit && builder.canContinue())
+    } while (result.Items.length < limit && builder.canContinue())
 
     return result
   }
