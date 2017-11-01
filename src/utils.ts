@@ -396,9 +396,10 @@ const getTableDefinitionForModel = ({ models, model }: {
     // values are prefixed with type
     ...primaryKeys,
     tableName: getTableName({ model }),
-    timestamps: true,
-    createdAt: false,
-    updatedAt: '_dateModified',
+    timestamps: false,
+    // make this the reponsibility of the updating party
+    // createdAt: false,
+    // updatedAt: '_dateModified',
     schema: toJoi({ models, model }),
     indexes: model.primaryKeys ? [] : defaultIndexes,
     validation: {
@@ -414,9 +415,10 @@ const getDefaultTableDefinition = ({ tableName }: {
     // values are prefixed with type
     ...defaultPrimaryKeys,
     tableName,
-    timestamps: true,
-    createdAt: false,
-    updatedAt: '_dateModified',
+    timestamps: false,
+    // make this the reponsibility of the updating party
+    // createdAt: false,
+    // updatedAt: '_dateModified',
     schema: metadataTypes,
     indexes: defaultIndexes,
     validation: {

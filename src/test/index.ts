@@ -313,6 +313,28 @@ test('backoff after create', loudAsync(async (t) => {
   t.end()
 }))
 
+test('put/update', loudAsync(async (t) => {
+  await reload()
+  const photoId = photoIds[0]
+  await db.put(photoId)
+  const saved = await db.get({
+    [TYPE]: photoId[TYPE],
+    _permalink: photoId._permalink
+  })
+
+  t.same(saved, photoId)
+
+  const update = { ...photoId, _displayName: 'blah' }
+  await db.update(update)
+  const updated = await db.get({
+    [TYPE]: photoId[TYPE],
+    _permalink: photoId._permalink
+  })
+
+  t.same(updated, update)
+  t.end()
+}))
+
 test('basic pagination', loudAsync(async (t) => {
   await reload()
   const filter = {
