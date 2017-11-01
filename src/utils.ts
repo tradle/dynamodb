@@ -426,7 +426,7 @@ const getDefaultTableDefinition = ({ tableName }: {
 }
 
 const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):DynogelTableDefinition => {
-  const { TableName, KeySchema, GlobalSecondaryIndexes, AttributeDefinitions } = cloudformation
+  const { TableName, KeySchema, GlobalSecondaryIndexes=[], AttributeDefinitions } = cloudformation
   const hashKey = KeySchema.find(key => key.KeyType === 'HASH').AttributeName
   const rangeKeyDef = KeySchema.find(key => key.KeyType === 'RANGE')
   const rangeKey = rangeKeyDef && rangeKeyDef.AttributeName
