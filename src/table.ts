@@ -153,6 +153,7 @@ export default class Table extends EventEmitter {
     if (tableDefinition) {
       if (indexes) throw new Error('expected "tableDefinition" or "indexes" but not both')
 
+      this.tableDefinition = tableDefinition
       this.indexes = tableDefinition.indexes
     } else {
       // easier to think of everything as indexes
