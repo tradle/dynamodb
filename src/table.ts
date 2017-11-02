@@ -80,17 +80,17 @@ export default class Table extends EventEmitter {
   public models:Models
   public objects:Objects
   public model?:Model
+  public primaryKeyProps:string[]
+  public primaryKeys:KeyProps
+  public indexes:DynogelIndex[]
   private opts:any
   private modelsStored:Models
-  private indexes:DynogelIndex[]
   private _prefix:{[key:string]: string}
   private tableDefinition:DynogelTableDefinition
   private table:any
   private exclusive:boolean
   private readOnly:boolean
   private findOpts:object
-  private primaryKeys:KeyProps
-  private primaryKeyProps:string[]
   get hashKey() {
     return this.primaryKeys.hashKey
   }
@@ -601,7 +601,7 @@ export default class Table extends EventEmitter {
     return have
   }
 
-  private calcTypeAndPermalinkProperty = (resource):string => {
+  public calcTypeAndPermalinkProperty = (resource):string => {
     if (resource._tpermalink) return resource._tpermalink
 
     if (!(resource._permalink && resource[TYPE])) {

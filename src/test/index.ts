@@ -343,25 +343,36 @@ test('basic pagination', loudAsync(async (t) => {
     }
   }
 
+  const orderBy = {
+    property: '_time',
+    desc: true
+  }
+
+  const expected = formRequests.slice()
+  sortResults({ results: expected, orderBy })
+
   const page1 = await db.find({
     filter,
+    orderBy,
     limit: 5
   })
 
-  t.same(page1.items, formRequests.slice(0, 5))
+  t.same(page1.items, expected.slice(0, 5))
   const page2 = await db.find({
     filter,
+    orderBy,
     after: page1.endPosition,
     limit: 5
   })
 
-  t.same(page2.items, formRequests.slice(5, 10))
+  t.same(page2.items, expected.slice(5, 10))
   const page3 = await db.find({
     filter,
+    orderBy,
     after: page2.endPosition
   })
 
-  t.same(page3.items, formRequests.slice(10))
+  t.same(page3.items, expected.slice(10))
   t.end()
 }))
 
@@ -394,6 +405,7 @@ test('orderBy', loudAsync(async (t) => {
     limit: 5
   })
 
+  // console.log(page2.items.map(i => i.form), expected.slice(5, 10).map(i => i.form))
   t.same(page2.items, expected.slice(5, 10))
   const page3 = await db.find({
     filter,
@@ -419,7 +431,7 @@ test('orderBy', loudAsync(async (t) => {
   t.end()
 }))
 
-test('indexed props', loudAsync(async (t) => {
+test('indexed props (_author)', loudAsync(async (t) => {
   await reload()
   const _author = formRequests[0]._author
   const expected = formRequests.slice()
@@ -458,11 +470,61 @@ test('indexed props', loudAsync(async (t) => {
   const page3 = await db.find({
     after: page2.endPosition,
     filter,
-    orderBy,
-    // limit: 10
+    orderBy
   })
 
   t.same(page3.items, expected.slice(10, 20))
+  t.end()
+}))
+
+test('indexed props (_t)', loudAsync(async (t) => {
+  await reload()
+  await db.batchPut(formRequests)
+  await db.batchPut(photoIds)
+
+  await Promise.all([photoIds, formRequests].map(async (dataset) => {
+    const type = dataset[0][TYPE]
+    const expected = dataset.slice()
+
+    // make sure we have something to query!
+    t.ok(expected.length >= 20)
+
+    const orderBy = {
+      property: '_time'
+    }
+
+    const filter = {
+      EQ: {
+        [TYPE]: type
+      }
+    }
+
+    sortResults({ results: expected, orderBy })
+
+    const page1 = await db.find({
+      orderBy,
+      filter,
+      limit: 5
+    })
+
+    t.same(page1.items, expected.slice(0, 5))
+    const page2 = await db.find({
+      after: page1.endPosition,
+      filter,
+      orderBy,
+      limit: 5
+    })
+
+    t.same(page2.items, expected.slice(5, 10))
+    const page3 = await db.find({
+      after: page2.endPosition,
+      filter,
+      orderBy
+    })
+
+    t.same(page3.items, expected.slice(10, 20))
+  }))
+
   t.end()
 }))
 
@@ -531,7 +593,7 @@ test('latest', loudAsync(async (t) => {
 //   objects.put(v2)
 //   await db.put(v2)
 //   const versions = await db.getVersions({ permalink: v1._permalink })
-//   t.same(versions.sort(byLink), [v1, v2].sort(byLink))
+//   t.same(versions.sort(byLinkAsc), [v1, v2].sort(byLinkAsc))
 
 //   await db.deleteAllVersions({ permalink: v1._permalink })
 //   try {
@@ -901,6 +963,6 @@ function getOrderByCombinations ({ properties }) {
   .reduce((arr, batch) => arr.concat(batch), [])
 }
 
-function byLink (a, b) {
+function byLinkAsc (a, b) {
   return a._link < b._link ? -1 : a._link > b._link ? 1 : 0
 }

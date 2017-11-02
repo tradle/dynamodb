@@ -1,22 +1,22 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
-import { DynogelIndex, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts } from './types';
+import { DynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts } from './types';
 export default class Table extends EventEmitter {
     name: string;
     models: Models;
     objects: Objects;
     model?: Model;
+    primaryKeyProps: string[];
+    primaryKeys: KeyProps;
+    indexes: DynogelIndex[];
     private opts;
     private modelsStored;
-    private indexes;
     private _prefix;
     private tableDefinition;
     private table;
     private exclusive;
     private readOnly;
     private findOpts;
-    private primaryKeys;
-    private primaryKeyProps;
     readonly hashKey: string;
     readonly rangeKey: string;
     constructor(name: any, opts: ITableOpts);
@@ -62,6 +62,6 @@ export default class Table extends EventEmitter {
     private _validateResource;
     private _batchPut;
     private getPrimaryKeys;
-    private calcTypeAndPermalinkProperty;
+    calcTypeAndPermalinkProperty: (resource: any) => string;
     private _ensureWritable;
 }

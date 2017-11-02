@@ -13,6 +13,7 @@ import levenshtein = require('fast-levenshtein')
 import AWS = require('aws-sdk')
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
+import Table from './table'
 import { defaultPrimaryKeys, defaultIndexes, defaultOrderBy } from './constants'
 import OPERATORS = require('./operators')
 import {
@@ -96,9 +97,12 @@ function resultsToJson (items) {
 
 function getUsedProperties (filter) {
   const flat = flatten(filter)
-  return flat.reduce((all, obj) => {
-    return all.concat(Object.keys(obj))
-  }, [])
+  const props = flat.reduce((all, more) => {
+    extend(all, more)
+    return all
+  }, {})
+
+  return Object.keys(props)
 }
 
 /**
@@ -141,6 +145,26 @@ function flatten (filter) {
 //   }, [])
 // }
 
+function getPreferredIndexProperty ({ table, properties }: {
+  table: Table,
+  properties: string[]
+}) {
+  if (properties.length === 1) {
+    return properties[0]
+  }
+
+  if (properties.includes('_author')) {
+    return '_author'
+  }
+
+  const { indexes } = table
+  const index = indexes.map(index => {
+     return index.projection.ProjectionType
+  })
+
+  return properties[0]
+}
+
 function getQueryInfo ({ table, filter, orderBy }) {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
@@ -163,7 +187,7 @@ function getQueryInfo ({ table, filter, orderBy }) {
 
   let builder
   let queryProp
-  let resultsAreInOrder
+  let sortedByDB
   let index
   if (opType === 'query') {
     // supported key condition operators:
@@ -171,13 +195,14 @@ function getQueryInfo ({ table, filter, orderBy }) {
     if (usedIndexedProps.includes(hashKey)) {
       queryProp = hashKey
       if (orderBy.property === rangeKey) {
-        resultsAreInOrder = true
+        sortedByDB = true
       }
     } else {
-      queryProp = usedIndexedProps[0]
+      queryProp = getPreferredIndexProperty({ table, properties: usedIndexedProps })
+      debug(`indexed properties: ${usedIndexedProps.join(', ')}. Querying index: ${queryProp}`)
       index = indexes.find(i => i.hashKey === queryProp)
       if (orderBy.property === index.rangeKey) {
-        resultsAreInOrder = true
+        sortedByDB = true
       }
     }
 
@@ -206,7 +231,7 @@ function getQueryInfo ({ table, filter, orderBy }) {
     index,
     itemToPosition,
     filterProps: usedProps,
-    resultsAreInOrder
+    sortedByDB
   }
 }
 
@@ -464,6 +489,23 @@ const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryInd
   }
 }
 
+const doesIndexProjectProperty = ({ table, index, property }: {
+  table: Table,
+  index: DynogelIndex,
+  property:string
+}) => {
+  const { ProjectionType, NonKeyAttributes } = index.projection
+  if (ProjectionType === 'ALL') {
+    return true
+  }
+
+  if (ProjectionType === 'INCLUDE') {
+    return NonKeyAttributes.includes(property)
+  }
+
+  return index.rangeKey === property || table.primaryKeyProps.includes(property)
+}
+
 const utils = {
   fromResourceStub,
   sortResults,
@@ -500,6 +542,7 @@ const utils = {
   getDefaultTableDefinition,
   toDynogelTableDefinition,
   toDynogelIndexDefinition,
+  doesIndexProjectProperty
 }
 
 export = utils

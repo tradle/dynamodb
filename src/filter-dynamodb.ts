@@ -8,7 +8,8 @@ import {
   getQueryInfo,
   promisify,
   deepEqual,
-  getModelPrimaryKeys
+  getModelPrimaryKeys,
+  doesIndexProjectProperty
 } from './utils'
 
 import OPERATORS = require('./operators')
@@ -26,7 +27,7 @@ class FilterOp {
   public prefixedOrderBy:OrderBy
   public limit:number
   public after?: any
-  public resultsAreInOrder:boolean
+  public sortedByDB:boolean
   public queryProp:string
   public opType:string
   public itemToPosition:Function
@@ -91,7 +92,7 @@ class FilterOp {
       builder,
       models,
       orderBy,
-      resultsAreInOrder,
+      sortedByDB,
       filter,
       after,
       limit,
@@ -100,7 +101,7 @@ class FilterOp {
       index
     } = this
 
-    if (resultsAreInOrder) {
+    if (sortedByDB) {
       // results come back filtered, post-processed
       result = await this.collectInBatches()
     } else {
@@ -116,7 +117,7 @@ class FilterOp {
     }
 
     let items = result.Items
-    if (!resultsAreInOrder) {
+    if (!sortedByDB) {
       items = sortResults({
         results: items,
         orderBy
@@ -126,7 +127,7 @@ class FilterOp {
     if (after) {
       // if we're running a scan
       // we need to do pagination in memory
-      const idx = items.findIndex(item => {
+      const idx = items.map(this.table.toDBFormat).findIndex(item => {
         for (let prop in after) {
           if (!deepEqual(after[prop], item[prop])) {
             return false
@@ -231,14 +232,14 @@ class FilterOp {
   }
 
   _addConditions = function () {
-    const { prefixedFilter, after, opType, builder, resultsAreInOrder } = this
+    const { prefixedFilter, after, opType, builder, sortedByDB, index } = this
     const conditionBuilders = {
       where: builder.where && builder.where.bind(builder),
       filter: builder.filter && builder.filter.bind(builder)
     }
 
     if (after) {
-      if (resultsAreInOrder) {
+      if (sortedByDB) {
         builder.startKey(after)
       }
     }
@@ -252,21 +253,26 @@ class FilterOp {
       }
 
       let conditions = prefixedFilter[op]
-      for (let prop in conditions) {
-        if (prop in OPERATORS) {
+      for (let property in conditions) {
+        if (property in OPERATORS) {
           this._debug('nested operators not support (yet)')
           continue
         }
 
-        let conditionMethod = !builder.filter || prop === this.primaryKeys.rangeKey
+        if (index && !doesIndexProjectProperty({ index, property })) {
+          this._debug(`index ${index.name} doesn't project property ${property}, will filter in memory`)
+          continue
+        }
+
+        let conditionMethod = !builder.filter || property === this.primaryKeys.rangeKey
           ? 'where'
           : 'filter'
 
         let conditionBuilder = conditionBuilders[conditionMethod]
         setCondition({
           where: conditionBuilder,
-          key: prop,
-          value: conditions[prop]
+          key: property,
+          value: conditions[property]
         })
       }
     }
@@ -283,19 +289,13 @@ class FilterOp {
       queryProp,
       index,
       consistentRead,
-      resultsAreInOrder
+      sortedByDB
     } = this
 
     const { EQ } = filter
     const { type } = EQ
     const createBuilder = table[opType]
     let builder
-    // if (!orderBy) {
-    //   orderBy = {
-    //     property: queryProp || '_time'
-    //   }
-    // }
-
     if (opType === 'query') {
     //   // supported key condition operators:
     //   // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
@@ -305,7 +305,9 @@ class FilterOp {
         builder.usingIndex(index.name)
       }
 
-      if (!resultsAreInOrder) {
+      if (sortedByDB) {
+        // ordering in DB only makes sense if results
+        // are sorted (but maybe in reverse)
         if (orderBy.desc) {
           builder.descending()
         } else {
@@ -314,11 +316,11 @@ class FilterOp {
       }
     } else {
       this._throwIfScanForbidden()
-      // resultsAreInOrder = !!orderBy
+      // sortedByDB = !!orderBy
       builder = createBuilder()
     }
 
-    if (resultsAreInOrder) {
+    if (sortedByDB) {
       this._debug('full scan NOT required')
     } else {
       this._throwIfScanForbidden()

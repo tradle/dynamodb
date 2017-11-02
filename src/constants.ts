@@ -1,7 +1,7 @@
 import { DynogelIndex } from './types'
 import { TYPE } from '@tradle/constants'
 
-const defaultIndex:DynogelIndex = {
+const authorIndex:DynogelIndex = {
   hashKey: '_author',
   rangeKey: '_time',
   name: '_author',
@@ -14,7 +14,20 @@ const defaultIndex:DynogelIndex = {
   }
 }
 
-const defaultIndexes:DynogelIndex[] = [defaultIndex]
+const typeIndex:DynogelIndex = {
+  hashKey: '_t',
+  rangeKey: '_time',
+  name: 'type',
+  type: 'global',
+  // expensive
+  // can we get away with ProjectionType KEYS_ONLY?
+  projection: {
+    ProjectionType: 'INCLUDE',
+    NonKeyAttributes: ['_author']
+  }
+}
+
+const defaultIndexes:DynogelIndex[] = [authorIndex, typeIndex]
 
 const typeAndPermalinkProperty = '_tpermalink'
 const constants = {
