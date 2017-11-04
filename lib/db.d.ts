@@ -1,10 +1,10 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
 import Table from './table';
-import { DynogelIndex, ITableOpts, Models, TableChooser, FindOpts } from './types';
+import { IDBOpts, DynogelIndex, Models, FindOpts } from './types';
 export default class DB extends EventEmitter {
+    static getSafeTableName: (model: any) => string;
     models: any;
-    objects: any;
     tablesByName: {
         [key: string]: Table;
     };
@@ -14,19 +14,13 @@ export default class DB extends EventEmitter {
     exclusive: {
         [key: string]: Table;
     };
-    private tableOpts;
     private tableTableNames;
     private _choose;
-    constructor({tableOpts, tableNames, chooseTable}: {
-        tableNames: string[];
-        tableOpts: ITableOpts;
-        chooseTable?: TableChooser;
-    });
-    setExclusive: ({name, model, opts, table}: {
-        model: any;
-        name?: string;
-        opts?: ITableOpts;
-        table?: Table;
+    private _instantiateTable;
+    constructor({models, tableNames, defineTable, chooseTable}: IDBOpts);
+    setExclusive: ({model, table}: {
+        model?: any;
+        table: Table;
     }) => void;
     choose: (type: string) => Table;
     put: (item: any) => Promise<void>;

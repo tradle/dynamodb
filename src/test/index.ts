@@ -18,7 +18,8 @@ const {
   debug,
   sortResults,
   wait,
-  runWithBackoffOnTableNotExists
+  runWithBackoffOnTableNotExists,
+  getTableDefinitionForModel
 } = require('../utils')
 
 // dynogels.log = {
@@ -69,26 +70,36 @@ const objects = (function () {
   return api
 }())
 
-import { DB } from '../'
+import { DB, Table, createTable } from '../'
 let db
 let table
 let offset = Date.now()
 let lastCreated = []
 
+const getCommonTableOpts = () => {
+  return {
+    objects,
+    models: db.models,
+    maxItemSize: 4000,
+    docClient,
+    validate: false,
+  }
+}
+
+const createDB = () => {
+  const db = new DB({
+    models,
+    tableNames: lastCreated,
+    defineTable: name => new Table(DB.getSafeTableName(name), getCommonTableOpts())
+  })
+
+  return db
+}
+
 const cleanup = async () => {
   if (!lastCreated.length) return
 
-  db = new DB({
-    tableNames: lastCreated,
-    tableOpts: {
-      objects,
-      models,
-      maxItemSize: 4000,
-      docClient,
-      validate: false,
-    }
-  })
-
+  db = createDB()
   await db.destroyTables()
 }
 
@@ -96,17 +107,7 @@ const reload = async () => {
   await cleanup()
   const prefix = '' + (offset++)
   lastCreated = ['a', 'b', 'c', 'd', 'e'].map(name => prefix + name)
-  db = new DB({
-    tableNames: lastCreated,
-    tableOpts: {
-      objects,
-      models,
-      maxItemSize: 4000,
-      docClient,
-      validate: false,
-    }
-  })
-
+  db = createDB()
   await db.createTables()
   await db.batchPut(formRequests)
   // table = db.tables[FORM_REQUEST]
@@ -874,7 +875,15 @@ test('custom primary keys', loudAsync(async (t) => {
   })
 
   db.setExclusive({
-    model: alienModel
+    table: createTable({
+      ...getCommonTableOpts(),
+      model: alienModel,
+      tableDefinition: getTableDefinitionForModel({
+        models: db.models,
+        model: alienModel
+      }),
+      exclusive: true
+    })
   })
 
   await db.tables[ALIEN_CLASSIFIER].create()

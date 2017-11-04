@@ -32,6 +32,13 @@ export type ReadOptions = {
   consistentRead?: boolean
 }
 
+export interface IDBOpts {
+  models: Models
+  tableNames: string[]
+  defineTable: (name:string) => Table
+  chooseTable?: TableChooser
+}
+
 export interface ITableOpts {
   models: Models
   objects: Objects

@@ -13,7 +13,7 @@ import {
 } from './utils'
 
 import Table from './table'
-import { DynogelIndex, ITableOpts, Models, TableChooser, FindOpts } from './types'
+import { IDBOpts, ITableOpts, DynogelIndex, Models, TableChooser, FindOpts } from './types'
 import { NotFound } from './errors'
 const { isInstantiable } = validateResource.utils
 
@@ -28,53 +28,47 @@ const defaultTableChooser:TableChooser = ({
 }
 
 export default class DB extends EventEmitter {
+  public static getSafeTableName = model => getTableName({ model })
   public models: any
-  public objects: any
   // table bucket name => bucket
   public tablesByName:{ [key:string]: Table }
   // tables by type (model.id)
   public tables:{ [key:string]: Table }
   public exclusive: { [key:string]: Table }
-  private tableOpts: ITableOpts
   private tableTableNames: string[]
   private _choose:TableChooser
+  private _instantiateTable:(name:string) => Table
   constructor ({
-    tableOpts,
+    models,
     tableNames,
+    defineTable,
     chooseTable=defaultTableChooser
-  }: {
-    tableNames: string[]
-    tableOpts: ITableOpts
-    chooseTable?: TableChooser
-  }) {
+  }: IDBOpts) {
     super()
+
+    if (!(models &&
+      Array.isArray(tableNames) &&
+      typeof defineTable === 'function' &&
+      typeof chooseTable === 'function')) {
+      throw new Error('missing required parameter')
+    }
 
     tableNames.forEach(validateTableName)
 
-    const { models, objects } = tableOpts
     this.tableTableNames = tableNames
-    this.objects = objects
-    this.tableOpts = { ...tableOpts }
     this.exclusive = {}
-    this.setModels(models)
     this._choose = chooseTable
+    this._instantiateTable = defineTable
+    this.setModels(models)
   }
 
-  public setExclusive = ({ name, model, opts, table }: {
-    model: any,
-    name?: string,
-    opts?: ITableOpts,
-    table?: Table
+  public setExclusive = ({ model, table }: {
+    model?: any,
+    table: Table
   }):void => {
-    if (!table) {
-      if (!name) name = getTableName({ model })
-
-      table = new Table(name, {
-        ...this.tableOpts,
-        exclusive: true,
-        model
-      })
-    }
+    if (!table) throw new Error('expected "table"')
+    if (!model) model = table.model
+    if (!model) throw new Error('expected "model"')
 
     this.tablesByName[model.id] = table
     this.tables[model.id] = table
@@ -177,13 +171,12 @@ export default class DB extends EventEmitter {
 
   public setModels = (models:Models):void => {
     this.models = models
-    this.tableOpts.models = models
     this.tables = {}
     this.tablesByName = {}
     lazyDefine(
       this.tablesByName,
       this.tableTableNames,
-      tableName => new Table(tableName, this.tableOpts)
+      this._instantiateTable
     )
 
     lazyDefine(

@@ -65,3 +65,4 @@ export default class Table extends EventEmitter {
     calcTypeAndPermalinkProperty: (resource: any) => string;
     private _ensureWritable;
 }
+export declare const createTable: (name: any, opts: ITableOpts) => Table;

@@ -118,6 +118,8 @@ export default class Table extends EventEmitter {
       tableDefinition
     } = this.opts
 
+    if (!models) throw new Error('expected "models"')
+    if (bodyInObjects && !objects) throw new Error('expected "objects"')
     if (exclusive && !model) {
       throw new Error('expected "model" when "exclusive" is true')
     }
@@ -628,4 +630,13 @@ export default class Table extends EventEmitter {
 
   //   return { hashKey, rangeKey }
   // }
+}
+
+export const createTable = (name, opts:ITableOpts) => {
+  if (typeof name === 'object') {
+    opts = name
+    return new Table(opts.tableDefinition.tableName, opts)
+  }
+
+  new Table(name, opts)
 }
