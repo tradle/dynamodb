@@ -498,7 +498,7 @@ export default class Table extends EventEmitter {
   private _write = async (method:string, resource:any):Promise<void> => {
     this._ensureWritable()
 
-    const type = resource[TYPE]
+    const type = resource[TYPE] || (this.exclusive && this.model.id)
     const model = this.modelsStored[type]
     if (!model) throw new Error(`model not found: ${type}`)
 

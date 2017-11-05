@@ -54,8 +54,9 @@ declare function isEqual({models, property, condition, value}: {
     condition: any;
     value: any;
 }): any;
-declare function filterResults({models, results, filter}: {
+declare function filterResults({models, model, results, filter}: {
     models: any;
+    model: any;
     results: any;
     filter: any;
 }): any;

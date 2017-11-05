@@ -16,11 +16,12 @@ import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
 import { defaultOrderBy, defaultLimit } from './constants'
-import { OrderBy, Models, DynogelIndex } from './types'
+import { OrderBy, Model, Models, DynogelIndex } from './types'
 import Table from './table'
 
 class FilterOp {
   public models:Models
+  public model:Model
   public filter:any
   public prefixedFilter:any
   public orderBy:OrderBy
@@ -39,27 +40,31 @@ class FilterOp {
   public builder:any
   public table:Table
   constructor (opts) {
+    Object.assign(this, opts)
+    this.filter = clone(this.filter)
     const {
       table,
       models,
-      filter={},
       orderBy=defaultOrderBy,
       limit=defaultLimit,
       after,
       consistentRead,
       forbidScan,
       bodyInObjects
-    } = opts
+    } = this
 
-    Object.assign(this, opts)
-    this.filter = clone(filter)
     this.limit = limit
     this.orderBy = orderBy
 
     Object.assign(this, getQueryInfo(this))
     this.prefixedFilter = {}
 
-    const type = filter.EQ[TYPE]
+    const type = this.filter.EQ[TYPE]
+    if (table.exclusive) {
+      delete this.filter.EQ[TYPE]
+    }
+
+    this.model = models[type]
     this.prefixedOrderBy = {
       property: table.prefixKey({
         type,
@@ -68,13 +73,11 @@ class FilterOp {
       desc: orderBy.desc
     }
 
-    for (let operator in OPERATORS) {
-      if (operator in filter) {
-        this.prefixedFilter[operator] = table.prefixPropertiesForType(type, filter[operator])
+    for (let operator in this.filter) {
+      if (operator in OPERATORS) {
+        this.prefixedFilter[operator] = table.prefixPropertiesForType(type, this.filter[operator])
       }
     }
-
-    delete this.prefixedFilter.EQ[this.queryProp]
 
     this._configureBuilder()
     this._addConditions()
@@ -109,11 +112,7 @@ class FilterOp {
       // otherwise we can't apply filter, orderBy
       result = await exec(builder)
       await this._postProcessResult(result)
-      result.Items = filterResults({
-        models,
-        filter,
-        results: result.Items
-      })
+      result.Items = this._filterResults(result.Items)
     }
 
     let items = result.Items
@@ -206,17 +205,23 @@ class FilterOp {
       started = true
       if (batch.Count) {
         result.ScannedCount += batch.ScannedCount
-        result.Items = result.Items.concat(filterResults({
-          models,
-          filter,
-          results: resultsToJson(batch.Items)
-        }))
+        result.Items = result.Items.concat(this._filterResults(resultsToJson(batch.Items)))
       }
 
       if (!batch.LastEvaluatedKey) break
     } while (result.Items.length < limit && builder.canContinue())
 
     return result
+  }
+
+  _filterResults = results => {
+    const { models, model, filter } = this
+    return filterResults({
+      models,
+      model,
+      filter,
+      results
+    })
   }
 
   _postProcessResult = async (result) => {
@@ -232,7 +237,7 @@ class FilterOp {
   }
 
   _addConditions = function () {
-    const { prefixedFilter, after, opType, builder, sortedByDB, index } = this
+    const { prefixedFilter, after, opType, builder, sortedByDB, table, index } = this
     const conditionBuilders = {
       where: builder.where && builder.where.bind(builder),
       filter: builder.filter && builder.filter.bind(builder)
@@ -256,6 +261,11 @@ class FilterOp {
       for (let property in conditions) {
         if (property in OPERATORS) {
           this._debug('nested operators not support (yet)')
+          continue
+        }
+
+        if (property === this.queryProp && this.opType === 'query') {
+          // specified in key condition
           continue
         }
 

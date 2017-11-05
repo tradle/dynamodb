@@ -22,11 +22,11 @@ const {
   getTableDefinitionForModel
 } = require('../utils')
 
-// dynogels.log = {
-//   info: debug,
-//   warn: debug,
-//   level: 'info'
-// }
+dynogels.log = {
+  info: debug,
+  warn: debug,
+  level: 'info'
+}
 
 const fixtures = require('./fixtures')
 const FORM_REQUEST = 'tradle.FormRequest'
@@ -848,7 +848,7 @@ test('addModels', loudAsync(async (t) => {
 
 test('custom primary keys', loudAsync(async (t) => {
   await reload()
-  const ALIEN_CLASSIFIER = 'mynamespace.Alien'
+  const ALIEN_CLASSIFIER = 'mynamespace.Alien' + Date.now()
   const alienModel = {
     type: 'tradle.Model',
     id: ALIEN_CLASSIFIER,
@@ -901,8 +901,15 @@ test('custom primary keys', loudAsync(async (t) => {
     })
     .toJSON()
 
-  await db.put(alien)
-  t.same(await db.get(alien), alien)
+  // exclusive tables have no need to store type
+  // so they may omit it
+  delete alien[TYPE]
+  await db.tables[ALIEN_CLASSIFIER].put(alien)
+  t.same(await db.get({
+    [TYPE]: ALIEN_CLASSIFIER,
+    color: alien.color,
+    fingerCount: alien.fingerCount
+  }), alien)
 
   const searchResult = await db.find({
     orderBy: {
@@ -911,7 +918,7 @@ test('custom primary keys', loudAsync(async (t) => {
     filter: {
       EQ: {
         [TYPE]: ALIEN_CLASSIFIER,
-        color: '#0000ff'
+        color: alien.color
       },
       GT: {
         fingerCount: 10

@@ -67,10 +67,11 @@ function isEqual ({ models, property, condition, value }) {
   return metadata.link === value
 }
 
-function matchesFilter ({ models, object, filter }) {
+function matchesFilter ({ models, model, object, filter }) {
   if (!filter) return true
 
-  const model = models[object[TYPE]]
+  if (!model) model = models[object[TYPE]]
+
   for (let op in filter) {
     if (!(op in comparators)) {
       throw new Error(`operator "${op}" not supported (yet)`)
@@ -101,13 +102,13 @@ function matchesFilter ({ models, object, filter }) {
   return true
 }
 
-function filterResults ({ models, results, filter }) {
+function filterResults ({ models, model, results, filter }) {
   if (!filter || !Object.keys(filter).length) {
     return results
   }
 
   return results.filter(object => {
-    return matchesFilter({ models, object, filter })
+    return matchesFilter({ models, model, object, filter })
   })
 }
 
