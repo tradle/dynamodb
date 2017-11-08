@@ -60,6 +60,7 @@ import BaseObjectModel from './object-model'
 // TODO: add this prop to tradle.Object
 
 const DONT_PREFIX = Object.keys(BaseObjectModel.properties)
+const HASH_AND_RANGE_KEYS = ['hashKey', 'rangeKey']
 
 const defaultOpts = {
   maxItemSize: Infinity,
@@ -132,31 +133,12 @@ export default class Table extends EventEmitter {
     this.exclusive = exclusive
     this.model = model
     this._prefix = {}
-    if (exclusive) {
-      this.modelsStored[model.id] = model
-      this.primaryKeys = primaryKeys || model.primaryKeys
-    } else {
-      this.primaryKeys = defaultPrimaryKeys
-    }
-
-    this.findOpts = pick(opts, [
-      'models',
-      'forbidScan',
-      'bodyInObjects'
-    ])
-
-    if (defaultReadOptions.consistentRead) {
-      this.findOpts.consistentRead = true
-    }
-
-    this.findOpts.primaryKeys = this.primaryKeys
-    this.primaryKeyProps = getValues(this.primaryKeys)
-
     if (tableDefinition) {
       if (indexes) throw new Error('expected "tableDefinition" or "indexes" but not both')
 
       this.tableDefinition = tableDefinition
       this.indexes = tableDefinition.indexes
+      this.primaryKeys = pick(tableDefinition, HASH_AND_RANGE_KEYS)
     } else {
       // easier to think of everything as indexes
       // even the main table schema
@@ -169,9 +151,27 @@ export default class Table extends EventEmitter {
       //     ProjectionType: 'ALL'
       //   }
       // }
+
+      if (exclusive) {
+        this.primaryKeys = primaryKeys || model.primaryKeys
+      } else {
+        this.primaryKeys = defaultPrimaryKeys
+      }
     }
 
-    // invalidate cached table
+    this.findOpts = pick(opts, [
+      'models',
+      'forbidScan',
+      'bodyInObjects'
+    ])
+
+    this.findOpts.primaryKeys = this.primaryKeys
+    this.primaryKeyProps = getValues(this.primaryKeys)
+
+    if (defaultReadOptions.consistentRead) {
+      this.findOpts.consistentRead = true
+    }
+
     if (exclusive) {
       this.addModel({ model })
     }
@@ -195,7 +195,10 @@ export default class Table extends EventEmitter {
     indexes?:DynogelIndex[]
   }) => {
     if (this.exclusive) {
-      if (model.id === this.model.id) return
+      if (model.id === this.model.id) {
+        this.modelsStored[model.id] = model
+        return
+      }
 
       throw new Error(`this table is exclusive to type: ${model.id}`)
     }
