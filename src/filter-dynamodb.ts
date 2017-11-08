@@ -1,6 +1,7 @@
 import { TYPE } from '@tradle/constants'
 import {
   clone,
+  pick,
   toObject,
   debug,
   resultsToJson,
@@ -349,19 +350,10 @@ class FilterOp {
   _throwIfScanForbidden = function () {
     if (!this.forbidScan) return
 
-    const propsMap = (this.table.indexes || []).concat(this.table)
-      .map(({ rangeKey }) => rangeKey)
-      .filter(notNull)
-      .reduce((have, next) => {
-        have[next] = true
-        return have
-      }, {})
+    const keySchemas = (this.table.indexes || []).concat(this.table.primaryKeys)
+      .map(props => pick(props, ['hashKey', 'rangeKey']))
 
-    const props = Object.keys(propsMap)
-    const hint = props.length
-      ? `Specify a limit and one of the following orderBy properties: ${props.join(', ')}`
-      : ''
-
+    const hint = `Specify a limit, and a combination of hashKey in the EQ filter and (optionally) rangeKey in orderBy: ${JSON.stringify(keySchemas)}`
     throw new Error(`this table does not allow scans or full reads. ${hint}`)
   }
 }
