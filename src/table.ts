@@ -508,6 +508,10 @@ export default class Table extends EventEmitter {
     let options
     let current
     if (this.hashKey === typeAndPermalinkProperty) {
+      if (!(resource._time && resource._link)) {
+        throw new Error('expected "_time" and "_link"')
+      }
+
       options = {
         ConditionExpression: 'attribute_not_exists(#tpermalink) OR #link = :link OR #time < :time',
         ExpressionAttributeNames: {
