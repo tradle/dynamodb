@@ -599,15 +599,15 @@ export default class Table extends EventEmitter {
 
   private getPrimaryKeys = (resource) => {
     const have = pick(resource, this.primaryKeyProps)
-    if (this.hashKey === typeAndPermalinkProperty && !have._tpermalink) {
-      have._tpermalink = this.calcTypeAndPermalinkProperty(resource)
+    if (this.hashKey === typeAndPermalinkProperty && !have[typeAndPermalinkProperty]) {
+      have[typeAndPermalinkProperty] = this.calcTypeAndPermalinkProperty(resource)
     }
 
     return have
   }
 
   public calcTypeAndPermalinkProperty = (resource):string => {
-    if (resource._tpermalink) return resource._tpermalink
+    if (resource[typeAndPermalinkProperty]) return resource[typeAndPermalinkProperty]
 
     if (!(resource._permalink && resource[TYPE])) {
       throw new Error(`missing one of required props: _permalink, ${TYPE}`)
