@@ -60,8 +60,11 @@ const ALL_COMPARATORS = {
   LTE: ({ where, key, value }) => where(key).lte(value),
   GT: ({ where, key, value }) => where(key).gt(value),
   GTE: ({ where, key, value }) => where(key).gte(value),
-  IN: ({ where, key, value }) => where(key).in(value),
   BETWEEN: ({ where, key, value }) => where(key).between(...value),
+  IN: ({ where, key, value }) => where(key).in(value),
+  NOT_IN: ({ where, key, value }) => {
+    value.forEach(subVal => where(key).ne(subVal))
+  }
 }
 
 const QUERY_COMPARATORS = pick(ALL_COMPARATORS, [
@@ -74,9 +77,19 @@ const QUERY_COMPARATORS = pick(ALL_COMPARATORS, [
   'BETWEEN'
 ])
 
-const getComparators = opType => opType === 'query'
-  ? QUERY_COMPARATORS
-  : ALL_COMPARATORS
+const getComparators = ({
+  queryInfo,
+  property
+}) => {
+  if (queryInfo.opType === 'query') {
+    const { hashKey, rangeKey } = queryInfo.index || queryInfo
+    if (property === rangeKey) {
+      return QUERY_COMPARATORS
+    }
+  }
+
+  return ALL_COMPARATORS
+}
 
 function forEachLeaf (obj, fn) {
   traverse(obj).forEach(function (value) {

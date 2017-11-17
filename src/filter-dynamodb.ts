@@ -82,7 +82,6 @@ class FilterOp {
 
     this._configureBuilder()
     this._addConditions()
-    this._debug(`running ${this.opType}`)
   }
 
   private _debug = (...args) => {
@@ -91,6 +90,8 @@ class FilterOp {
   }
 
   public exec = async () => {
+    this._debug(`running ${this.opType}`)
+
     let result
     const {
       builder,
@@ -250,14 +251,8 @@ class FilterOp {
       }
     }
 
-    const comparators = getComparators(opType)
+    const { hashKey, rangeKey } = index || this
     for (let op in prefixedFilter) {
-      let setCondition = comparators[op]
-      if (!setCondition) {
-        this._debug(`comparator ${op} for op type ${opType} doesn't exist or is not implemented (yet)`)
-        continue
-      }
-
       let conditions = prefixedFilter[op]
       for (let property in conditions) {
         if (property in OPERATORS) {
@@ -270,12 +265,19 @@ class FilterOp {
           continue
         }
 
-        if (index && !doesIndexProjectProperty({ index, property })) {
+        if (index && !doesIndexProjectProperty({ table, index, property })) {
           this._debug(`index ${index.name} doesn't project property ${property}, will filter in memory`)
           continue
         }
 
-        let conditionMethod = !builder.filter || property === this.primaryKeys.rangeKey
+        let comparators = getComparators({ queryInfo: this, property })
+        let setCondition = comparators[op]
+        if (!setCondition) {
+          this._debug(`comparator ${op} for op type ${opType} doesn't exist or is not implemented (yet)`)
+          continue
+        }
+
+        let conditionMethod = !builder.filter || property === rangeKey
           ? 'where'
           : 'filter'
 

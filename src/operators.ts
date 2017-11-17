@@ -11,6 +11,9 @@ export = {
   IN: {
     type: 'array'
   },
+  NOT_IN: {
+    type: 'array'
+  },
   BETWEEN: {
     type: 'array',
     scalar: true

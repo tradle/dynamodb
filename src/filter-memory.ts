@@ -16,6 +16,7 @@ const comparators = {
   EQ: isEqual,
   NEQ: negate(isEqual),
   IN: ({ value, condition }) => condition.some(one => deepEqual(one, value)),
+  NOT_IN: ({ value, condition }) => condition.every(one => !deepEqual(one, value)),
   STARTS_WITH: ({ value, condition }) => value && value.startsWith(condition),
   CONTAINS: ({ value, condition }) => value && value.indexOf(condition) !== -1,
   NOT_CONTAINS: ({ value, condition }) => !value || value.indexOf(condition) === -1,

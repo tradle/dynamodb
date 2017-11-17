@@ -11,6 +11,9 @@ declare const _default: {
     IN: {
         type: string;
     };
+    NOT_IN: {
+        type: string;
+    };
     BETWEEN: {
         type: string;
         scalar: boolean;

@@ -149,7 +149,7 @@ export default class DB extends EventEmitter {
     return items[0]
   }
 
-  public search = async (...args) => this.find(...args)
+  public search = async (opts) => this.find(opts)
 
   public createTables = async (opts):Promise<void> => {
     for (const name of this._getTablesNames()) {

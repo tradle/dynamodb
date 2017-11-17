@@ -7,9 +7,6 @@ import promisify = require('pify')
 import {
   minifiedFlag,
   batchWriteLimit,
-  defaultOrderBy,
-  defaultIndexes,
-  defaultPrimaryKeys,
   typeAndPermalinkProperty
 } from './constants'
 
@@ -41,7 +38,8 @@ import {
   getTableName,
   getIndexForPrimaryKeys,
   getDefaultTableDefinition,
-  getTableDefinitionForModel
+  getTableDefinitionForModel,
+  toDynogelTableDefinition
 } from './utils'
 
 import minify from './minify'
@@ -68,7 +66,9 @@ const defaultOpts = {
   bodyInObjects: true,
   forbidScan: false,
   validate: false,
-  defaultReadOptions: {}
+  defaultReadOptions: {
+    consistentRead: false
+  }
 }
 
 const defaultBackoffOpts:BackoffOptions = {
@@ -84,12 +84,12 @@ export default class Table extends EventEmitter {
   public primaryKeyProps:string[]
   public primaryKeys:KeyProps
   public indexes:DynogelIndex[]
+  public exclusive:boolean
   private opts:any
   private modelsStored:Models
   private _prefix:{[key:string]: string}
   private tableDefinition:DynogelTableDefinition
   private table:any
-  private exclusive:boolean
   private readOnly:boolean
   private findOpts:object
   get hashKey() {
@@ -100,9 +100,8 @@ export default class Table extends EventEmitter {
     return this.primaryKeys.rangeKey
   }
 
-  constructor (name, opts:ITableOpts) {
+  constructor (opts:ITableOpts) {
     super()
-    validateTableName(name)
     this.opts = { ...defaultOpts, ...opts }
     const {
       models,
@@ -114,8 +113,7 @@ export default class Table extends EventEmitter {
       forbidScan,
       readOnly,
       bodyInObjects,
-      defaultReadOptions={},
-      indexes,
+      defaultReadOptions,
       tableDefinition
     } = this.opts
 
@@ -125,7 +123,12 @@ export default class Table extends EventEmitter {
       throw new Error('expected "model" when "exclusive" is true')
     }
 
-    this.name = name
+    this.tableDefinition = tableDefinition.TableName
+      ? toDynogelTableDefinition(tableDefinition)
+      : tableDefinition
+
+    validateTableName(this.tableDefinition.tableName)
+    this.name = this.tableDefinition.tableName
     this.models = models
     this.objects = objects
     this.modelsStored = {}
@@ -133,50 +136,24 @@ export default class Table extends EventEmitter {
     this.exclusive = exclusive
     this.model = model
     this._prefix = {}
-    if (tableDefinition) {
-      if (indexes) throw new Error('expected "tableDefinition" or "indexes" but not both')
 
-      this.tableDefinition = tableDefinition
-      this.indexes = tableDefinition.indexes
-      this.primaryKeys = pick(tableDefinition, HASH_AND_RANGE_KEYS)
-    } else {
-      // easier to think of everything as indexes
-      // even the main table schema
-      this.indexes = indexes || defaultIndexes.slice()
-      // {
-      //   ...this.primaryKeys,
-      //   name: this.primaryKeys.hashKey,
-      //   type: 'global',
-      //   projection: {
-      //     ProjectionType: 'ALL'
-      //   }
-      // }
-
-      if (exclusive) {
-        this.primaryKeys = primaryKeys || model.primaryKeys
-      } else {
-        this.primaryKeys = defaultPrimaryKeys
-      }
-    }
-
+    this.indexes = this.tableDefinition.indexes
+    this.primaryKeys = pick(this.tableDefinition, HASH_AND_RANGE_KEYS)
     this.findOpts = {
       models,
       forbidScan,
       bodyInObjects,
-      primaryKeys: this.primaryKeys
+      primaryKeys: this.primaryKeys,
+      consistentRead: defaultReadOptions.consistentRead
     }
 
     this.primaryKeyProps = getValues(this.primaryKeys)
-
-    if (defaultReadOptions.consistentRead) {
-      this.findOpts.consistentRead = true
-    }
 
     if (exclusive) {
       this.addModel({ model })
     }
 
-    this._defineTable()
+    this._initTable()
     this.on('def:update', () => this.table = null)
     this._debug('initialized')
   }
@@ -190,9 +167,8 @@ export default class Table extends EventEmitter {
     return resource
   }
 
-  public addModel = ({ model, indexes }: {
-    model: Model,
-    indexes?:DynogelIndex[]
+  public addModel = ({ model }: {
+    model: Model
   }) => {
     if (this.exclusive) {
       if (model.id === this.model.id) {
@@ -207,29 +183,6 @@ export default class Table extends EventEmitter {
       this.modelsStored[model.id] = model
       this._debug(`will store resources of model ${model.id}`)
     }
-
-    if (!(indexes && indexes.length)) return
-
-    if (this.opts.tableDefinition) {
-      throw new Error(`can't add indexes to table with pre-defined "tableDefinition"`)
-    }
-
-    this.indexes = this.indexes.concat(indexes.map(index => {
-      return {
-        ...index,
-        hashKey: this.prefixKey({
-          type: model.id,
-          key: index.hashKey
-        }),
-        rangeKey: index.rangeKey && this.prefixKey({
-          type: model.id,
-          key: index.rangeKey
-        })
-      }
-    }))
-
-    this.tableDefinition.indexes = this.indexes
-    this._defineTable()
   }
 
   public get = async (query, opts={}):Promise<any> => {
@@ -378,19 +331,7 @@ export default class Table extends EventEmitter {
     debug(...args)
   }
 
-  private _defineTable = () => {
-    if (!this.tableDefinition) {
-      this._debug('using default definition for table')
-      if (this.exclusive) {
-        const { models, model } = this
-        this.tableDefinition = getTableDefinitionForModel({ models, model })
-      } else {
-        this.tableDefinition = getDefaultTableDefinition({
-          tableName: this.name
-        })
-      }
-    }
-
+  private _initTable = () => {
     const table = dynogels.define(this.name, this.tableDefinition)
     this.table = promisify(table, {
       include: [
@@ -639,11 +580,4 @@ export default class Table extends EventEmitter {
   // }
 }
 
-export const createTable = (name, opts:ITableOpts) => {
-  if (typeof name === 'object') {
-    opts = name
-    return new Table(opts.tableDefinition.tableName, opts)
-  }
-
-  new Table(name, opts)
-}
+export const createTable = (opts:ITableOpts) => new Table(opts)

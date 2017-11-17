@@ -9,21 +9,20 @@ export default class Table extends EventEmitter {
     primaryKeyProps: string[];
     primaryKeys: KeyProps;
     indexes: DynogelIndex[];
+    exclusive: boolean;
     private opts;
     private modelsStored;
     private _prefix;
     private tableDefinition;
     private table;
-    private exclusive;
     private readOnly;
     private findOpts;
     readonly hashKey: string;
     readonly rangeKey: string;
-    constructor(name: any, opts: ITableOpts);
+    constructor(opts: ITableOpts);
     inflate: (resource: any) => Promise<any>;
-    addModel: ({model, indexes}: {
+    addModel: ({model}: {
         model: Model;
-        indexes?: DynogelIndex[];
     }) => void;
     get: (query: any, opts?: {}) => Promise<any>;
     latest: (query: any, opts?: {}) => Promise<any>;
@@ -45,7 +44,7 @@ export default class Table extends EventEmitter {
     create: () => Promise<void>;
     destroy: () => Promise<void>;
     private _debug;
-    private _defineTable;
+    private _initTable;
     toDBFormat: (resource: any) => any;
     fromDBFormat: (resource: any) => any;
     prefixKey: ({type, key}: {
@@ -65,4 +64,4 @@ export default class Table extends EventEmitter {
     calcTypeAndPermalinkProperty: (resource: any) => string;
     private _ensureWritable;
 }
-export declare const createTable: (name: any, opts: ITableOpts) => Table;
+export declare const createTable: (opts: ITableOpts) => Table;

@@ -19,7 +19,8 @@ const {
   sortResults,
   wait,
   runWithBackoffOnTableNotExists,
-  getTableDefinitionForModel
+  getTableDefinitionForModel,
+  getDefaultTableDefinition
 } = require('../utils')
 
 dynogels.log = {
@@ -71,48 +72,6 @@ const objects = (function () {
 }())
 
 import { DB, Table, createTable } from '../'
-let db
-let table
-let offset = Date.now()
-let lastCreated = []
-
-const getCommonTableOpts = () => {
-  return {
-    objects,
-    models: db.models,
-    maxItemSize: 4000,
-    docClient,
-    validate: false,
-  }
-}
-
-const createDB = () => {
-  const db = new DB({
-    models,
-    tableNames: lastCreated,
-    defineTable: name => new Table(DB.getSafeTableName(name), getCommonTableOpts())
-  })
-
-  return db
-}
-
-const cleanup = async () => {
-  if (!lastCreated.length) return
-
-  db = createDB()
-  await db.destroyTables()
-}
-
-const reload = async () => {
-  await cleanup()
-  const prefix = '' + (offset++)
-  lastCreated = ['a', 'b', 'c', 'd', 'e'].map(name => prefix + name)
-  db = createDB()
-  await db.createTables()
-  await db.batchPut(formRequests)
-  // table = db.tables[FORM_REQUEST]
-  // await db.batchPut(formRequests)
-}
 
 test('minify (big values)', function (t) {
   const bigMsg = {
@@ -314,180 +273,189 @@ test('backoff after create', loudAsync(async (t) => {
   t.end()
 }))
 
-test('put/update', loudAsync(async (t) => {
-  await reload()
-  const photoId = photoIds[0]
-  await db.put(photoId)
-  const saved = await db.get({
-    [TYPE]: photoId[TYPE],
-    _permalink: photoId._permalink
-  })
+;[
+  defaultIndexes,
+  defaultIndexes.map(toProjectionTypeAll)
+].forEach(indexes => {
+  const { ProjectionType } = indexes[0].projection
+  const testNamed = (name, fn) => {
+    return test(`${name} (ProjectionType: ${ProjectionType})`, fn)
+  }
 
-  t.same(saved, photoId)
+  testNamed.skip = test.skip
 
-  const update = { ...photoId, _displayName: 'blah' }
-  await db.update(update)
-  const updated = await db.get({
-    [TYPE]: photoId[TYPE],
-    _permalink: photoId._permalink
-  })
+  let db
+  let table
+  let offset = Date.now()
+  let lastCreated = []
 
-  t.same(updated, update)
-  t.end()
-}))
-
-test('basic pagination', loudAsync(async (t) => {
-  await reload()
-  const filter = {
-    EQ: {
-      [TYPE]: FORM_REQUEST
+  const getCommonTableOpts = (tableName) => {
+    const tableDefinition = getDefaultTableDefinition({ tableName })
+    return {
+      objects,
+      models: db.models,
+      maxItemSize: 4000,
+      docClient,
+      validate: false,
+      tableDefinition: {
+        ...tableDefinition,
+        indexes
+      }
     }
   }
 
-  const orderBy = {
-    property: '_time',
-    desc: true
+  const createDB = () => {
+    const db = new DB({
+      models,
+      tableNames: lastCreated,
+      defineTable: name => new Table(getCommonTableOpts(DB.getSafeTableName(name)))
+    })
+
+    return db
   }
 
-  const expected = formRequests.slice()
-  sortResults({ results: expected, orderBy })
+  const cleanup = async () => {
+    if (!lastCreated.length) return
 
-  const page1 = await db.find({
-    filter,
-    orderBy,
-    limit: 5
-  })
+    db = createDB()
+    await db.destroyTables()
+  }
 
-  t.same(page1.items, expected.slice(0, 5))
-  const page2 = await db.find({
-    filter,
-    orderBy,
-    after: page1.endPosition,
-    limit: 5
-  })
+  const reload = async () => {
+    await cleanup()
+    const prefix = '' + (offset++)
+    lastCreated = ['a', 'b', 'c', 'd', 'e'].map(name => prefix + name)
+    db = createDB()
+    await db.createTables()
+    await db.batchPut(formRequests)
+    // table = db.tables[FORM_REQUEST]
+    // await db.batchPut(formRequests)
+  }
 
-  t.same(page2.items, expected.slice(5, 10))
-  const page3 = await db.find({
-    filter,
-    orderBy,
-    after: page2.endPosition
-  })
+  testNamed('put/update', loudAsync(async (t) => {
+    await reload()
+    const photoId = photoIds[0]
+    await db.put(photoId)
+    const saved = await db.get({
+      [TYPE]: photoId[TYPE],
+      _permalink: photoId._permalink
+    })
 
-  t.same(page3.items, expected.slice(10))
-  t.end()
-}))
+    t.same(saved, photoId)
 
-test('orderBy', loudAsync(async (t) => {
-  await reload()
-  const filter = {
-    EQ: {
-      [TYPE]: FORM_REQUEST
+    const update = { ...photoId, _displayName: 'blah' }
+    await db.update(update)
+    const updated = await db.get({
+      [TYPE]: photoId[TYPE],
+      _permalink: photoId._permalink
+    })
+
+    t.same(updated, update)
+    t.end()
+  }))
+
+  testNamed('basic pagination', loudAsync(async (t) => {
+    await reload()
+    const filter = {
+      EQ: {
+        [TYPE]: FORM_REQUEST
+      }
     }
-  }
 
-  const expected = formRequests.slice()
-  const orderBy:OrderBy = {
-    property: 'form'
-  }
-
-  sortResults({ results: expected, orderBy })
-
-  const page1 = await db.find({
-    filter,
-    orderBy,
-    limit: 5
-  })
-
-  t.same(page1.items, expected.slice(0, 5))
-  const page2 = await db.find({
-    filter,
-    after: page1.endPosition,
-    orderBy,
-    limit: 5
-  })
-
-  // console.log(page2.items.map(i => i.form), expected.slice(5, 10).map(i => i.form))
-  t.same(page2.items, expected.slice(5, 10))
-  const page3 = await db.find({
-    filter,
-    after: page2.endPosition,
-    orderBy
-  })
-
-  t.same(page3.items, expected.slice(10))
-
-  // and in reverse
-  expected.reverse()
-  orderBy.desc = true
-
-  sortResults({ results: expected, orderBy })
-  const desc1 = await db.find({
-    filter,
-    orderBy,
-    limit: 5
-  })
-
-  t.same(desc1.items, expected.slice(0, 5))
-
-  t.end()
-}))
-
-test('indexed props (_author)', loudAsync(async (t) => {
-  await reload()
-  const _author = formRequests[0]._author
-  const expected = formRequests.slice()
-    .filter(fr => fr._author === _author)
-
-  t.ok(expected.length >= 20)
-
-  const orderBy = {
-    property: '_time'
-  }
-
-  const filter = {
-    EQ: {
-      [TYPE]: FORM_REQUEST,
-      _author
+    const orderBy = {
+      property: '_time',
+      desc: true
     }
-  }
 
-  sortResults({ results: expected, orderBy })
+    const expected = formRequests.slice()
+    sortResults({ results: expected, orderBy })
 
-  const page1 = await db.find({
-    orderBy,
-    filter,
-    limit: 5
-  })
+    const page1 = await db.find({
+      filter,
+      orderBy,
+      limit: 5
+    })
 
-  t.same(page1.items, expected.slice(0, 5))
-  const page2 = await db.find({
-    after: page1.endPosition,
-    filter,
-    orderBy,
-    limit: 5
-  })
+    t.same(page1.items, expected.slice(0, 5))
+    const page2 = await db.find({
+      filter,
+      orderBy,
+      after: page1.endPosition,
+      limit: 5
+    })
 
-  t.same(page2.items, expected.slice(5, 10))
-  const page3 = await db.find({
-    after: page2.endPosition,
-    filter,
-    orderBy
-  })
+    t.same(page2.items, expected.slice(5, 10))
+    const page3 = await db.find({
+      filter,
+      orderBy,
+      after: page2.endPosition
+    })
 
-  t.same(page3.items, expected.slice(10, 20))
-  t.end()
-}))
+    t.same(page3.items, expected.slice(10))
+    t.end()
+  }))
 
-test('indexed props (_t)', loudAsync(async (t) => {
-  await reload()
-  await db.batchPut(formRequests)
-  await db.batchPut(photoIds)
+  testNamed('orderBy', loudAsync(async (t) => {
+    await reload()
+    const filter = {
+      EQ: {
+        [TYPE]: FORM_REQUEST
+      }
+    }
 
-  await Promise.all([photoIds, formRequests].map(async (dataset) => {
-    const type = dataset[0][TYPE]
-    const expected = dataset.slice()
+    const expected = formRequests.slice()
+    const orderBy:OrderBy = {
+      property: 'form'
+    }
 
-    // make sure we have something to query!
+    sortResults({ results: expected, orderBy })
+
+    const page1 = await db.find({
+      filter,
+      orderBy,
+      limit: 5
+    })
+
+    t.same(page1.items, expected.slice(0, 5))
+    const page2 = await db.find({
+      filter,
+      after: page1.endPosition,
+      orderBy,
+      limit: 5
+    })
+
+    // console.log(page2.items.map(i => i.form), expected.slice(5, 10).map(i => i.form))
+    t.same(page2.items, expected.slice(5, 10))
+    const page3 = await db.find({
+      filter,
+      after: page2.endPosition,
+      orderBy
+    })
+
+    t.same(page3.items, expected.slice(10))
+
+    // and in reverse
+    expected.reverse()
+    orderBy.desc = true
+
+    sortResults({ results: expected, orderBy })
+    const desc1 = await db.find({
+      filter,
+      orderBy,
+      limit: 5
+    })
+
+    t.same(desc1.items, expected.slice(0, 5))
+
+    t.end()
+  }))
+
+  testNamed('indexed props (_author)', loudAsync(async (t) => {
+    await reload()
+    const _author = formRequests[0]._author
+    const expected = formRequests.slice()
+      .filter(fr => fr._author === _author)
+
     t.ok(expected.length >= 20)
 
     const orderBy = {
@@ -496,7 +464,8 @@ test('indexed props (_t)', loudAsync(async (t) => {
 
     const filter = {
       EQ: {
-        [TYPE]: type
+        [TYPE]: FORM_REQUEST,
+        _author
       }
     }
 
@@ -524,416 +493,490 @@ test('indexed props (_t)', loudAsync(async (t) => {
     })
 
     t.same(page3.items, expected.slice(10, 20))
+    t.end()
   }))
 
-  t.end()
-}))
+  testNamed('indexed props (_t)', loudAsync(async (t) => {
+    await reload()
+    await db.batchPut(formRequests)
+    await db.batchPut(photoIds)
 
-test('latest', loudAsync(async (t) => {
-  await reload()
-  const v1 = formRequests[0]
-  await db.put(v1)
+    await Promise.all([photoIds, formRequests].map(async (dataset) => {
+      const type = dataset[0][TYPE]
+      const expected = dataset.slice()
 
-  const v2 = { ...v1 }
-  v2[SIG] = crypto.randomBytes(128).toString('base64')
-  v2[PERMALINK] = v2._permalink
-  v2[PREVLINK] = v2._link
-  buildResource.setVirtual(v2, {
-    _time: v1._time - 1,
-    _link: crypto.randomBytes(32).toString('hex')
-  })
+      // make sure we have something to query!
+      t.ok(expected.length >= 20)
 
-  try {
-    await db.put(v2)
-    t.fail('conditional check should have failed')
-  } catch (err) {
-    t.equals(err.name, 'ConditionalCheckFailedException')
-  }
-
-  buildResource.setVirtual(v2, {
-    _time: v1._time + 1,
-    _link: crypto.randomBytes(32).toString('hex')
-  })
-
-  await db.put(v2)
-  t.same(await db.get({
-    [TYPE]: FORM_REQUEST,
-    _permalink: v2._permalink
-  }), v2)
-
-  t.end()
-}))
-
-// test('latest', loudAsync(async (t) => {
-//   await reload()
-//   const v1 = formRequests[0]
-//   const v2 = clone(v1)
-//   v2[SIG] = crypto.randomBytes(128).toString('base64')
-//   v2[PERMALINK] = v2._permalink
-//   v2[PREVLINK] = v2._link
-//   buildResource.setVirtual(v2, {
-//     _time: Date.now(),
-//     _link: crypto.randomBytes(32).toString('hex')
-//   })
-
-//   objects.put(v2)
-//   await db.put(v2)
-//   const {
-//     first,
-//     latest
-//   } = await {
-//     first: await db.get(v1._permalink),
-//     latest: await db.latest(v1._permalink)
-//   }
-
-//   t.same(first, v1)
-//   t.same(latest, v2)
-//   await db.del(v2._link)
-//   t.same(await db.latest(v1._permalink), first)
-
-//   objects.put(v2)
-//   await db.put(v2)
-//   const versions = await db.getVersions({ permalink: v1._permalink })
-//   t.same(versions.sort(byLinkAsc), [v1, v2].sort(byLinkAsc))
-
-//   await db.deleteAllVersions({ permalink: v1._permalink })
-//   try {
-//     const storedV1 = await db.get(v1._permalink)
-//     t.fail('expected v1 to have been deleted')
-//   } catch (err) {
-//     t.notEqual(err.message.indexOf(v1._permalink), -1)
-//   }
-
-//   try {
-//     const storedV2 = await db.get(v2._permalink)
-//     t.fail('expected v2 to have been deleted')
-//   } catch (err) {
-//     t.notEqual(err.message.indexOf(v2._permalink), -1)
-//   }
-
-//   t.end()
-// }))
-
-test('db', loudAsync(async (t) => {
-  await reload()
-  const req = formRequests[0]
-  const type = req[TYPE]
-  const link = req._link
-  const permalink = req._permalink
-  t.same(await db.get({
-    [TYPE]: type,
-    _permalink: permalink
-  }), req, 'db.get')
-
-  t.same(await db.latest({
-    [TYPE]: type,
-    _permalink: permalink
-  }), req, 'db.latest')
-
-  await db.del({
-    [TYPE]: type,
-    _permalink: permalink
-  })
-
-  try {
-    await db.get({
-      [TYPE]: type,
-      _permalink: permalink
-    })
-
-    t.fail('expected NotFound error')
-  } catch (err) {
-    t.equal(err.name, 'NotFound')
-  }
-
-  try {
-    await db.latest({
-      [TYPE]: type,
-      _permalink: permalink
-    })
-
-    t.fail('expected NotFound error')
-  } catch (err) {
-    t.equal(err.name, 'NotFound')
-  }
-
-  await db.put(req)
-  t.same(await db.get({
-    [TYPE]: type,
-    _permalink: permalink
-  }), req)
-
-  const searchResult = await db.find({
-    filter: {
-      EQ: {
-        [TYPE]: type,
-        form: req.form
+      const orderBy = {
+        property: '_time'
       }
+
+      const filter = {
+        EQ: {
+          [TYPE]: type
+        }
+      }
+
+      sortResults({ results: expected, orderBy })
+
+      const page1 = await db.find({
+        orderBy,
+        filter,
+        limit: 5
+      })
+
+      t.same(page1.items, expected.slice(0, 5))
+      const page2 = await db.find({
+        after: page1.endPosition,
+        filter,
+        orderBy,
+        limit: 5
+      })
+
+      t.same(page2.items, expected.slice(5, 10))
+      const page3 = await db.find({
+        after: page2.endPosition,
+        filter,
+        orderBy
+      })
+
+      t.same(page3.items, expected.slice(10, 20))
+    }))
+
+    t.end()
+  }))
+
+  testNamed('latest', loudAsync(async (t) => {
+    await reload()
+    const v1 = formRequests[0]
+    await db.put(v1)
+
+    const v2 = { ...v1 }
+    v2[SIG] = crypto.randomBytes(128).toString('base64')
+    v2[PERMALINK] = v2._permalink
+    v2[PREVLINK] = v2._link
+    buildResource.setVirtual(v2, {
+      _time: v1._time - 1,
+      _link: crypto.randomBytes(32).toString('hex')
+    })
+
+    try {
+      await db.put(v2)
+      t.fail('conditional check should have failed')
+    } catch (err) {
+      t.equals(err.name, 'ConditionalCheckFailedException')
     }
-  })
 
-  const expectedSearchResult = formRequests.filter(({ form }) => form === req.form)
-  t.same(searchResult.items, expectedSearchResult)
+    buildResource.setVirtual(v2, {
+      _time: v1._time + 1,
+      _link: crypto.randomBytes(32).toString('hex')
+    })
 
-  t.end()
-}))
+    await db.put(v2)
+    t.same(await db.get({
+      [TYPE]: FORM_REQUEST,
+      _permalink: v2._permalink
+    }), v2)
 
-test('filters', loudAsync(async (t) => {
-  await reload()
-  const type = 'tradle.PhotoID'
-  const photoIds = fixtures.filter(item => item[TYPE] === type)
-  // const byType = groupByType(fixtures)
-  // photoIds.forEach(objects.put)
-  await db.batchPut(photoIds)
-  // await Object.keys(byType).map(type => {
-  //   if (db.tables[type]) {
-  //     return db.batchPut(byType[type])
+    t.end()
+  }))
+
+  // testNamed('latest', loudAsync(async (t) => {
+  //   await reload()
+  //   const v1 = formRequests[0]
+  //   const v2 = clone(v1)
+  //   v2[SIG] = crypto.randomBytes(128).toString('base64')
+  //   v2[PERMALINK] = v2._permalink
+  //   v2[PREVLINK] = v2._link
+  //   buildResource.setVirtual(v2, {
+  //     _time: Date.now(),
+  //     _link: crypto.randomBytes(32).toString('hex')
+  //   })
+
+  //   objects.put(v2)
+  //   await db.put(v2)
+  //   const {
+  //     first,
+  //     latest
+  //   } = await {
+  //     first: await db.get(v1._permalink),
+  //     latest: await db.latest(v1._permalink)
   //   }
 
-  //   return Promise.resolve()
-  // })
+  //   t.same(first, v1)
+  //   t.same(latest, v2)
+  //   await db.del(v2._link)
+  //   t.same(await db.latest(v1._permalink), first)
 
-  const orderBy = {
-    property: '_time'
-  }
+  //   objects.put(v2)
+  //   await db.put(v2)
+  //   const versions = await db.getVersions({ permalink: v1._permalink })
+  //   t.same(versions.sort(byLinkAsc), [v1, v2].sort(byLinkAsc))
 
-  const orderByCombinations = getOrderByCombinations({
-    properties: ['_time', '_author', '_link']
-  })
+  //   await db.deleteAllVersions({ permalink: v1._permalink })
+  //   try {
+  //     const storedV1 = await db.get(v1._permalink)
+  //     t.fail('expected v1 to have been deleted')
+  //   } catch (err) {
+  //     t.notEqual(err.message.indexOf(v1._permalink), -1)
+  //   }
 
-  const tests = orderByCombinations.map(orderBy => async () => {
-    const first = photoIds[0]
-    let expected
+  //   try {
+  //     const storedV2 = await db.get(v2._permalink)
+  //     t.fail('expected v2 to have been deleted')
+  //   } catch (err) {
+  //     t.notEqual(err.message.indexOf(v2._permalink), -1)
+  //   }
 
-    const startsWithStr = 'tradle.'
-    expected = photoIds.filter(photoId => {
-      return photoId.country.id.startsWith(startsWithStr)
+  //   t.end()
+  // }))
+
+  testNamed('db', loudAsync(async (t) => {
+    await reload()
+    const req = formRequests[0]
+    const type = req[TYPE]
+    const link = req._link
+    const permalink = req._permalink
+    t.same(await db.get({
+      [TYPE]: type,
+      _permalink: permalink
+    }), req, 'db.get')
+
+    t.same(await db.latest({
+      [TYPE]: type,
+      _permalink: permalink
+    }), req, 'db.latest')
+
+    await db.del({
+      [TYPE]: type,
+      _permalink: permalink
     })
 
-    sortResults({ results: expected, orderBy })
+    try {
+      await db.get({
+        [TYPE]: type,
+        _permalink: permalink
+      })
 
-    const countryIdStartsWith = await db.find({
-      orderBy,
+      t.fail('expected NotFound error')
+    } catch (err) {
+      t.equal(err.name, 'NotFound')
+    }
+
+    try {
+      await db.latest({
+        [TYPE]: type,
+        _permalink: permalink
+      })
+
+      t.fail('expected NotFound error')
+    } catch (err) {
+      t.equal(err.name, 'NotFound')
+    }
+
+    await db.put(req)
+    t.same(await db.get({
+      [TYPE]: type,
+      _permalink: permalink
+    }), req)
+
+    const searchResult = await db.find({
       filter: {
         EQ: {
-          [TYPE]: type
-        },
-        STARTS_WITH: {
-          'country.id': startsWithStr
+          [TYPE]: type,
+          form: req.form
         }
       }
     })
 
-    t.same(countryIdStartsWith.items, expected, 'country.id STARTS_WITH')
+    const expectedSearchResult = formRequests.filter(({ form }) => form === req.form)
+    t.same(searchResult.items, expectedSearchResult)
 
-    const minTime = photoIds[0]._time
-    expected = photoIds.filter(photoId => {
-      return photoId._time > minTime
+    t.end()
+  }))
+
+  testNamed('filters', loudAsync(async (t) => {
+    await reload()
+    const type = 'tradle.PhotoID'
+    const photoIds = fixtures.filter(item => item[TYPE] === type)
+    // const byType = groupByType(fixtures)
+    // photoIds.forEach(objects.put)
+    await db.batchPut(photoIds)
+    // await Object.keys(byType).map(type => {
+    //   if (db.tables[type]) {
+    //     return db.batchPut(byType[type])
+    //   }
+
+    //   return Promise.resolve()
+    // })
+
+    const orderBy = {
+      property: '_time'
+    }
+
+    const orderByCombinations = getOrderByCombinations({
+      properties: ['_time', '_author', '_link']
     })
 
-    sortResults({ results: expected, orderBy })
+    const tests = orderByCombinations.map(orderBy => async () => {
+      const first = photoIds[0]
+      let expected
 
-    const photoIdsGt = await db.find({
-      orderBy,
+      // const startsWithStr = 'tradle.'
+      // expected = photoIds.filter(photoId => {
+      //   return photoId.country.id.startsWith(startsWithStr)
+      // })
+
+      // sortResults({ results: expected, orderBy })
+
+      // const countryIdStartsWith = await db.find({
+      //   orderBy,
+      //   filter: {
+      //     EQ: {
+      //       [TYPE]: type
+      //     },
+      //     STARTS_WITH: {
+      //       'country.id': startsWithStr
+      //     }
+      //   }
+      // })
+
+      // t.same(countryIdStartsWith.items, expected, 'country.id STARTS_WITH')
+
+      // const minTime = photoIds[0]._time
+      // expected = photoIds.filter(photoId => {
+      //   return photoId._time > minTime
+      // })
+
+      // sortResults({ results: expected, orderBy })
+
+      // const photoIdsGt = await db.find({
+      //   orderBy,
+      //   filter: {
+      //     EQ: {
+      //       [TYPE]: type
+      //     },
+      //     GT: {
+      //       _time: minTime
+      //     }
+      //   }
+      // })
+
+      // t.same(photoIdsGt.items, expected, '_time GT')
+
+      // const countries = ['tradle.Country_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da']
+      // expected = photoIds.filter(photoId => {
+      //   return countries.includes(photoId.country.id)
+      // })
+
+      // sortResults({ results: expected, orderBy })
+
+      // const photoIdsIn = await db.find({
+      //   orderBy,
+      //   filter: {
+      //     EQ: {
+      //       [TYPE]: type
+      //     },
+      //     IN: {
+      //       'country.id': countries
+      //     }
+      //   }
+      // })
+
+      // t.same(photoIdsIn.items, expected, 'countries IN')
+
+      // expected = []
+      // sortResults({ results: expected, orderBy })
+
+      // const photoIdsCountryNull = await db.find({
+      //   orderBy,
+      //   filter: {
+      //     EQ: {
+      //       [TYPE]: type
+      //     },
+      //     NULL: {
+      //       country: true
+      //     }
+      //   }
+      // })
+
+      // t.same(photoIdsCountryNull.items, expected, 'country null')
+
+      // expected = photoIds.slice()
+      // sortResults({ results: expected, orderBy })
+
+      // const photoIdsCountryNotNull = await db.find({
+      //   orderBy,
+      //   filter: {
+      //     EQ: {
+      //       [TYPE]: type
+      //     },
+      //     NULL: {
+      //       country: false
+      //     }
+      //   }
+      // })
+
+      // t.same(photoIdsCountryNotNull.items, expected, 'country not null')
+
+      const badCountries = photoIds.slice(0, 2).map(photoId => photoId.country.id)
+      expected = photoIds.slice(2).filter(photoId => {
+        return !badCountries.includes(photoId.country.id)
+      })
+
+      if (!expected.length) throw new Error('bad test, need more fixtures')
+
+      sortResults({ results: expected, orderBy })
+
+      const photoIdsCountryNotIn = await db.find({
+        orderBy,
+        filter: {
+          EQ: {
+            [TYPE]: type
+          },
+          NOT_IN: {
+            'country.id': badCountries
+          }
+        }
+      })
+
+      t.same(photoIdsCountryNotIn.items, expected, 'country not in..')
+    })
+
+    for (const test of tests) {
+      await test()
+    }
+
+    t.end()
+  }))
+
+  testNamed('addModels', loudAsync(async (t) => {
+    await reload()
+    const A_TYPE = 'mynamespace.modelA'
+    db.addModels({
+      [A_TYPE]: {
+        type: 'tradle.Model',
+        id: A_TYPE,
+        title: 'A',
+        properties: {
+          a: {
+            type: 'string'
+          }
+        }
+      }
+    })
+
+    t.ok(db.tables[A_TYPE], 'models added dynamically')
+    t.ok(db.tables[A_TYPE].opts.models, 'latest models propagated in options to table')
+
+    const a = {
+      _link: 'alink',
+      _permalink: 'alink',
+      _time: 1505941645561,
+      [TYPE]: A_TYPE,
+      a: 'a'
+    }
+
+    await db.put(a)
+    t.same(await db.get({
+      [TYPE]: A_TYPE,
+      _permalink: a._link
+    }), a)
+
+    t.end()
+  }))
+
+  testNamed('custom primary keys', loudAsync(async (t) => {
+    await reload()
+    const ALIEN_CLASSIFIER = 'mynamespace.Alien' + Date.now()
+    const alienModel = {
+      type: 'tradle.Model',
+      id: ALIEN_CLASSIFIER,
+      title: 'Alien Classifier',
+      properties: {
+        color: {
+          type: 'string'
+        },
+        fingerCount: {
+          type: 'number'
+        },
+        iq: {
+          type: 'number'
+        }
+      },
+      primaryKeys: {
+        hashKey: 'color',
+        rangeKey: 'fingerCount'
+      }
+    }
+
+    db.addModels({
+      [ALIEN_CLASSIFIER]: alienModel
+    })
+
+    db.setExclusive({
+      table: createTable({
+        ...getCommonTableOpts(DB.getSafeTableName(alienModel.id)),
+        model: alienModel,
+        models: db.models,
+        tableDefinition: getTableDefinitionForModel({
+          models: db.models,
+          model: alienModel
+        }),
+        exclusive: true
+      })
+    })
+
+    await db.tables[ALIEN_CLASSIFIER].create()
+
+    const updatedModels = db.models
+    const alien = buildResource({
+        models: updatedModels,
+        model: alienModel
+      })
+      .set({
+        _time: Date.now(),
+        color: '#0000ff',
+        fingerCount: 50,
+        iq: 1
+      })
+      .toJSON()
+
+    // exclusive tables have no need to store type
+    // so they may omit it
+    delete alien[TYPE]
+    await db.tables[ALIEN_CLASSIFIER].put(alien)
+    t.same(await db.get({
+      [TYPE]: ALIEN_CLASSIFIER,
+      color: alien.color,
+      fingerCount: alien.fingerCount
+    }), alien)
+
+    const searchResult = await db.find({
+      orderBy: {
+        property: 'fingerCount'
+      },
       filter: {
         EQ: {
-          [TYPE]: type
+          [TYPE]: ALIEN_CLASSIFIER,
+          color: alien.color
         },
         GT: {
-          _time: minTime
+          fingerCount: 10
         }
       }
     })
 
-    t.same(photoIdsGt.items, expected, '_time GT')
+    t.same(searchResult.items, [alien])
 
-    const countries = ['tradle.Country_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da']
-    expected = photoIds.filter(photoId => {
-      return countries.includes(photoId.country.id)
-    })
+    t.end()
+  }))
 
-    sortResults({ results: expected, orderBy })
-
-    const photoIdsIn = await db.find({
-      orderBy,
-      filter: {
-        EQ: {
-          [TYPE]: type
-        },
-        IN: {
-          'country.id': countries
-        }
-      }
-    })
-
-    t.same(photoIdsIn.items, expected, 'countries IN')
-
-    expected = []
-    sortResults({ results: expected, orderBy })
-
-    const photoIdsCountryNull = await db.find({
-      orderBy,
-      filter: {
-        EQ: {
-          [TYPE]: type
-        },
-        NULL: {
-          country: true
-        }
-      }
-    })
-
-    t.same(photoIdsCountryNull.items, expected, 'country null')
-
-    expected = photoIds.slice()
-    sortResults({ results: expected, orderBy })
-
-    const photoIdsCountryNotNull = await db.find({
-      orderBy,
-      filter: {
-        EQ: {
-          [TYPE]: type
-        },
-        NULL: {
-          country: false
-        }
-      }
-    })
-
-    t.same(photoIdsCountryNotNull.items, expected, 'country not null')
+  testNamed('cleanup', async (t) => {
+    await cleanup()
+    t.end()
   })
-
-  for (const test of tests) {
-    await test()
-  }
-
-  t.end()
-}))
-
-test('addModels', loudAsync(async (t) => {
-  await reload()
-  const A_TYPE = 'mynamespace.modelA'
-  db.addModels({
-    [A_TYPE]: {
-      type: 'tradle.Model',
-      id: A_TYPE,
-      title: 'A',
-      properties: {
-        a: {
-          type: 'string'
-        }
-      }
-    }
-  })
-
-  t.ok(db.tables[A_TYPE], 'models added dynamically')
-  t.ok(db.tables[A_TYPE].opts.models, 'latest models propagated in options to table')
-
-  const a = {
-    _link: 'alink',
-    _permalink: 'alink',
-    _time: 1505941645561,
-    [TYPE]: A_TYPE,
-    a: 'a'
-  }
-
-  await db.put(a)
-  t.same(await db.get({
-    [TYPE]: A_TYPE,
-    _permalink: a._link
-  }), a)
-
-  t.end()
-}))
-
-test('custom primary keys', loudAsync(async (t) => {
-  await reload()
-  const ALIEN_CLASSIFIER = 'mynamespace.Alien' + Date.now()
-  const alienModel = {
-    type: 'tradle.Model',
-    id: ALIEN_CLASSIFIER,
-    title: 'Alien Classifier',
-    properties: {
-      color: {
-        type: 'string'
-      },
-      fingerCount: {
-        type: 'number'
-      },
-      iq: {
-        type: 'number'
-      }
-    },
-    primaryKeys: {
-      hashKey: 'color',
-      rangeKey: 'fingerCount'
-    }
-  }
-
-  db.addModels({
-    [ALIEN_CLASSIFIER]: alienModel
-  })
-
-  db.setExclusive({
-    table: createTable({
-      ...getCommonTableOpts(),
-      model: alienModel,
-      tableDefinition: getTableDefinitionForModel({
-        models: db.models,
-        model: alienModel
-      }),
-      exclusive: true
-    })
-  })
-
-  await db.tables[ALIEN_CLASSIFIER].create()
-
-  const updatedModels = db.models
-  const alien = buildResource({
-      models: updatedModels,
-      model: alienModel
-    })
-    .set({
-      _time: Date.now(),
-      color: '#0000ff',
-      fingerCount: 50,
-      iq: 1
-    })
-    .toJSON()
-
-  // exclusive tables have no need to store type
-  // so they may omit it
-  delete alien[TYPE]
-  await db.tables[ALIEN_CLASSIFIER].put(alien)
-  t.same(await db.get({
-    [TYPE]: ALIEN_CLASSIFIER,
-    color: alien.color,
-    fingerCount: alien.fingerCount
-  }), alien)
-
-  const searchResult = await db.find({
-    orderBy: {
-      property: 'fingerCount'
-    },
-    filter: {
-      EQ: {
-        [TYPE]: ALIEN_CLASSIFIER,
-        color: alien.color
-      },
-      GT: {
-        fingerCount: 10
-      }
-    }
-  })
-
-  t.same(searchResult.items, [alien])
-
-  t.end()
-}))
-
-test('cleanup', async (t) => {
-  await cleanup()
-  t.end()
 })
 
 function loudAsync (asyncFn) {
@@ -981,4 +1024,13 @@ function getOrderByCombinations ({ properties }) {
 
 function byLinkAsc (a, b) {
   return a._link < b._link ? -1 : a._link > b._link ? 1 : 0
+}
+
+function toProjectionTypeAll (index) {
+  return {
+    ...index,
+    projection: {
+      ProjectionType: 'ALL'
+    }
+  }
 }

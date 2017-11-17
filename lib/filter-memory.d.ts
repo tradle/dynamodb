@@ -10,6 +10,10 @@ declare const comparators: {
         value: any;
         condition: any;
     }) => any;
+    NOT_IN: ({value, condition}: {
+        value: any;
+        condition: any;
+    }) => any;
     STARTS_WITH: ({value, condition}: {
         value: any;
         condition: any;

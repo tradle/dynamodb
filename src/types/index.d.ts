@@ -43,7 +43,7 @@ export interface ITableOpts {
   models: Models
   objects: Objects
   docClient: AWS.DynamoDB.DocumentClient
-  tableDefinition?: DynogelTableDefinition
+  tableDefinition: DynogelTableDefinition
   requireSigned?: boolean
   validate?: boolean
   exclusive?: boolean
@@ -55,7 +55,6 @@ export interface ITableOpts {
   bodyInObjects?: boolean
   defaultReadOptions?: ReadOptions
   maxItemSize?: number
-  indexes?: DynogelIndex[]
 }
 
 export type KeyProps = {

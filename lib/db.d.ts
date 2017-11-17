@@ -38,7 +38,13 @@ export default class DB extends EventEmitter {
         itemToPosition: Function;
     }>;
     findOne: (opts: any) => Promise<any>;
-    search: (...args: any[]) => Promise<any>;
+    search: (opts: any) => Promise<{
+        items: any;
+        startPosition: any;
+        endPosition: any;
+        index: DynogelIndex;
+        itemToPosition: Function;
+    }>;
     createTables: (opts: any) => Promise<void>;
     destroyTables: (opts: any) => Promise<void>;
     addModels: (models: Models) => void;
