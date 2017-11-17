@@ -159,13 +159,13 @@ export default class Table extends EventEmitter {
       }
     }
 
-    this.findOpts = pick(opts, [
-      'models',
-      'forbidScan',
-      'bodyInObjects'
-    ])
+    this.findOpts = {
+      models,
+      forbidScan,
+      bodyInObjects,
+      primaryKeys: this.primaryKeys
+    }
 
-    this.findOpts.primaryKeys = this.primaryKeys
     this.primaryKeyProps = getValues(this.primaryKeys)
 
     if (defaultReadOptions.consistentRead) {

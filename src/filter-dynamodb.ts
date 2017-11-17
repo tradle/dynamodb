@@ -229,7 +229,7 @@ class FilterOp {
     const { table, index } = this
     if (index && index.projection.ProjectionType !== 'ALL') {
       this._debug('inflating due to use of index')
-      if (this.bodyInObjects) {
+      if (this.bodyInObjects && result.Items.every(item => item._link)) {
         result.Items = await Promise.all(result.Items.map(table.inflate))
       } else {
         result.Items = await Promise.all(result.Items.map(table.get))

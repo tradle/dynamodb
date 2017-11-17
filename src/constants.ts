@@ -10,7 +10,7 @@ const authorIndex:DynogelIndex = {
   // can we get away with ProjectionType KEYS_ONLY?
   projection: {
     ProjectionType: 'INCLUDE',
-    NonKeyAttributes: [TYPE]
+    NonKeyAttributes: [TYPE, '_link']
   }
 }
 
@@ -23,7 +23,7 @@ const typeIndex:DynogelIndex = {
   // can we get away with ProjectionType KEYS_ONLY?
   projection: {
     ProjectionType: 'INCLUDE',
-    NonKeyAttributes: ['_author']
+    NonKeyAttributes: ['_author', '_link']
   }
 }
 
