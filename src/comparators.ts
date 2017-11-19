@@ -45,7 +45,8 @@ const CHECK_NULL = ({ where, key, value }) => {
   if (value) {
     where(key).null()
   } else {
-    where(key).notNull()
+    const addCondition = where(key).exists || where(key).notNull
+    addCondition()
   }
 }
 
