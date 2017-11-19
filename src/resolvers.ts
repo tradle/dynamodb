@@ -50,13 +50,13 @@ export = function createResolvers ({ db, objects, models, postProcess }: {
     return result ? resultsToJson(result) : null
   }
 
-  const list = async ({ model, select, filter, orderBy, limit, after }: {
+  const list = async ({ model, select, filter, orderBy, limit, checkpoint }: {
     model: Model
     select?: string[]
     filter?: Filter,
     orderBy?: OrderBy,
     limit?: number
-    after?: any
+    checkpoint?: any
   }) => {
     if (!filter) filter = { EQ: {} }
     if (!filter.EQ) filter.EQ = {}
@@ -67,7 +67,7 @@ export = function createResolvers ({ db, objects, models, postProcess }: {
       filter,
       orderBy,
       limit,
-      after
+      checkpoint
     })
   }
 

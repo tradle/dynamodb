@@ -212,7 +212,7 @@ function getQueryInfo ({ table, filter, orderBy }) {
     if (!item) throw new Error('expected database record')
 
     if (queryProp === hashKey || opType === 'scan') {
-      return pick(item, [hashKey])
+      return pick(item, primaryKeysArr)
     }
 
     const props = [index.hashKey, index.rangeKey].filter(notNull)

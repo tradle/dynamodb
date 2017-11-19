@@ -274,7 +274,7 @@ test('backoff after create', loudAsync(async (t) => {
   t.end()
 }))
 
-// let only
+let only
 ;[
   defaultIndexes,
   defaultIndexes.map(toProjectionTypeAll)
@@ -286,11 +286,11 @@ test('backoff after create', loudAsync(async (t) => {
 
   testNamed.skip = test.skip
 
-  // testNamed.only = (...args) => {
-  //   if (only) return
-  //   only = true
-  //   return test.only(...args)
-  // }
+  testNamed.only = (...args) => {
+    if (only) return
+    only = true
+    return test.only(...args)
+  }
 
   let db
   let table
@@ -386,14 +386,14 @@ test('backoff after create', loudAsync(async (t) => {
 
     t.same(page1.items, expected.slice(0, 5))
 
-    // search in reverse using "before"
+    // search in reverse
     const page1Again = await db.find({
       filter,
       orderBy: {
         ...orderBy,
         desc: !orderBy.desc
       },
-      before: page1.endPosition,
+      checkpoint: page1.endPosition,
       limit: 5
     })
 
@@ -411,7 +411,7 @@ test('backoff after create', loudAsync(async (t) => {
     const page2 = await db.find({
       filter,
       orderBy,
-      after: page1.endPosition,
+      checkpoint: page1.endPosition,
       limit: 5
     })
 
@@ -419,7 +419,7 @@ test('backoff after create', loudAsync(async (t) => {
     const page3 = await db.find({
       filter,
       orderBy,
-      after: page2.endPosition
+      checkpoint: page2.endPosition
     })
 
     t.same(page3.items, expected.slice(10))
@@ -450,7 +450,7 @@ test('backoff after create', loudAsync(async (t) => {
     t.same(page1.items, expected.slice(0, 5))
     const page2 = await db.find({
       filter,
-      after: page1.endPosition,
+      checkpoint: page1.endPosition,
       orderBy,
       limit: 5
     })
@@ -459,7 +459,7 @@ test('backoff after create', loudAsync(async (t) => {
     t.same(page2.items, expected.slice(5, 10))
     const page3 = await db.find({
       filter,
-      after: page2.endPosition,
+      checkpoint: page2.endPosition,
       orderBy
     })
 
@@ -510,7 +510,7 @@ test('backoff after create', loudAsync(async (t) => {
 
     t.same(page1.items, expected.slice(0, 5))
     const page2 = await db.find({
-      after: page1.endPosition,
+      checkpoint: page1.endPosition,
       filter,
       orderBy,
       limit: 5
@@ -518,7 +518,7 @@ test('backoff after create', loudAsync(async (t) => {
 
     t.same(page2.items, expected.slice(5, 10))
     const page3 = await db.find({
-      after: page2.endPosition,
+      checkpoint: page2.endPosition,
       filter,
       orderBy
     })
@@ -559,7 +559,7 @@ test('backoff after create', loudAsync(async (t) => {
 
       t.same(page1.items, expected.slice(0, 5))
       const page2 = await db.find({
-        after: page1.endPosition,
+        checkpoint: page1.endPosition,
         filter,
         orderBy,
         limit: 5
@@ -567,7 +567,7 @@ test('backoff after create', loudAsync(async (t) => {
 
       t.same(page2.items, expected.slice(5, 10))
       const page3 = await db.find({
-        after: page2.endPosition,
+        checkpoint: page2.endPosition,
         filter,
         orderBy
       })

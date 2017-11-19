@@ -28,8 +28,7 @@ class FilterOp {
   public orderBy:OrderBy
   public prefixedOrderBy:OrderBy
   public limit:number
-  public after?: any
-  public before?: any
+  public checkpoint?: any
   public sortedByDB:boolean
   public queryProp:string
   public opType:string
@@ -49,23 +48,11 @@ class FilterOp {
       models,
       orderBy=defaultOrderBy,
       limit=defaultLimit,
-      after,
-      before,
+      checkpoint,
       consistentRead,
       forbidScan,
       bodyInObjects
     } = this
-
-    if (before && after) {
-      throw new Error(`specify either "before" or "after" but not both`)
-    }
-
-    if (before || after) {
-      if ((after && orderBy.desc) || (before && !orderBy.desc)) {
-        throw new Error('when using "before", orderBy.desc must be true, ' +
-          'when using "after", orderBy.desc must be false')
-      }
-    }
 
     this.limit = limit
     this.orderBy = orderBy
@@ -112,9 +99,8 @@ class FilterOp {
       orderBy,
       sortedByDB,
       filter,
-      after,
-      before,
       limit,
+      checkpoint,
       itemToPosition,
       queryProp,
       index
@@ -139,13 +125,13 @@ class FilterOp {
       })
     }
 
-    if (after || before) {
+    const asc = !orderBy.desc
+    if (checkpoint) {
       // if we're running a scan
       // we need to do pagination in memory
-      const margin = after || before
       const idx = items.map(this.table.toDBFormat).findIndex(item => {
-        for (let prop in margin) {
-          if (!deepEqual(margin[prop], item[prop])) {
+        for (let prop in checkpoint) {
+          if (!deepEqual(checkpoint[prop], item[prop])) {
             return false
           }
         }
@@ -154,15 +140,15 @@ class FilterOp {
       })
 
       if (idx !== -1) {
-        items = after ? items.slice(idx + 1) : items.slice(0, idx - 1)
+        items = asc ? items.slice(idx + 1) : items.slice(0, idx - 1)
       }
     }
 
     let startPosition
     if (items.length) {
-      startPosition = this.itemToPosition(items[0])
+      startPosition = itemToPosition(items[0])
     } else {
-      startPosition = after && this.itemToPosition(after)
+      startPosition = checkpoint
     }
 
     let endPosition
@@ -256,8 +242,7 @@ class FilterOp {
   _addConditions = function () {
     const {
       prefixedFilter,
-      before,
-      after,
+      checkpoint,
       opType,
       builder,
       sortedByDB,
@@ -270,11 +255,11 @@ class FilterOp {
       filter: builder.filter && builder.filter.bind(builder)
     }
 
-    if (sortedByDB && (after || before)) {
-      builder.startKey(after || before)
+    const { hashKey, rangeKey } = index || this
+    if (sortedByDB && checkpoint) {
+      builder.startKey(checkpoint)
     }
 
-    const { hashKey, rangeKey } = index || this
     for (let op in prefixedFilter) {
       let conditions = prefixedFilter[op]
       for (let property in conditions) {
@@ -318,8 +303,7 @@ class FilterOp {
 
   _configureBuilder = function _configureBuilder () {
     const {
-      before,
-      after,
+      checkpoint,
       opType,
       filter,
       orderBy,
@@ -346,16 +330,6 @@ class FilterOp {
       if (sortedByDB) {
         // ordering in DB only makes sense if results
         // are sorted (but maybe in reverse)
-        // if (before) {
-        //   builder.descending()
-        // } else if (after) {
-        //   builder.ascending()
-        // }
-        // else if (orderBy.desc) {
-        //   builder.descending()
-        // } else {
-        //   builder.ascending()
-        // }
         if (orderBy.desc) {
           builder.descending()
         } else {
