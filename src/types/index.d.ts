@@ -108,6 +108,7 @@ export type FindOpts = {
   orderBy?: OrderBy
   select?: string[]
   after?: any
+  before?: any
   limit?: number
 }
 

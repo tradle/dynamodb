@@ -29,6 +29,7 @@ class FilterOp {
   public prefixedOrderBy:OrderBy
   public limit:number
   public after?: any
+  public before?: any
   public sortedByDB:boolean
   public queryProp:string
   public opType:string
@@ -49,10 +50,22 @@ class FilterOp {
       orderBy=defaultOrderBy,
       limit=defaultLimit,
       after,
+      before,
       consistentRead,
       forbidScan,
       bodyInObjects
     } = this
+
+    if (before && after) {
+      throw new Error(`specify either "before" or "after" but not both`)
+    }
+
+    if (before || after) {
+      if ((after && orderBy.desc) || (before && !orderBy.desc)) {
+        throw new Error('when using "before", orderBy.desc must be true, ' +
+          'when using "after", orderBy.desc must be false')
+      }
+    }
 
     this.limit = limit
     this.orderBy = orderBy
@@ -100,6 +113,7 @@ class FilterOp {
       sortedByDB,
       filter,
       after,
+      before,
       limit,
       itemToPosition,
       queryProp,
@@ -125,12 +139,13 @@ class FilterOp {
       })
     }
 
-    if (after) {
+    if (after || before) {
       // if we're running a scan
       // we need to do pagination in memory
+      const margin = after || before
       const idx = items.map(this.table.toDBFormat).findIndex(item => {
-        for (let prop in after) {
-          if (!deepEqual(after[prop], item[prop])) {
+        for (let prop in margin) {
+          if (!deepEqual(margin[prop], item[prop])) {
             return false
           }
         }
@@ -139,7 +154,7 @@ class FilterOp {
       })
 
       if (idx !== -1) {
-        items = items.slice(idx + 1)
+        items = after ? items.slice(idx + 1) : items.slice(0, idx - 1)
       }
     }
 
@@ -239,16 +254,24 @@ class FilterOp {
   }
 
   _addConditions = function () {
-    const { prefixedFilter, after, opType, builder, sortedByDB, table, index } = this
+    const {
+      prefixedFilter,
+      before,
+      after,
+      opType,
+      builder,
+      sortedByDB,
+      table,
+      index
+    } = this
+
     const conditionBuilders = {
       where: builder.where && builder.where.bind(builder),
       filter: builder.filter && builder.filter.bind(builder)
     }
 
-    if (after) {
-      if (sortedByDB) {
-        builder.startKey(after)
-      }
+    if (sortedByDB && (after || before)) {
+      builder.startKey(after || before)
     }
 
     const { hashKey, rangeKey } = index || this
@@ -295,6 +318,8 @@ class FilterOp {
 
   _configureBuilder = function _configureBuilder () {
     const {
+      before,
+      after,
       opType,
       filter,
       orderBy,
@@ -321,6 +346,16 @@ class FilterOp {
       if (sortedByDB) {
         // ordering in DB only makes sense if results
         // are sorted (but maybe in reverse)
+        // if (before) {
+        //   builder.descending()
+        // } else if (after) {
+        //   builder.ascending()
+        // }
+        // else if (orderBy.desc) {
+        //   builder.descending()
+        // } else {
+        //   builder.ascending()
+        // }
         if (orderBy.desc) {
           builder.descending()
         } else {

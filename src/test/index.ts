@@ -20,7 +20,8 @@ const {
   wait,
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
-  getDefaultTableDefinition
+  getDefaultTableDefinition,
+  getQueryInfo
 } = require('../utils')
 
 dynogels.log = {
@@ -371,7 +372,7 @@ test('backoff after create', loudAsync(async (t) => {
 
     const orderBy = {
       property: '_time',
-      desc: true
+      desc: false
     }
 
     const expected = formRequests.slice()
@@ -384,6 +385,28 @@ test('backoff after create', loudAsync(async (t) => {
     })
 
     t.same(page1.items, expected.slice(0, 5))
+
+    // search in reverse using "before"
+    const page1Again = await db.find({
+      filter,
+      orderBy: {
+        ...orderBy,
+        desc: !orderBy.desc
+      },
+      before: page1.endPosition,
+      limit: 5
+    })
+
+    const reverseFirstPage = expected.slice(0, 4).reverse()
+    t.same(page1Again.items, reverseFirstPage, '"before" works')
+    t.same(page1Again.startPosition, getItemPosition({
+      db,
+      filter,
+      orderBy,
+      item: reverseFirstPage[0]
+    }))
+
+    t.same(page1Again.endPosition, page1.startPosition)
 
     const page2 = await db.find({
       filter,
@@ -991,4 +1014,12 @@ function toProjectionTypeAll (index) {
       ProjectionType: 'ALL'
     }
   }
+}
+
+function getItemPosition ({ db, filter, orderBy, item }) {
+  return getQueryInfo({
+    table: db.tables[filter.EQ[TYPE]],
+    filter,
+    orderBy
+  }).itemToPosition(item)
 }

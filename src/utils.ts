@@ -33,7 +33,6 @@ const metadataTypes = toJoi({
 const levenshteinDistance = (a:string, b:string) => levenshtein.get(a, b)
 
 function getTableName ({ model, prefix='', suffix='' }) {
-  if (!model) debugger
   const name = (model.id || model).replace(/[.]/g, '_')
   return prefix + name + suffix
 }
@@ -510,6 +509,7 @@ const doesIndexProjectProperty = ({ table, index, property }: {
 const utils = {
   fromResourceStub,
   sortResults,
+  compare,
   promisify,
   debug,
   clone,
