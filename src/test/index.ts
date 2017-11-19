@@ -273,6 +273,7 @@ test('backoff after create', loudAsync(async (t) => {
   t.end()
 }))
 
+// let only
 ;[
   defaultIndexes,
   defaultIndexes.map(toProjectionTypeAll)
@@ -283,6 +284,12 @@ test('backoff after create', loudAsync(async (t) => {
   }
 
   testNamed.skip = test.skip
+
+  // testNamed.only = (...args) => {
+  //   if (only) return
+  //   only = true
+  //   return test.only(...args)
+  // }
 
   let db
   let table
@@ -377,6 +384,7 @@ test('backoff after create', loudAsync(async (t) => {
     })
 
     t.same(page1.items, expected.slice(0, 5))
+
     const page2 = await db.find({
       filter,
       orderBy,
@@ -582,56 +590,6 @@ test('backoff after create', loudAsync(async (t) => {
     t.end()
   }))
 
-  // testNamed('latest', loudAsync(async (t) => {
-  //   await reload()
-  //   const v1 = formRequests[0]
-  //   const v2 = clone(v1)
-  //   v2[SIG] = crypto.randomBytes(128).toString('base64')
-  //   v2[PERMALINK] = v2._permalink
-  //   v2[PREVLINK] = v2._link
-  //   buildResource.setVirtual(v2, {
-  //     _time: Date.now(),
-  //     _link: crypto.randomBytes(32).toString('hex')
-  //   })
-
-  //   objects.put(v2)
-  //   await db.put(v2)
-  //   const {
-  //     first,
-  //     latest
-  //   } = await {
-  //     first: await db.get(v1._permalink),
-  //     latest: await db.latest(v1._permalink)
-  //   }
-
-  //   t.same(first, v1)
-  //   t.same(latest, v2)
-  //   await db.del(v2._link)
-  //   t.same(await db.latest(v1._permalink), first)
-
-  //   objects.put(v2)
-  //   await db.put(v2)
-  //   const versions = await db.getVersions({ permalink: v1._permalink })
-  //   t.same(versions.sort(byLinkAsc), [v1, v2].sort(byLinkAsc))
-
-  //   await db.deleteAllVersions({ permalink: v1._permalink })
-  //   try {
-  //     const storedV1 = await db.get(v1._permalink)
-  //     t.fail('expected v1 to have been deleted')
-  //   } catch (err) {
-  //     t.notEqual(err.message.indexOf(v1._permalink), -1)
-  //   }
-
-  //   try {
-  //     const storedV2 = await db.get(v2._permalink)
-  //     t.fail('expected v2 to have been deleted')
-  //   } catch (err) {
-  //     t.notEqual(err.message.indexOf(v2._permalink), -1)
-  //   }
-
-  //   t.end()
-  // }))
-
   testNamed('db', loudAsync(async (t) => {
     await reload()
     const req = formRequests[0]
@@ -723,102 +681,102 @@ test('backoff after create', loudAsync(async (t) => {
       const first = photoIds[0]
       let expected
 
-      // const startsWithStr = 'tradle.'
-      // expected = photoIds.filter(photoId => {
-      //   return photoId.country.id.startsWith(startsWithStr)
-      // })
+      const startsWithStr = 'tradle.'
+      expected = photoIds.filter(photoId => {
+        return photoId.country.id.startsWith(startsWithStr)
+      })
 
-      // sortResults({ results: expected, orderBy })
+      sortResults({ results: expected, orderBy })
 
-      // const countryIdStartsWith = await db.find({
-      //   orderBy,
-      //   filter: {
-      //     EQ: {
-      //       [TYPE]: type
-      //     },
-      //     STARTS_WITH: {
-      //       'country.id': startsWithStr
-      //     }
-      //   }
-      // })
+      const countryIdStartsWith = await db.find({
+        orderBy,
+        filter: {
+          EQ: {
+            [TYPE]: type
+          },
+          STARTS_WITH: {
+            'country.id': startsWithStr
+          }
+        }
+      })
 
-      // t.same(countryIdStartsWith.items, expected, 'country.id STARTS_WITH')
+      t.same(countryIdStartsWith.items, expected, 'country.id STARTS_WITH')
 
-      // const minTime = photoIds[0]._time
-      // expected = photoIds.filter(photoId => {
-      //   return photoId._time > minTime
-      // })
+      const minTime = photoIds[0]._time
+      expected = photoIds.filter(photoId => {
+        return photoId._time > minTime
+      })
 
-      // sortResults({ results: expected, orderBy })
+      sortResults({ results: expected, orderBy })
 
-      // const photoIdsGt = await db.find({
-      //   orderBy,
-      //   filter: {
-      //     EQ: {
-      //       [TYPE]: type
-      //     },
-      //     GT: {
-      //       _time: minTime
-      //     }
-      //   }
-      // })
+      const photoIdsGt = await db.find({
+        orderBy,
+        filter: {
+          EQ: {
+            [TYPE]: type
+          },
+          GT: {
+            _time: minTime
+          }
+        }
+      })
 
-      // t.same(photoIdsGt.items, expected, '_time GT')
+      t.same(photoIdsGt.items, expected, '_time GT')
 
-      // const countries = ['tradle.Country_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da']
-      // expected = photoIds.filter(photoId => {
-      //   return countries.includes(photoId.country.id)
-      // })
+      const countries = ['tradle.Country_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da_efe0530781364d08e8ab58e34fe8fffc2db3af39449242a95c0a3307826475da']
+      expected = photoIds.filter(photoId => {
+        return countries.includes(photoId.country.id)
+      })
 
-      // sortResults({ results: expected, orderBy })
+      sortResults({ results: expected, orderBy })
 
-      // const photoIdsIn = await db.find({
-      //   orderBy,
-      //   filter: {
-      //     EQ: {
-      //       [TYPE]: type
-      //     },
-      //     IN: {
-      //       'country.id': countries
-      //     }
-      //   }
-      // })
+      const photoIdsIn = await db.find({
+        orderBy,
+        filter: {
+          EQ: {
+            [TYPE]: type
+          },
+          IN: {
+            'country.id': countries
+          }
+        }
+      })
 
-      // t.same(photoIdsIn.items, expected, 'countries IN')
+      t.same(photoIdsIn.items, expected, 'countries IN')
 
-      // expected = []
-      // sortResults({ results: expected, orderBy })
+      expected = []
+      sortResults({ results: expected, orderBy })
 
-      // const photoIdsCountryNull = await db.find({
-      //   orderBy,
-      //   filter: {
-      //     EQ: {
-      //       [TYPE]: type
-      //     },
-      //     NULL: {
-      //       country: true
-      //     }
-      //   }
-      // })
+      const photoIdsCountryNull = await db.find({
+        orderBy,
+        filter: {
+          EQ: {
+            [TYPE]: type
+          },
+          NULL: {
+            country: true
+          }
+        }
+      })
 
-      // t.same(photoIdsCountryNull.items, expected, 'country null')
+      t.same(photoIdsCountryNull.items, expected, 'country null')
 
-      // expected = photoIds.slice()
-      // sortResults({ results: expected, orderBy })
+      expected = photoIds.slice()
+      sortResults({ results: expected, orderBy })
 
-      // const photoIdsCountryNotNull = await db.find({
-      //   orderBy,
-      //   filter: {
-      //     EQ: {
-      //       [TYPE]: type
-      //     },
-      //     NULL: {
-      //       country: false
-      //     }
-      //   }
-      // })
+      const photoIdsCountryNotNull = await db.find({
+        orderBy,
+        filter: {
+          EQ: {
+            [TYPE]: type
+          },
+          NULL: {
+            country: false
+          }
+        }
+      })
 
-      // t.same(photoIdsCountryNotNull.items, expected, 'country not null')
+      t.same(photoIdsCountryNotNull.items, expected, 'country not null')
 
       const badCountries = photoIds.slice(0, 2).map(photoId => photoId.country.id)
       expected = photoIds.slice(2).filter(photoId => {
