@@ -282,6 +282,16 @@ export default class Table extends EventEmitter {
     return results
   }
 
+  public findOne = async (opts) => {
+    opts = { ...opts, limit: 1 }
+    const { items=[] } = await this.find(opts)
+    if (!items.length) {
+      throw new NotFound(`query: ${JSON.stringify(opts)}`)
+    }
+
+    return items[0]
+  }
+
   public search = (...args) => this.find(...args)
 
   public getPrefix = function (type:string|any):string {

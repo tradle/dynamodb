@@ -14,7 +14,6 @@ import {
 
 import Table from './table'
 import { IDBOpts, ITableOpts, DynogelIndex, Models, TableChooser, FindOpts } from './types'
-import { NotFound } from './errors'
 const { isInstantiable } = validateResource.utils
 
 const defaultTableChooser:TableChooser = ({
@@ -140,13 +139,8 @@ export default class DB extends EventEmitter {
   }
 
   public findOne = async (opts) => {
-    opts = { ...opts, limit: 1 }
-    const { items=[] } = await this.find(opts)
-    if (!items.length) {
-      throw new NotFound(`query: ${JSON.stringify(opts)}`)
-    }
-
-    return items[0]
+    const type = getFilterType(opts)
+    return this.tables[type].findOne(opts)
   }
 
   public search = async (opts) => this.find(opts)

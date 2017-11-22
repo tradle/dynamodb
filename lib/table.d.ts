@@ -39,6 +39,7 @@ export default class Table extends EventEmitter {
         index: DynogelIndex;
         itemToPosition: Function;
     }>;
+    findOne: (opts: any) => Promise<any>;
     search: (...args: any[]) => any;
     getPrefix: (type: any) => string;
     create: () => Promise<void>;
