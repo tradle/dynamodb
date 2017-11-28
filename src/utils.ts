@@ -145,24 +145,44 @@ function flatten (filter) {
 //   }, [])
 // }
 
-function getPreferredIndexProperty ({ table, properties }: {
+function getPreferredQueryProperty ({ table, properties }: {
   table: Table,
   properties: string[]
 }) {
-  if (properties.length === 1) {
-    return properties[0]
+  if (properties.length > 1) {
+    const { indexes } = table
+    const projectsAll = indexes.find(index => {
+      return properties.includes(index.hashKey) &&
+        index.projection.ProjectionType === 'ALL'
+    })
+
+    if (projectsAll) {
+      return {
+        index: projectsAll,
+        property: projectsAll.hashKey,
+        rangeKey: projectsAll.rangeKey
+      }
+    }
+
+    if (properties.includes(table.hashKey)) {
+      return {
+        property: table.hashKey,
+        rangeKey: table.rangeKey
+      }
+    }
   }
 
-  if (properties.includes('_author')) {
-    return '_author'
+  const property = properties[0]
+  const index = getIndexForProperty({ table, property })
+  return {
+    index,
+    property,
+    rangeKey: index && index.rangeKey
   }
+}
 
-  const { indexes } = table
-  const index = indexes.map(index => {
-     return index.projection.ProjectionType
-  })
-
-  return properties[0]
+function getIndexForProperty ({ table, property }) {
+  return table.indexes.find(({ hashKey }) => hashKey === property)
 }
 
 function getQueryInfo ({ table, filter, orderBy }) {
@@ -192,20 +212,12 @@ function getQueryInfo ({ table, filter, orderBy }) {
   if (opType === 'query') {
     // supported key condition operators:
     // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
-    if (usedIndexedProps.includes(hashKey)) {
-      queryProp = hashKey
-      if (orderBy.property === rangeKey) {
-        sortedByDB = true
-      }
-    } else {
-      queryProp = getPreferredIndexProperty({ table, properties: usedIndexedProps })
-      debug(`indexed properties: ${usedIndexedProps.join(', ')}. Querying index: ${queryProp}`)
-      index = indexes.find(i => i.hashKey === queryProp)
-      if (orderBy.property === index.rangeKey) {
-        sortedByDB = true
-      }
+    const preferred = getPreferredQueryProperty({ table, properties: usedIndexedProps })
+    queryProp = preferred.property
+    index = preferred.index
+    if (orderBy.property === preferred.rangeKey) {
+      sortedByDB = true
     }
-
   }
 
   const itemToPosition = function itemToPosition (item) {
