@@ -247,14 +247,14 @@ export default class Table extends EventEmitter {
     return resources
   }
 
-  public put = async (resource):Promise<void> => {
+  public put = async (resource, opts?):Promise<void> => {
     this._debug(`put() ${resource[TYPE]}`)
-    await this._write('create', resource)
+    await this._write('create', resource, opts)
   }
 
-  public update = async (resource):Promise<void> => {
+  public update = async (resource, opts?):Promise<void> => {
     this._debug(`update() ${resource[TYPE]}`)
-    await this._write('update', resource)
+    await this._write('update', resource, opts)
   }
 
   public merge = async (resource):Promise<void> => {
@@ -449,30 +449,31 @@ export default class Table extends EventEmitter {
     return resource
   }
 
-  private _write = async (method:string, resource:any):Promise<void> => {
+  private _write = async (method:string, resource:any, options?:any):Promise<void> => {
     this._ensureWritable()
 
     const type = resource[TYPE] || (this.exclusive && this.model.id)
     const model = this.modelsStored[type]
     if (!model) throw new Error(`model not found: ${type}`)
 
-    let options
     let current
     if (this.hashKey === typeAndPermalinkProperty) {
       if (!(resource._time && resource._link)) {
         throw new Error('expected "_time" and "_link"')
       }
 
-      options = {
-        ConditionExpression: 'attribute_not_exists(#tpermalink) OR #link = :link OR #time < :time',
-        ExpressionAttributeNames: {
-          '#time' : '_time',
-          '#tpermalink': typeAndPermalinkProperty,
-          '#link': '_link',
-        },
-        ExpressionAttributeValues: {
-          ':time' : resource._time,
-          ':link': resource._link
+      if (!options) {
+        options = {
+          ConditionExpression: 'attribute_not_exists(#tpermalink) OR #link = :link OR #time < :time',
+          ExpressionAttributeNames: {
+            '#time' : '_time',
+            '#tpermalink': typeAndPermalinkProperty,
+            '#link': '_link',
+          },
+          ExpressionAttributeValues: {
+            ':time' : resource._time,
+            ':link': resource._link
+          }
         }
       }
     }

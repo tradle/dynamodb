@@ -29,8 +29,8 @@ export default class Table extends EventEmitter {
     del: (query: any, opts?: {}) => Promise<any>;
     private _exportResource;
     batchPut: (resources: any[], backoffOpts?: BackoffOptions) => Promise<any[]>;
-    put: (resource: any) => Promise<void>;
-    update: (resource: any) => Promise<void>;
+    put: (resource: any, opts?: any) => Promise<void>;
+    update: (resource: any, opts?: any) => Promise<void>;
     merge: (resource: any) => Promise<void>;
     find: (opts: FindOpts) => Promise<{
         items: any;
