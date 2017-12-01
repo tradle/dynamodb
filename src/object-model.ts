@@ -1,7 +1,9 @@
 import clone = require('clone')
-const BaseObjectModel = require('@tradle/models')['tradle.Object']
+import { models } from '@tradle/models'
+import { typeAndPermalinkProperty } from './constants'
+
+const BaseObjectModel = models['tradle.Object']
 const copy = clone(BaseObjectModel)
-const { typeAndPermalinkProperty } = require('./constants')
 copy.properties[typeAndPermalinkProperty] = {
   type: 'string',
   virtual: true
