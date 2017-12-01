@@ -173,6 +173,13 @@ function getPreferredQueryProperty ({ table, properties }: {
   }
 
   const property = properties[0]
+  if (property === table.hashKey) {
+    return {
+      property,
+      rangeKey: table.rangeKey
+    }
+  }
+
   const index = getIndexForProperty({ table, property })
   return {
     index,
