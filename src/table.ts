@@ -458,22 +458,30 @@ export default class Table extends EventEmitter {
 
     let current
     if (this.hashKey === typeAndPermalinkProperty) {
-      if (!(resource._time && resource._link)) {
-        throw new Error('expected "_time" and "_link"')
+      if (!resource._link) {
+        throw new Error('expected "_link"')
+      }
+
+      if (method === 'create' && !resource._time) {
+        throw new Error('expected "_time"')
       }
 
       if (!options) {
         options = {
-          ConditionExpression: 'attribute_not_exists(#tpermalink) OR #link = :link OR #time < :time',
+          ConditionExpression: 'attribute_not_exists(#tpermalink) OR #link = :link',
           ExpressionAttributeNames: {
-            '#time' : '_time',
             '#tpermalink': typeAndPermalinkProperty,
-            '#link': '_link',
+            '#link': '_link'
           },
           ExpressionAttributeValues: {
-            ':time' : resource._time,
             ':link': resource._link
           }
+        }
+
+        if (resource._time) {
+           options.ConditionExpression += ' OR #time < :time'
+           options.ExpressionAttributeNames['#time'] = '_time'
+           options.ExpressionAttributeValues[':time'] = resource._time
         }
       }
     }
