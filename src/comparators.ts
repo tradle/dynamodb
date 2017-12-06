@@ -5,6 +5,10 @@ const {
 
 const CREATE_EQUALITY_CHECK = method => {
   const checkStrict = ({ where, key, value }) => {
+    if (value == null) {
+      return CHECK_NULL({ where, key, value })
+    }
+
     return where(key)[method](value)
   }
 
