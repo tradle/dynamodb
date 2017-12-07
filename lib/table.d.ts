@@ -4,23 +4,22 @@ import { DynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Mod
 export default class Table extends EventEmitter {
     name: string;
     models: Models;
-    objects: Objects;
+    objects?: Objects;
     model?: Model;
     primaryKeyProps: string[];
     primaryKeys: KeyProps;
     indexes: DynogelIndex[];
     exclusive: boolean;
+    table: any;
     private opts;
     private modelsStored;
     private _prefix;
     private tableDefinition;
-    private table;
     private readOnly;
     private findOpts;
     readonly hashKey: string;
     readonly rangeKey: string;
     constructor(opts: ITableOpts);
-    inflate: (resource: any) => Promise<any>;
     addModel: ({model}: {
         model: Model;
     }) => void;
@@ -56,8 +55,6 @@ export default class Table extends EventEmitter {
     prefixPropertiesForType: (type: string, properties: any) => any;
     unprefixProperties: (resource: any) => any;
     unprefixPropertiesForType: (type: string, resource: any) => any;
-    private _wrapDBOperation;
-    private _maybeInflate;
     private _write;
     private _validateResource;
     private _batchPut;

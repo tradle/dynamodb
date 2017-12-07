@@ -41,7 +41,7 @@ export interface IDBOpts {
 
 export interface ITableOpts {
   models: Models
-  objects: Objects
+  objects?: Objects
   docClient: AWS.DynamoDB.DocumentClient
   tableDefinition: DynogelTableDefinition
   requireSigned?: boolean
@@ -52,7 +52,6 @@ export interface ITableOpts {
   rangeKey?: string
   forbidScan?: boolean
   readOnly?: boolean
-  bodyInObjects?: boolean
   defaultReadOptions?: ReadOptions
   maxItemSize?: number
 }
@@ -104,6 +103,7 @@ export type OrderBy = {
 }
 
 export type FindOpts = {
+  table: Table
   filter?: Filter
   orderBy?: OrderBy
   select?: string[]

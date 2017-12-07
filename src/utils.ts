@@ -14,7 +14,7 @@ import AWS = require('aws-sdk')
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
 import Table from './table'
-import { defaultPrimaryKeys, defaultIndexes, defaultOrderBy } from './constants'
+import { defaultPrimaryKeys, defaultIndexes, defaultOrderBy, minifiedFlag } from './constants'
 import OPERATORS = require('./operators')
 import {
   Model,
@@ -22,7 +22,8 @@ import {
   DynogelIndex,
   DynogelTableDefinition,
   OrderBy,
-  TableChooser
+  TableChooser,
+  FindOpts
 } from './types'
 
 import BaseObjectModel from './object-model'
@@ -144,6 +145,34 @@ function flatten (filter) {
 //     return acc
 //   }, [])
 // }
+
+const OriginalBaseObjectModel = require('@tradle/models').models['tradle.Object']
+const ObjectModelKeys = Object.keys(OriginalBaseObjectModel.properties)
+const getModelProperties = model => {
+  return uniqueStrict(Object.keys(model.properties).concat(ObjectModelKeys))
+}
+
+const getMissingProperties = ({ resource, model, opts }: {
+  resource,
+  model,
+  opts:FindOpts
+}) => {
+  let { select } = opts
+  if (!select) {
+    select = getModelProperties(model)
+  }
+
+  const missing = select.filter(prop => !(prop in resource))
+  if (!missing.length) return missing
+
+  const cut = resource[minifiedFlag]
+  if (cut && cut.length) {
+    const needsInflate = cut.some(prop => select.includes(prop))
+    if (!needsInflate) return resource
+  }
+
+  return missing
+}
 
 function getPreferredQueryProperty ({ table, properties }: {
   table: Table,
@@ -525,6 +554,19 @@ const doesIndexProjectProperty = ({ table, index, property }: {
   return index.rangeKey === property || table.primaryKeyProps.includes(property)
 }
 
+const uniqueStrict = arr => {
+  const map = new Map()
+  const uniq:any[] = []
+  for (const item of arr) {
+    if (!map.has(item)) {
+      map.set(item, true)
+      uniq.push(item)
+    }
+  }
+
+  return uniq
+}
+
 const utils = {
   fromResourceStub,
   sortResults,
@@ -562,7 +604,9 @@ const utils = {
   getDefaultTableDefinition,
   toDynogelTableDefinition,
   toDynogelIndexDefinition,
-  doesIndexProjectProperty
+  doesIndexProjectProperty,
+  getModelProperties,
+  uniqueStrict
 }
 
 export = utils

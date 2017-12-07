@@ -39,7 +39,8 @@ import {
   getIndexForPrimaryKeys,
   getDefaultTableDefinition,
   getTableDefinitionForModel,
-  toDynogelTableDefinition
+  toDynogelTableDefinition,
+  getModelProperties
 } from './utils'
 
 import minify from './minify'
@@ -63,7 +64,6 @@ const HASH_AND_RANGE_KEYS = ['hashKey', 'rangeKey']
 const defaultOpts = {
   maxItemSize: Infinity,
   requireSigned: true,
-  bodyInObjects: true,
   forbidScan: false,
   validate: false,
   defaultReadOptions: {
@@ -79,17 +79,17 @@ const defaultBackoffOpts:BackoffOptions = {
 export default class Table extends EventEmitter {
   public name:string
   public models:Models
-  public objects:Objects
+  public objects?:Objects
   public model?:Model
   public primaryKeyProps:string[]
   public primaryKeys:KeyProps
   public indexes:DynogelIndex[]
   public exclusive:boolean
+  public table:any
   private opts:any
   private modelsStored:Models
   private _prefix:{[key:string]: string}
   private tableDefinition:DynogelTableDefinition
-  private table:any
   private readOnly:boolean
   private findOpts:object
   get hashKey() {
@@ -112,13 +112,11 @@ export default class Table extends EventEmitter {
       requireSigned,
       forbidScan,
       readOnly,
-      bodyInObjects,
       defaultReadOptions,
       tableDefinition
     } = this.opts
 
     if (!models) throw new Error('expected "models"')
-    if (bodyInObjects && !objects) throw new Error('expected "objects"')
     if (exclusive && !model) {
       throw new Error('expected "model" when "exclusive" is true')
     }
@@ -142,7 +140,6 @@ export default class Table extends EventEmitter {
     this.findOpts = {
       models,
       forbidScan,
-      bodyInObjects,
       primaryKeys: this.primaryKeys,
       consistentRead: defaultReadOptions.consistentRead
     }
@@ -156,15 +153,6 @@ export default class Table extends EventEmitter {
     this._initTable()
     this.on('def:update', () => this.table = null)
     this._debug('initialized')
-  }
-
-  public inflate = async (resource):Promise<any> => {
-    this._debug(`inflating ${resource[TYPE]} from object store`)
-    const link = resource._link
-    const full = await this.objects.get(link)
-    resource = { ...resource, ...full }
-    delete resource[minifiedFlag]
-    return resource
   }
 
   public addModel = ({ model }: {
@@ -198,7 +186,12 @@ export default class Table extends EventEmitter {
       throw new NotFound(`query: ${JSON.stringify(query)}`)
     }
 
-    const resource = await this._maybeInflate(this.fromDBFormat(result.toJSON()))
+    const resource = this.fromDBFormat(result)
+    const cut = resource[minifiedFlag] || []
+    if (this.objects && cut.length) {
+      return this.objects.get(resource._link)
+    }
+
     return this._exportResource(resource)
   }
 
@@ -274,10 +267,6 @@ export default class Table extends EventEmitter {
     this._debug(`find() ${opts.filter.EQ[TYPE]}`)
     const results = await filterDynamoDB(opts)
     this._debug(`find returned ${results.items.length} results`)
-    results.items = await Promise.all(results.items.map(resource => {
-      return this._maybeInflate(resource, opts)
-    }))
-
     results.items = results.items.map(resource => this._exportResource(resource))
     return results
   }
@@ -354,14 +343,6 @@ export default class Table extends EventEmitter {
         'destroy'
       ]
     })
-
-    ;['scan', 'query'].forEach(op => {
-      this[op] = (...args) => {
-        const builder = table[op](...args)
-        builder.exec = this._wrapDBOperation(builder.exec.bind(builder))
-        return builder
-      }
-    })
   }
 
   public toDBFormat = (resource) => {
@@ -376,6 +357,10 @@ export default class Table extends EventEmitter {
   }
 
   public fromDBFormat = (resource) => {
+    if (typeof resource.toJSON === 'function') {
+      resource = resource.toJSON()
+    }
+
     return this.unprefixProperties(resource)
   }
 
@@ -403,50 +388,6 @@ export default class Table extends EventEmitter {
     return this.exclusive
       ? resource
       : unprefixKeys(resource, this.getPrefix(type), DONT_PREFIX)
-  }
-
-  private _wrapDBOperation = (fn:Function):Function => {
-    const promisified = async (...args) => {
-      const result = await promisify(fn)(...args)
-      if (!result) return result
-
-      const { Item, Items } = result
-      if (Item) {
-        result.Item = Item.toJSON()
-        result.Item = this.fromDBFormat(result.Item)
-        await this._maybeInflate(result.Item)
-      } else if (Items) {
-        result.Items = Items
-          .map(Item => Item.toJSON())
-          .map(item => this.fromDBFormat(item))
-
-        await Promise.all(result.Items.map(Item => this._maybeInflate(Item)))
-      }
-
-      return result
-    }
-
-    return function (...args) {
-      const callback = args.pop()
-      Promise.resolve(promisified(...args))
-        .catch(callback)
-        .then(result => callback(null, result))
-    }
-  }
-
-  private _maybeInflate = async (resource, options={}):Promise<any> => {
-    const { force, select } = options
-    const cut = resource[minifiedFlag]
-    if (force || (cut && cut.length)) {
-      if (select) {
-        const needsInflate = cut.some(prop => select.includes(prop))
-        if (!needsInflate) return resource
-      }
-
-      resource = await this.inflate(resource)
-    }
-
-    return resource
   }
 
   private _write = async (method:string, resource:any, options?:any):Promise<void> => {

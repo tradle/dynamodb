@@ -10,20 +10,23 @@ import {
   promisify,
   deepEqual,
   getModelPrimaryKeys,
-  doesIndexProjectProperty
+  doesIndexProjectProperty,
+  getModelProperties
 } from './utils'
 
 import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
-import { defaultOrderBy, defaultLimit } from './constants'
-import { OrderBy, Model, Models, DynogelIndex } from './types'
+import { defaultOrderBy, defaultLimit, minifiedFlag } from './constants'
+import { OrderBy, Model, Models, DynogelIndex, FindOpts } from './types'
 import Table from './table'
 
 class FilterOp {
+  public opts:FindOpts
   public models:Models
   public model:Model
   public filter:any
+  public select?:string[]
   public prefixedFilter:any
   public orderBy:OrderBy
   public prefixedOrderBy:OrderBy
@@ -40,7 +43,8 @@ class FilterOp {
   public primaryKeys:any
   public builder:any
   public table:Table
-  constructor (opts) {
+  constructor (opts:FindOpts) {
+    this.opts = opts
     Object.assign(this, opts)
     this.filter = clone(this.filter)
     const {
@@ -228,15 +232,35 @@ class FilterOp {
   }
 
   _postProcessResult = async (result) => {
-    const { table, index } = this
-    if (index && index.projection.ProjectionType !== 'ALL') {
-      this._debug('inflating due to use of index')
-      if (this.bodyInObjects && result.Items.every(item => item._link)) {
-        result.Items = await Promise.all(result.Items.map(table.inflate))
-      } else {
-        result.Items = await Promise.all(result.Items.map(table.get))
+    const { table } = this
+    result.Items = result.Items.map(item => table.fromDBFormat(item))
+    result.Items = await Promise.all(result.Items.map(this._maybeInflate))
+  }
+
+  _maybeInflate = async (resource) => {
+    let { table, select, index } = this
+    if (!select) {
+      select = getModelProperties(this.model)
+    }
+
+    const canInflateFromDB = index && index.projection.ProjectionType !== 'ALL'
+    const cut = resource[minifiedFlag] || []
+    let needsInflate
+    if (cut.length) {
+      needsInflate = select.some(prop => cut.includes(prop))
+      if (needsInflate) {
+        if (resource._link && table.objects) {
+          return await table.objects.get(resource._link)
+        }
+      }
+    } else if (canInflateFromDB) {
+      needsInflate = select.some(prop => !(prop in resource))
+      if (needsInflate) {
+        return await table.get(resource)
       }
     }
+
+    return resource
   }
 
   _addConditions = function () {
@@ -316,13 +340,13 @@ class FilterOp {
 
     const { EQ } = filter
     const { type } = EQ
-    const createBuilder = table[opType]
     let builder
     if (opType === 'query') {
     //   // supported key condition operators:
     //   // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
 
-      builder = createBuilder(EQ[queryProp])
+      builder = table.table.query(EQ[queryProp])
+
       if (index) {
         builder.usingIndex(index.name)
       }
@@ -339,7 +363,7 @@ class FilterOp {
     } else {
       this._throwIfScanForbidden()
       // sortedByDB = !!orderBy
-      builder = createBuilder()
+      builder = table.table.scan()
     }
 
     if (sortedByDB) {
