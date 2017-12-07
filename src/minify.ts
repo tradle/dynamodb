@@ -2,11 +2,19 @@ const { TYPE } = require('@tradle/constants')
 const { pick, shallowClone, debug, getIndexes } = require('./utils')
 const { minifiedFlag } = require('./constants')
 
-const MINIFY_PREFERENCES:Array<(...any) => boolean> = [
-  stripEmbeddedMedia,
-  stripBigValues,
-  stripOptional,
-  stripAll
+const MINIFY_PREFERENCES = [
+  {
+    filter: stripBigValues,
+    getProperties: obj => Object.keys(obj).sort((a, b) => {
+      return byteLength(obj[b]) - byteLength(obj[a])
+    })
+  },
+  {
+    filter: stripOptional
+  },
+  {
+    filter: stripAll
+  }
 ]
 
 export default function minify ({ table, item, maxSize }) {
@@ -19,31 +27,35 @@ export default function minify ({ table, item, maxSize }) {
   let diff = {}
 
   const model = table.models[item[TYPE]]
-  for (const filter of MINIFY_PREFERENCES) {
+  let size = byteLength(min)
+  for (const pref of MINIFY_PREFERENCES) {
     // approximation
-    const size = byteLength(min)
     if (size < maxSize) break
+
+    const { getProperties, filter } = pref
 
     let slimmed
     let currentCut = (min[minifiedFlag] || []).slice()
-    for (let propertyName in min) {
+    const props = getProperties ? getProperties(min) : Object.keys(min)
+    for (const propertyName of props) {
+      if (size < maxSize) break
       if (propertyName.startsWith('_')) {
         continue
       }
 
-      let isIndexed = indexes.some(index => {
+      const isIndexed = indexes.some(index => {
         return index.hashKey === propertyName || index.rangeKey === propertyName
       })
 
       if (isIndexed) continue
 
-      let property = model.properties[propertyName]
+      const property = model.properties[propertyName]
       if (!property) {
         debug(`property "${propertyName}" not found in model "${model.id}"`)
         continue
       }
 
-      let keep = filter({
+      const keep = filter({
         model,
         propertyName,
         property,
@@ -59,6 +71,8 @@ export default function minify ({ table, item, maxSize }) {
       }
 
       min[minifiedFlag].push(propertyName)
+      const propSize = byteLength({ [propertyName]: item[propertyName] })
+      size -= propSize
     }
   }
 

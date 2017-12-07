@@ -77,7 +77,8 @@ import { DB, Table, createTable } from '../'
 test('minify (big values)', function (t) {
   const bigMsg = {
     [TYPE]: 'tradle.SimpleMessage',
-    message: 'blah'.repeat(1000)
+    message: 'blah'.repeat(1000),
+    shortMessage: 'blah'.repeat(10)
   }
 
   // fake table
@@ -95,6 +96,7 @@ test('minify (big values)', function (t) {
   t.same(minBigMsg.diff, { message: bigMsg.message })
   t.same(minBigMsg.min, {
     [TYPE]: bigMsg[TYPE],
+    shortMessage: bigMsg.shortMessage,
     _cut: ['message']
   })
 
