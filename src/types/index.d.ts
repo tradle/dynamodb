@@ -43,7 +43,8 @@ export interface ITableOpts {
   models: Models
   objects?: Objects
   docClient: AWS.DynamoDB.DocumentClient
-  tableDefinition: DynogelTableDefinition
+  schema: AWS.DynamoDB.Types.TableDescription
+  // tableDefinition: DynogelTableDefinition
   requireSigned?: boolean
   validate?: boolean
   exclusive?: boolean

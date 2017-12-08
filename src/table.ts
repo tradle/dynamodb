@@ -11,7 +11,7 @@ import {
 } from './constants'
 
 import {
-  DynogelIndex,
+  // DynogelIndex,
   DynogelTableDefinition,
   KeyProps,
   ITableOpts,
@@ -83,13 +83,14 @@ export default class Table extends EventEmitter {
   public model?:Model
   public primaryKeyProps:string[]
   public primaryKeys:KeyProps
-  public indexes:DynogelIndex[]
+  public indexes:AWS.DynamoDB.Types.GlobalSecondaryIndex
   public exclusive:boolean
   public table:any
+  public schema: AWS.DynamoDB.Types.TableDescription
+  public tableDefinition:DynogelTableDefinition
   private opts:any
   private modelsStored:Models
   private _prefix:{[key:string]: string}
-  private tableDefinition:DynogelTableDefinition
   private readOnly:boolean
   private findOpts:object
   get hashKey() {
@@ -113,6 +114,7 @@ export default class Table extends EventEmitter {
       forbidScan,
       readOnly,
       defaultReadOptions,
+      schema,
       tableDefinition
     } = this.opts
 
@@ -121,11 +123,14 @@ export default class Table extends EventEmitter {
       throw new Error('expected "model" when "exclusive" is true')
     }
 
-    this.tableDefinition = tableDefinition.TableName
-      ? toDynogelTableDefinition(tableDefinition)
+    validateTableName(schema.TableName)
+
+    this.schema = schema
+    this.tableDefinition = schema || tableDefinition.TableName
+      ? toDynogelTableDefinition(schema || tableDefinition)
       : tableDefinition
 
-    validateTableName(this.tableDefinition.tableName)
+    this.indexes = this.tableDefinition.indexes || []
     this.name = this.tableDefinition.tableName
     this.models = models
     this.objects = objects
@@ -135,7 +140,6 @@ export default class Table extends EventEmitter {
     this.model = model
     this._prefix = {}
 
-    this.indexes = this.tableDefinition.indexes
     this.primaryKeys = pick(this.tableDefinition, HASH_AND_RANGE_KEYS)
     this.findOpts = {
       models,

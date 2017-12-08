@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
 import Table from './table';
-import { IDBOpts, DynogelIndex, Models, FindOpts } from './types';
+import { IDBOpts, Models, FindOpts } from './types';
 export default class DB extends EventEmitter {
     static getSafeTableName: (model: any) => string;
     models: any;
@@ -31,18 +31,18 @@ export default class DB extends EventEmitter {
     del: (keys: any) => Promise<void>;
     batchPut: (resources: any[]) => Promise<void>;
     find: (opts: FindOpts) => Promise<{
-        items: any;
+        items: any[];
         startPosition: any;
         endPosition: any;
-        index: DynogelIndex;
+        index: any;
         itemToPosition: Function;
     }>;
     findOne: (opts: any) => Promise<any>;
     search: (opts: any) => Promise<{
-        items: any;
+        items: any[];
         startPosition: any;
         endPosition: any;
-        index: DynogelIndex;
+        index: any;
         itemToPosition: Function;
     }>;
     createTables: (opts: any) => Promise<void>;

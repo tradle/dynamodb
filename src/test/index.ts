@@ -20,7 +20,9 @@ const {
   wait,
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
+  getTableSchemaForModel,
   getDefaultTableDefinition,
+  getDefaultTableSchema,
   getQueryInfo
 } = require('../utils')
 
@@ -281,7 +283,7 @@ let only
   defaultIndexes,
   defaultIndexes.map(toProjectionTypeAll)
 ].forEach(indexes => {
-  const { ProjectionType } = indexes[0].projection
+  const { ProjectionType } = indexes[0].Projection
   const testNamed = (name, fn) => {
     return test(`${name} (ProjectionType: ${ProjectionType})`, fn)
   }
@@ -300,17 +302,18 @@ let only
   let lastCreated = []
 
   const getCommonTableOpts = (tableName) => {
-    const tableDefinition = getDefaultTableDefinition({ tableName })
+    const schema = getDefaultTableSchema({ tableName })
     return {
       objects,
       models: db.models,
       maxItemSize: 4000,
       docClient,
       validate: false,
-      tableDefinition: {
-        ...tableDefinition,
-        indexes
-      }
+      schema
+      // tableDefinition: {
+      //   ...tableDefinition,
+      //   indexes
+      // }
     }
   }
 
@@ -898,15 +901,17 @@ let only
       [ALIEN_CLASSIFIER]: alienModel
     })
 
+    const schema = getTableSchemaForModel({
+      models: db.models,
+      model: alienModel
+    })
+
     db.setExclusive({
       table: createTable({
         ...getCommonTableOpts(DB.getSafeTableName(alienModel.id)),
         model: alienModel,
         models: db.models,
-        tableDefinition: getTableDefinitionForModel({
-          models: db.models,
-          model: alienModel
-        }),
+        schema,
         exclusive: true
       })
     })
@@ -1012,7 +1017,7 @@ function byLinkAsc (a, b) {
 function toProjectionTypeAll (index) {
   return {
     ...index,
-    projection: {
+    Projection: {
       ProjectionType: 'ALL'
     }
   }

@@ -1,0 +1,74 @@
+{
+  "AttributeDefinitions": [
+    {
+      "AttributeName": "_tpermalink",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "_t",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "_author",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "_time",
+      "AttributeType": "N"
+    }
+  ],
+  "KeySchema": [
+    {
+      "AttributeName": "_tpermalink",
+      "KeyType": "HASH"
+    }
+  ],
+  "ProvisionedThroughput": {
+    "ReadCapacityUnits": 5,
+    "WriteCapacityUnits": 5
+  },
+  "GlobalSecondaryIndexes": [
+    {
+      "IndexName": "_author",
+      "KeySchema": [
+        {
+          "AttributeName": "_author",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "_time",
+          "KeyType": "RANGE"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "INCLUDE",
+        "NonKeyAttributes": ["_t", "_link"]
+      },
+      "ProvisionedThroughput": {
+        "ReadCapacityUnits": 5,
+        "WriteCapacityUnits": 5
+      }
+    },
+    {
+      "IndexName": "type",
+      "KeySchema": [
+        {
+          "AttributeName": "_t",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "_time",
+          "KeyType": "RANGE"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "INCLUDE",
+        "NonKeyAttributes": ["_author", "_link"]
+      },
+      "ProvisionedThroughput": {
+        "ReadCapacityUnits": 5,
+        "WriteCapacityUnits": 5
+      }
+    }
+  ]
+}

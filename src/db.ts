@@ -13,7 +13,7 @@ import {
 } from './utils'
 
 import Table from './table'
-import { IDBOpts, ITableOpts, DynogelIndex, Models, TableChooser, FindOpts } from './types'
+import { IDBOpts, ITableOpts, Models, TableChooser, FindOpts } from './types'
 const { isInstantiable } = validateResource.utils
 
 const defaultTableChooser:TableChooser = ({

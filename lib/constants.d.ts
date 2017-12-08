@@ -1,4 +1,3 @@
-import { DynogelIndex } from './types';
 declare const constants: {
     typeAndPermalinkProperty: string;
     minifiedFlag: string;
@@ -6,7 +5,16 @@ declare const constants: {
     defaultPrimaryKeys: {
         hashKey: string;
     };
-    defaultIndexes: DynogelIndex[];
+    defaultIndexes: {
+        KeySchema: {
+            KeyType: string;
+            AttributeName: string;
+        }[];
+        Projection: {
+            ProjectionType: string;
+            NonKeyAttributes: any[];
+        };
+    }[];
     defaultOrderBy: {
         property: string;
         desc: boolean;

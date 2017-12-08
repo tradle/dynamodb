@@ -1,4 +1,5 @@
 import { TYPE } from '@tradle/constants'
+import * as dExp from 'dynamodb-exp'
 import {
   clone,
   pick,
@@ -18,7 +19,7 @@ import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
 import { defaultOrderBy, defaultLimit, minifiedFlag } from './constants'
-import { OrderBy, Model, Models, DynogelIndex, FindOpts } from './types'
+import { OrderBy, Model, Models, FindOpts } from './types'
 import Table from './table'
 
 class FilterOp {
@@ -36,13 +37,14 @@ class FilterOp {
   public queryProp:string
   public opType:string
   public itemToPosition:Function
-  public index?:DynogelIndex
+  public index?:GlobalSecondaryIndex
   public forbidScan:boolean
   public bodyInObjects:boolean
   public consistentRead:boolean
   public primaryKeys:any
   public builder:any
   public table:Table
+  public mustLoadAll?:boolean
   constructor (opts:FindOpts) {
     this.opts = opts
     Object.assign(this, opts)
@@ -96,7 +98,6 @@ class FilterOp {
   public exec = async () => {
     this._debug(`running ${this.opType}`)
 
-    let result
     const {
       builder,
       models,
@@ -110,16 +111,35 @@ class FilterOp {
       index
     } = this
 
-    if (sortedByDB) {
-      // results come back filtered, post-processed
-      result = await this.collectInBatches()
-    } else {
-      // scan the whole table,
-      // otherwise we can't apply filter, orderBy
-      result = await exec(builder)
-      await this._postProcessResult(result)
-      result.Items = this._filterResults(result.Items)
+    const result = {
+      ScannedCount: 0,
+      Items: []
     }
+
+    let lastEvaluatedKey
+    await dExp.batchProcess({
+      builder,
+      client: this.table.opts.docClient,
+      worker: async (batch) => {
+        if (batch.Count) {
+          await this._postProcessResult(batch)
+          result.ScannedCount += batch.ScannedCount
+          result.Items = result.Items.concat(this._filterResults(resultsToJson(batch.Items)))
+        }
+
+        // if results are not sorted by db,
+        // scan the whole table,
+        // otherwise we can't apply filter, orderBy
+
+        if (batch.LastEvaluatedKey) {
+          lastEvaluatedKey = batch.LastEvaluatedKey
+        } else (batch.Count) {
+          lastEvaluatedKey = itemToPosition(batch.Items[batch.Items.length - 1])
+        }
+
+        return sortedByDB ? result.Items.length < limit : true
+      }
+    })
 
     let items = result.Items
     if (!sortedByDB) {
@@ -158,7 +178,7 @@ class FilterOp {
     let endPosition
     if (!orderBy || orderBy.property === queryProp) {
       if (items.length <= limit) {
-        endPosition = getStartKey(builder)
+        endPosition = lastEvaluatedKey
       }
     }
 
@@ -178,47 +198,6 @@ class FilterOp {
       index,
       itemToPosition
     }
-  }
-
-  collectInBatches = async () => {
-    const { models, table, filter, limit, index, builder } = this
-
-    // limit how many items dynamodb iterates over before filtering
-    // this is different from the sql-like notion of limit
-
-    let batchLimit = limit
-    if (!isEmpty(filter)) {
-      batchLimit = limit * 2
-      if (batchLimit < 10) batchLimit = 10
-    }
-
-    builder.limit(batchLimit)
-
-    const getNextBatch = async (started:boolean) => {
-      const promiseBatch = started ? exec(builder, 'continue') : exec(builder)
-      const batch = await promiseBatch
-      await this._postProcessResult(batch)
-      return batch
-    }
-
-    const result = {
-      ScannedCount: 0,
-      Items: []
-    }
-
-    let started = false
-    do {
-      let batch = await getNextBatch(started)
-      started = true
-      if (batch.Count) {
-        result.ScannedCount += batch.ScannedCount
-        result.Items = result.Items.concat(this._filterResults(resultsToJson(batch.Items)))
-      }
-
-      if (!batch.LastEvaluatedKey) break
-    } while (result.Items.length < limit && builder.canContinue())
-
-    return result
   }
 
   _filterResults = results => {
@@ -274,11 +253,6 @@ class FilterOp {
       index
     } = this
 
-    const conditionBuilders = {
-      where: builder.where && builder.where.bind(builder),
-      filter: builder.filter && builder.filter.bind(builder)
-    }
-
     const { hashKey, rangeKey } = index || this
     if (sortedByDB && checkpoint) {
       builder.startKey(checkpoint)
@@ -313,9 +287,8 @@ class FilterOp {
           ? 'where'
           : 'filter'
 
-        let conditionBuilder = conditionBuilders[conditionMethod]
         setCondition({
-          where: conditionBuilder,
+          where: builder.where,
           key: property,
           value: conditions[property]
         })
@@ -335,21 +308,23 @@ class FilterOp {
       queryProp,
       index,
       consistentRead,
+      limit,
       sortedByDB
     } = this
 
     const { EQ } = filter
     const { type } = EQ
-    let builder
+    let builder = dExp.op({ schema: this.table.schema })
     if (opType === 'query') {
     //   // supported key condition operators:
     //   // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
 
-      builder = table.table.query(EQ[queryProp])
-
+      builder = builder.query()
       if (index) {
         builder.usingIndex(index.name)
       }
+
+      builder.where(queryProp).eq(EQ[queryProp])
 
       if (sortedByDB) {
         // ordering in DB only makes sense if results
@@ -363,7 +338,8 @@ class FilterOp {
     } else {
       this._throwIfScanForbidden()
       // sortedByDB = !!orderBy
-      builder = table.table.scan()
+      builder = builder.scan()
+      this.mustLoadAll = true
     }
 
     if (sortedByDB) {
@@ -371,7 +347,8 @@ class FilterOp {
     } else {
       this._throwIfScanForbidden()
       this._debug('full scan required')
-      builder.loadAll()
+      // builder.loadAll()
+      this.mustLoadAll = true
     }
 
     // indexes cannot be queried with consistent read
@@ -380,6 +357,9 @@ class FilterOp {
     }
 
     this.builder = builder
+    if (limit) {
+      builder.limit(limit * 2)
+    }
   }
 
   _throwIfScanForbidden = function () {
@@ -391,26 +371,6 @@ class FilterOp {
     const hint = `Specify a limit, and a combination of hashKey in the EQ filter and (optionally) rangeKey in orderBy: ${JSON.stringify(keySchemas)}`
     throw new Error(`this table does not allow scans or full reads. ${hint}`)
   }
-}
-
-const exec = async (builder, method='exec') => {
-  try {
-    return await promisify(builder[method].bind(builder))()
-  } catch (err) {
-    if (err.code === 'ResourceNotFoundException') {
-      return {
-        Count: 0,
-        ScannedCount: 0,
-        Items: []
-      }
-    }
-
-    throw err
-  }
-}
-
-const getStartKey = builder => {
-  return builder.request.ExclusiveStartKey
 }
 
 // function usesNonPrimaryKeys ({ model, filter }) {

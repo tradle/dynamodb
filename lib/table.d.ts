@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
-import { DynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts } from './types';
+import { DynogelTableDefinition, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts } from './types';
 export default class Table extends EventEmitter {
     name: string;
     models: Models;
@@ -8,13 +8,14 @@ export default class Table extends EventEmitter {
     model?: Model;
     primaryKeyProps: string[];
     primaryKeys: KeyProps;
-    indexes: DynogelIndex[];
+    indexes: AWS.DynamoDB.Types.GlobalSecondaryIndex;
     exclusive: boolean;
     table: any;
+    schema: AWS.DynamoDB.Types.TableDescription;
+    tableDefinition: DynogelTableDefinition;
     private opts;
     private modelsStored;
     private _prefix;
-    private tableDefinition;
     private readOnly;
     private findOpts;
     readonly hashKey: string;
@@ -32,10 +33,10 @@ export default class Table extends EventEmitter {
     update: (resource: any, opts?: any) => Promise<void>;
     merge: (resource: any) => Promise<void>;
     find: (opts: FindOpts) => Promise<{
-        items: any;
+        items: any[];
         startPosition: any;
         endPosition: any;
-        index: DynogelIndex;
+        index: any;
         itemToPosition: Function;
     }>;
     findOne: (opts: any) => Promise<any>;

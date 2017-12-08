@@ -11,6 +11,7 @@ import promisify = require('pify')
 import dotProp = require('dot-prop')
 import levenshtein = require('fast-levenshtein')
 import AWS = require('aws-sdk')
+import Joi = require('joi')
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
 import Table from './table'
@@ -221,11 +222,18 @@ function getIndexForProperty ({ table, property }) {
   return table.indexes.find(({ hashKey }) => hashKey === property)
 }
 
+// function getIndexHashKeyAttributeName (index:AWS.DynamoDB.Types.GlobalSecondaryIndex):string {
+//   return index.KeySchema
+//     .find(({ KeyType }) => KeyType === 'HASH')
+//     .AttributeName
+// }
+
 function getQueryInfo ({ table, filter, orderBy }) {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
   const usedProps = getUsedProperties(filter)
-  const { indexes, primaryKeys } = table
+  const { primaryKeys } = table
+  const { indexes } = table
   const { hashKey, rangeKey } = primaryKeys
   const primaryKeysArr = getValues(primaryKeys)
   const indexedProps = indexes.map(index => index.hashKey)
@@ -460,6 +468,61 @@ const getIndexForPrimaryKeys = ({ model }: {
   }
 }
 
+const propertyTypeToAttributeType = {
+  string: 'S',
+  number: 'N',
+  date: 'N'
+}
+
+const getTableSchemaForModel = ({ models, model }: {
+  models: Models,
+  model: Model
+}):AWS.DynamoDB.TableDescription => {
+  const primaryKeys = model.primaryKeys || defaultPrimaryKeys
+  const TableName = getTableName({ model })
+  const { hashKey, rangeKey } = primaryKeys
+  const hashKeyProp = model.properties[hashKey]
+  const hashKeyType = propertyTypeToAttributeType[hashKeyProp.type]
+  if (!hashKeyType) throw new Error(`unsupported hashKey property type ${hashKeyProp.type}`)
+
+  const KeySchema = [
+    {
+      KeyType: 'HASH',
+      AttributeName: hashKey
+    }
+  ]
+
+  const AttributeDefinitions = [
+    {
+      AttributeType: hashKeyType,
+      AttributeName: hashKey
+    }
+  ]
+
+  if (rangeKey) {
+    const rangeKeyProp = rangeKey && model.properties[rangeKey]
+    const rangeKeyType = rangeKey && propertyTypeToAttributeType[rangeKeyProp.type]
+    if (!rangeKeyType) throw new Error(`unsupported rangeKey property type ${rangeKeyProp.type}`)
+
+    KeySchema.push({
+      KeyType: 'RANGE',
+      AttributeName: rangeKey
+    })
+
+    AttributeDefinitions.push({
+      AttributeType: rangeKeyType,
+      AttributeName: rangeKey
+    })
+  }
+
+  return {
+    TableName,
+    AttributeDefinitions,
+    KeySchema
+    // GlobalSecondaryIndexes
+  }
+}
+
 const getTableDefinitionForModel = ({ models, model }: {
   models: Models,
   model:Model
@@ -481,6 +544,16 @@ const getTableDefinitionForModel = ({ models, model }: {
   }
 }
 
+const defaultTableSchema = require('./default-schema')
+const getDefaultTableSchema = ({ tableName }: {
+  tableName: string
+}):AWS.DynamoDB.Types.TableDescription => {
+  return {
+    TableName: tableName,
+    ...defaultTableSchema
+  }
+}
+
 const getDefaultTableDefinition = ({ tableName }: {
   tableName:string
 }):DynogelTableDefinition => {
@@ -493,25 +566,38 @@ const getDefaultTableDefinition = ({ tableName }: {
     // createdAt: false,
     // updatedAt: '_dateModified',
     schema: metadataTypes,
-    indexes: defaultIndexes,
+    indexes: defaultIndexes.map(toDynogelIndexDefinition),
     validation: {
       allowUnknown: true
     }
   }
 }
 
-const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):DynogelTableDefinition => {
+const attributeTypeToJoi = {
+  S: Joi.string(),
+  N: Joi.number(),
+  B: Joi.binary()
+}
+
+const tableDescriptionToJoi = (cloudformation:AWS.DynamoDB.Types.TableDescription):any => {
+  const { AttributeDefinitions } = cloudformation
+  return AttributeDefinitions.reduce((joi, def) => {
+    joi[def.AttributeName] = attributeTypeToJoi[def.AttributeType]
+    return joi
+  }, {})
+}
+
+const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.Types.TableDescription):DynogelTableDefinition => {
   const { TableName, KeySchema, GlobalSecondaryIndexes=[], AttributeDefinitions } = cloudformation
   const hashKey = KeySchema.find(key => key.KeyType === 'HASH').AttributeName
   const rangeKeyDef = KeySchema.find(key => key.KeyType === 'RANGE')
   const rangeKey = rangeKeyDef && rangeKeyDef.AttributeName
   const indexes = GlobalSecondaryIndexes.map(toDynogelIndexDefinition)
-  const schema = {}
-  return {
+  const schema = tableDescriptionToJoi(cloudformation)
+  const def = {
     tableName: TableName,
     hashKey,
-    rangeKey,
-    schema: {},
+    schema,
     indexes,
     timestamps: false,
     createdAt: false,
@@ -520,9 +606,15 @@ const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):
       allowUnknown: true
     }
   }
+
+  if (rangeKey) {
+    def.rangeKey = rangeKey
+  }
+
+  return def
 }
 
-const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryIndex):DynogelIndex => {
+const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.Types.GlobalSecondaryIndex):DynogelIndex => {
   const { KeySchema, Projection, ProvisionedThroughput, IndexName } = cloudformation
   const hashKey = KeySchema.find(key => key.KeyType === 'HASH').AttributeName
   const rangeKeyDef = KeySchema.find(key => key.KeyType === 'RANGE')
@@ -531,9 +623,7 @@ const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryInd
     name: IndexName,
     type: 'global',
     rangeKey: rangeKeyDef && rangeKeyDef.AttributeName,
-    projection: {
-      ProjectionType: Projection.ProjectionType
-    }
+    projection: Projection
   }
 }
 
@@ -606,7 +696,9 @@ const utils = {
   toDynogelIndexDefinition,
   doesIndexProjectProperty,
   getModelProperties,
-  uniqueStrict
+  uniqueStrict,
+  getDefaultTableSchema,
+  getTableSchemaForModel
 }
 
 export = utils
