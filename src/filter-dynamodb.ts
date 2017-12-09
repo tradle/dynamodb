@@ -248,16 +248,16 @@ class FilterOp {
     let needsInflate
     if (cut.length) {
       needsInflate = select.some(prop => cut.includes(prop))
-      if (needsInflate) {
-        if (resource._link && table.objects) {
-          return await table.objects.get(resource._link)
-        }
-      }
     } else if (canInflateFromDB) {
       needsInflate = select.some(prop => !(prop in resource))
-      if (needsInflate) {
-        return await table.get(resource)
+    }
+
+    if (needsInflate) {
+      if (resource._link && table.objects) {
+        return await table.objects.get(resource._link)
       }
+
+      return await table.get(resource)
     }
 
     return resource
