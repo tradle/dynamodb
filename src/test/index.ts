@@ -116,29 +116,67 @@ test('minify (big values)', function (t) {
   t.end()
 })
 
-test('minify (embedded media)', function (t) {
-  const photoId = {
-    [TYPE]: 'tradle.PhotoID',
-    scan: {
-      url: 'data:image/jpeg;base64,' + 'blah'.repeat(1000)
+test('minify (retain resource values)', function (t) {
+  const id = 'some.thingy.Thing'
+  const customModels = {
+    ...models,
+    [id]: {
+      id,
+      properties: {
+        friend: {
+          type: 'object',
+          ref: 'tradle.Identity'
+        }
+      }
     }
   }
 
   // fake table
   const table = {
-    models,
+    models: customModels,
     indexes: defaultIndexes
   }
 
-  const minPhotoId = minify({
-    item: photoId,
+  const thingy = {
+    [TYPE]: id,
+    friend: {
+      id: `${id}_abc_123`
+    }
+  }
+
+  const minThingy = minify({
+    item: thingy,
     table,
-    maxSize: 1000
+    maxSize: 1
   })
 
-  t.same(minPhotoId.min._cut, ['scan'])
+  t.same(minThingy.min, thingy)
   t.end()
 })
+
+// test('minify (embedded media)', function (t) {
+//   const photoId = {
+//     [TYPE]: 'tradle.PhotoID',
+//     scan: {
+//       url: 'data:image/jpeg;base64,' + 'blah'.repeat(1000)
+//     }
+//   }
+
+//   // fake table
+//   const table = {
+//     models,
+//     indexes: defaultIndexes
+//   }
+
+//   const minPhotoId = minify({
+//     item: photoId,
+//     table,
+//     maxSize: 1000
+//   })
+
+//   t.same(minPhotoId.min._cut, ['scan'])
+//   t.end()
+// })
 
 test('minify (optional props)', function (t) {
   // optional

@@ -11,22 +11,23 @@ const MINIFY_PREFERENCES = [
   },
   {
     filter: stripOptional
-  },
-  {
-    filter: stripAll
   }
 ]
+
+const neverStrip = ({ property }) => {
+  return property.ref && property.type === 'object'
+}
 
 export default function minify ({ table, item, maxSize }) {
   if (!maxSize || maxSize === Infinity) {
     return { min: item, diff: {} }
   }
 
-  const { indexes } = table
+  const { indexes, models } = table
   let min = shallowClone(item)
   let diff = {}
 
-  const model = table.models[item[TYPE]]
+  const model = models[item[TYPE]]
   let size = byteLength(min)
   for (const pref of MINIFY_PREFERENCES) {
     // approximation
@@ -55,7 +56,12 @@ export default function minify ({ table, item, maxSize }) {
         continue
       }
 
-      const keep = filter({
+      const keep = neverStrip({
+        model,
+        propertyName,
+        property,
+        value: item[propertyName]
+      }) || filter({
         model,
         propertyName,
         property,
