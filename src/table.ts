@@ -427,13 +427,17 @@ export default class Table extends EventEmitter {
       }
     }
 
-    const { min, diff } = minify({
-      table: this,
-      item: resource,
-      maxSize: this.opts.maxItemSize
-    })
+    if (method === 'create') {
+      const minified = minify({
+        table: this,
+        item: resource,
+        maxSize: this.opts.maxItemSize
+      })
 
-    const formatted = this.toDBFormat(min)
+      resource = minified.min
+    }
+
+    const formatted = this.toDBFormat(resource)
     const result = await this.table[method](formatted, options)
     const primaryKeys = this.getPrimaryKeys(formatted)
     this._debug(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)

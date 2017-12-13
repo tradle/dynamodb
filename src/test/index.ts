@@ -384,21 +384,25 @@ let only
     await reload()
     const photoId = photoIds[0]
     await db.put(photoId)
-    const saved = await db.get({
+    const keys = {
       [TYPE]: photoId[TYPE],
+      _link: photoId._link,
       _permalink: photoId._permalink
-    })
+    }
+
+    const saved = await db.get(keys)
 
     t.same(saved, photoId)
 
-    const update = { ...photoId, _displayName: 'blah' }
+    const update = { ...keys, _displayName: 'blah' }
+    const expected = { ...photoId, ...update }
     await db.update(update)
     const updated = await db.get({
       [TYPE]: photoId[TYPE],
       _permalink: photoId._permalink
     })
 
-    t.same(updated, update)
+    t.same(updated, expected)
     t.end()
   }))
 
