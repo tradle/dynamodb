@@ -30,7 +30,7 @@ export default class Table extends EventEmitter {
     batchPut: (resources: any[], backoffOpts?: BackoffOptions) => Promise<any[]>;
     put: (resource: any, opts?: any) => Promise<void>;
     update: (resource: any, opts?: any) => Promise<void>;
-    merge: (resource: any) => Promise<void>;
+    merge: (resource: any, opts: any) => Promise<void>;
     find: (opts: FindOpts) => Promise<{
         items: any;
         startPosition: any;

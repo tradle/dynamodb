@@ -93,24 +93,24 @@ export default class DB extends EventEmitter {
     return table
   }
 
-  public put = async (item):Promise<void> => {
-    await this.tables[item[TYPE]].put(item)
+  public put = async (item, opts):Promise<void> => {
+    await this.tables[item[TYPE]].put(item, opts)
   }
 
-  public update = async (resource):Promise<void> => {
-    return await this.tables[resource[TYPE]].update(resource)
+  public update = async (resource, opts):Promise<void> => {
+    return await this.tables[resource[TYPE]].update(resource, opts)
   }
 
-  public merge = async (resource):Promise<void> => {
-    return await this.tables[resource[TYPE]].merge(resource)
+  public merge = async (resource, opts):Promise<void> => {
+    return await this.tables[resource[TYPE]].merge(resource, opts)
   }
 
-  public get = async (keys:any):Promise<any> => {
-    return await this.tables[keys[TYPE]].get(keys)
+  public get = async (keys:any, opts):Promise<any> => {
+    return await this.tables[keys[TYPE]].get(keys, opts)
   }
 
-  public latest = async (keys:any):Promise<any> => {
-    return await this.tables[keys[TYPE]].latest(keys)
+  public latest = async (keys:any, opts):Promise<any> => {
+    return await this.tables[keys[TYPE]].latest(keys, opts)
   }
 
   public del = async (keys:any):Promise<void> => {
