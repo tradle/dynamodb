@@ -67,7 +67,7 @@ const defaultOpts = {
   forbidScan: false,
   validate: false,
   defaultReadOptions: {
-    consistentRead: false
+    ConsistentRead: false
   }
 }
 
