@@ -23,13 +23,13 @@ export default class DB extends EventEmitter {
         table: Table;
     }) => void;
     choose: (type: string) => Table;
-    put: (item: any, opts: any) => Promise<void>;
-    update: (resource: any, opts: any) => Promise<void>;
-    merge: (resource: any, opts: any) => Promise<void>;
-    get: (keys: any, opts: any) => Promise<any>;
-    latest: (keys: any, opts: any) => Promise<any>;
+    put: (item: any, opts?: any) => Promise<void>;
+    update: (resource: any, opts?: any) => Promise<void>;
+    merge: (resource: any, opts?: any) => Promise<void>;
+    get: (keys: any, opts?: any) => Promise<any>;
+    latest: (keys: any, opts?: any) => Promise<any>;
     del: (keys: any) => Promise<void>;
-    batchPut: (resources: any[]) => Promise<void>;
+    batchPut: (resources: any[], opts?: any) => Promise<void | any[]>;
     find: (opts: FindOpts) => Promise<{
         items: any;
         startPosition: any;
