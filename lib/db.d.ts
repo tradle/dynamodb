@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
 import Table from './table';
-import { IDBOpts, DynogelIndex, Models, FindOpts } from './types';
+import { IDBOpts, Models, FindOpts } from './types';
 export default class DB extends EventEmitter {
     static getSafeTableName: (model: any) => string;
     models: any;
@@ -24,27 +24,15 @@ export default class DB extends EventEmitter {
     }) => void;
     choose: (type: string) => Table;
     put: (item: any, opts?: any) => Promise<void>;
-    update: (resource: any, opts?: any) => Promise<void>;
-    merge: (resource: any, opts?: any) => Promise<void>;
+    update: (resource: any, opts?: any) => Promise<any>;
+    merge: (resource: any, opts?: any) => Promise<any>;
     get: (keys: any, opts?: any) => Promise<any>;
     latest: (keys: any, opts?: any) => Promise<any>;
     del: (keys: any) => Promise<void>;
     batchPut: (resources: any[], opts?: any) => Promise<void | any[]>;
-    find: (opts: FindOpts) => Promise<{
-        items: any;
-        startPosition: any;
-        endPosition: any;
-        index: DynogelIndex;
-        itemToPosition: Function;
-    }>;
+    find: (opts: FindOpts) => Promise<any>;
     findOne: (opts: any) => Promise<any>;
-    search: (opts: any) => Promise<{
-        items: any;
-        startPosition: any;
-        endPosition: any;
-        index: DynogelIndex;
-        itemToPosition: Function;
-    }>;
+    search: (opts: any) => Promise<any>;
     createTables: (opts: any) => Promise<void>;
     destroyTables: (opts: any) => Promise<void>;
     addModels: (models: Models) => void;

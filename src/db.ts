@@ -93,31 +93,31 @@ export default class DB extends EventEmitter {
     return table
   }
 
-  public put = async (item, opts):Promise<void> => {
-    await this.tables[item[TYPE]].put(item, opts)
+  public put = async (item, opts?) => {
+    return await this.tables[item[TYPE]].put(item, opts)
   }
 
-  public update = async (resource, opts):Promise<void> => {
+  public update = async (resource, opts?) => {
     return await this.tables[resource[TYPE]].update(resource, opts)
   }
 
-  public merge = async (resource, opts):Promise<void> => {
+  public merge = async (resource, opts?) => {
     return await this.tables[resource[TYPE]].merge(resource, opts)
   }
 
-  public get = async (keys:any, opts):Promise<any> => {
+  public get = async (keys:any, opts?) => {
     return await this.tables[keys[TYPE]].get(keys, opts)
   }
 
-  public latest = async (keys:any, opts):Promise<any> => {
+  public latest = async (keys:any, opts?) => {
     return await this.tables[keys[TYPE]].latest(keys, opts)
   }
 
-  public del = async (keys:any):Promise<void> => {
+  public del = async (keys:any) => {
     await this.tables[keys[TYPE]].del(keys)
   }
 
-  public batchPut = async (resources:any[]):Promise<void> => {
+  public batchPut = async (resources:any[], opts?):Promise<any[]|void> => {
     const byTable = new Map<Table, any[]>()
     for (const resource of resources) {
       const type = resource[TYPE]
@@ -128,22 +128,24 @@ export default class DB extends EventEmitter {
     }
 
     const entries = Array.from(byTable.entries())
-    await Promise.all(entries.map(([table, resources]) => {
-      return table.batchPut(resources)
+    const results = await Promise.all(entries.map(([table, resources]) => {
+      return table.batchPut(resources, opts)
     }))
+
+    return results.reduce((flat, item) => flat.concat(item), [])
   }
 
   public find = async (opts:FindOpts) => {
     const type = getFilterType(opts)
-    return this.tables[type].find(opts)
+    return await this.tables[type].find(opts)
   }
 
   public findOne = async (opts) => {
     const type = getFilterType(opts)
-    return this.tables[type].findOne(opts)
+    return await this.tables[type].findOne(opts)
   }
 
-  public search = async (opts) => this.find(opts)
+  public search = (opts) => this.find(opts)
 
   public createTables = async (opts):Promise<void> => {
     for (const name of this._getTablesNames()) {

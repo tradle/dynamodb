@@ -208,7 +208,7 @@ export default class Table extends EventEmitter {
 
     query = this.toDBFormat(query)
     const keys = getValues(this.getPrimaryKeys(query))
-    const result = await this.table.destroy(...keys, opts)
+    return await this.table.destroy(...keys, opts)
   }
 
   private _exportResource = resource => omit(resource, typeAndPermalinkProperty)
@@ -242,19 +242,19 @@ export default class Table extends EventEmitter {
 
   public put = async (resource, opts?):Promise<void> => {
     this._debug(`put() ${resource[TYPE]}`)
-    await this._write('create', resource, opts)
+    return await this._write('create', resource, opts)
   }
 
-  public update = async (resource, opts?):Promise<void> => {
+  public update = async (resource, opts?):Promise<any|void> => {
     this._debug(`update() ${resource[TYPE]}`)
-    await this._write('update', resource, opts)
+    return await this._write('update', resource, opts)
   }
 
-  public merge = async (resource, opts):Promise<void> => {
+  public merge = async (resource, opts):Promise<any|void> => {
     return await this.update(resource, opts)
   }
 
-  public find = async (opts:FindOpts) => {
+  public find = async (opts:FindOpts):Promise<any> => {
     opts = {
       ...this.findOpts,
       ...clone(opts),
@@ -271,7 +271,7 @@ export default class Table extends EventEmitter {
     return results
   }
 
-  public findOne = async (opts) => {
+  public findOne = async (opts):Promise<any> => {
     opts = { ...opts, limit: 1 }
     const { items=[] } = await this.find(opts)
     if (!items.length) {
@@ -441,6 +441,7 @@ export default class Table extends EventEmitter {
     const result = await this.table[method](formatted, options)
     const primaryKeys = this.getPrimaryKeys(formatted)
     this._debug(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
+    return result
   }
 
   private _validateResource = (resource) => {

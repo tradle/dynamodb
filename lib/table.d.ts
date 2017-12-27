@@ -29,15 +29,9 @@ export default class Table extends EventEmitter {
     private _exportResource;
     batchPut: (resources: any[], backoffOpts?: BackoffOptions) => Promise<any[]>;
     put: (resource: any, opts?: any) => Promise<void>;
-    update: (resource: any, opts?: any) => Promise<void>;
-    merge: (resource: any, opts: any) => Promise<void>;
-    find: (opts: FindOpts) => Promise<{
-        items: any;
-        startPosition: any;
-        endPosition: any;
-        index: DynogelIndex;
-        itemToPosition: Function;
-    }>;
+    update: (resource: any, opts?: any) => Promise<any>;
+    merge: (resource: any, opts: any) => Promise<any>;
+    find: (opts: FindOpts) => Promise<any>;
     findOne: (opts: any) => Promise<any>;
     search: (...args: any[]) => any;
     getPrefix: (type: any) => string;
