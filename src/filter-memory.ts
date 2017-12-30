@@ -1,12 +1,10 @@
-import dotProp = require('dot-prop')
+import _ = require('lodash')
 import validateResource = require('@tradle/validate-resource')
 import { TYPE } from '@tradle/constants'
 import OPERATORS = require('./operators')
 const { getRef } = validateResource.utils
 import {
   debug,
-  omit,
-  deepEqual,
   fromResourceStub
 } from './utils'
 
@@ -15,8 +13,8 @@ import BaseObjectModel from './object-model'
 const comparators = {
   EQ: isEqual,
   NEQ: negate(isEqual),
-  IN: ({ value, condition }) => condition.some(one => deepEqual(one, value)),
-  NOT_IN: ({ value, condition }) => condition.every(one => !deepEqual(one, value)),
+  IN: ({ value, condition }) => condition.some(one => _.isEqual(one, value)),
+  NOT_IN: ({ value, condition }) => condition.every(one => !_.isEqual(one, value)),
   STARTS_WITH: ({ value, condition }) => value && value.startsWith(condition),
   CONTAINS: ({ value, condition }) => value && value.indexOf(condition) !== -1,
   NOT_CONTAINS: ({ value, condition }) => !value || value.indexOf(condition) === -1,
@@ -51,12 +49,12 @@ export {
 function isEqual ({ models, property, condition, value }) {
   const type = property && property.type
   if (type !== 'array' && type !== 'object') {
-    return deepEqual(condition, value)
+    return _.isEqual(condition, value)
   }
 
   const ref = getRef(property)
   if (property.inlined || (ref && models[ref].inlined)) {
-    return deepEqual(condition, value)
+    return _.isEqual(condition, value)
   }
 
   if (type === 'array') {
@@ -93,7 +91,7 @@ function matchesFilter ({ models, model, object, filter }) {
         propertyName,
         property,
         condition: conditions[propertyName],
-        value: dotProp.get(object, propertyName)
+        value: _.get(object, propertyName)
       })
 
       if (!isMatch) return false

@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
 import { DynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts } from './types';
-export default class Table extends EventEmitter {
+export declare class Table extends EventEmitter {
     name: string;
     models: Models;
     objects?: Objects;

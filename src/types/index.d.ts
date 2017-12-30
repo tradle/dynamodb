@@ -1,6 +1,7 @@
 
 import AWS = require('aws-sdk')
 import Table from '../table'
+import { ModelStore } from '../model-store'
 
 type IndexType = 'global'|'local'
 
@@ -33,8 +34,8 @@ export type ReadOptions = {
 }
 
 export interface IDBOpts {
-  models: Models
   tableNames: string[]
+  modelStore: ModelStore
   defineTable: (name:string) => Table
   chooseTable?: TableChooser
 }
@@ -122,3 +123,8 @@ export type DynogelTableDefinition = {
   updatedAt?: string|boolean
   validation?: any
 }
+
+// export type Cache = {
+//   get: (...any) => any
+//   set: (key:string, value:any) => void
+// }

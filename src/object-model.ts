@@ -1,9 +1,9 @@
-import clone = require('clone')
+import _ = require('lodash')
 import { models } from '@tradle/models'
 import { typeAndPermalinkProperty } from './constants'
 
 const BaseObjectModel = models['tradle.Object']
-const copy = clone(BaseObjectModel)
+const copy = _.cloneDeep(BaseObjectModel)
 copy.properties[typeAndPermalinkProperty] = {
   type: 'string',
   virtual: true

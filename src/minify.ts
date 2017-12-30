@@ -1,6 +1,7 @@
-const { TYPE } = require('@tradle/constants')
-const { pick, shallowClone, debug, getIndexes } = require('./utils')
-const { minifiedFlag } = require('./constants')
+import _ = require('lodash')
+import { TYPE } from '@tradle/constants'
+import { debug, getIndexes } from './utils'
+import { minifiedFlag } from './constants'
 
 const MINIFY_PREFERENCES = [
   {
@@ -24,7 +25,7 @@ export default function minify ({ table, item, maxSize }) {
   }
 
   const { indexes, models } = table
-  let min = shallowClone(item)
+  let min = _.clone(item)
   let diff = {}
 
   const model = models[item[TYPE]]

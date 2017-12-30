@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events'
+import _ = require('lodash')
 import dynogels = require('dynogels')
 import { TYPE, SIG } from '@tradle/constants'
 import BaseModels = require('@tradle/models')
@@ -28,13 +29,9 @@ import {
   debug,
   wait,
   defaultBackoffFunction,
-  pick,
-  omit,
-  clone,
   sha256,
   validateTableName,
   getFilterType,
-  getValues,
   getTableName,
   getIndexForPrimaryKeys,
   getDefaultTableDefinition,
@@ -76,7 +73,7 @@ const defaultBackoffOpts:BackoffOptions = {
   maxTries: 6
 }
 
-export default class Table extends EventEmitter {
+export class Table extends EventEmitter {
   public name:string
   public models:Models
   public objects?:Objects
@@ -136,7 +133,7 @@ export default class Table extends EventEmitter {
     this._prefix = {}
 
     this.indexes = this.tableDefinition.indexes
-    this.primaryKeys = pick(this.tableDefinition, HASH_AND_RANGE_KEYS)
+    this.primaryKeys = _.pick(this.tableDefinition, HASH_AND_RANGE_KEYS)
     this.findOpts = {
       models,
       forbidScan,
@@ -144,7 +141,7 @@ export default class Table extends EventEmitter {
       consistentRead: defaultReadOptions.consistentRead
     }
 
-    this.primaryKeyProps = getValues(this.primaryKeys)
+    this.primaryKeyProps = _.values(this.primaryKeys)
 
     if (exclusive) {
       this.addModel({ model })
@@ -167,16 +164,14 @@ export default class Table extends EventEmitter {
       throw new Error(`this table is exclusive to type: ${model.id}`)
     }
 
-    if (!this.modelsStored[model.id]) {
-      this.modelsStored[model.id] = model
-      this._debug(`will store resources of model ${model.id}`)
-    }
+    this.modelsStored[model.id] = model
+    this._debug(`will store resources of model ${model.id}`)
   }
 
   public get = async (query, opts={}):Promise<any> => {
     this._debug(`get() ${JSON.stringify(query)}`)
     query = this.toDBFormat(query)
-    const keys = getValues(this.getPrimaryKeys(query))
+    const keys = _.values(this.getPrimaryKeys(query))
     const result = await this.table.get(...keys, {
       ...this.opts.defaultReadOptions,
       ...opts
@@ -207,11 +202,11 @@ export default class Table extends EventEmitter {
     this._ensureWritable()
 
     query = this.toDBFormat(query)
-    const keys = getValues(this.getPrimaryKeys(query))
+    const keys = _.values(this.getPrimaryKeys(query))
     return await this.table.destroy(...keys, opts)
   }
 
-  private _exportResource = resource => omit(resource, typeAndPermalinkProperty)
+  private _exportResource = resource => _.omit(resource, typeAndPermalinkProperty)
 
   public batchPut = async (
     resources:any[],
@@ -257,7 +252,7 @@ export default class Table extends EventEmitter {
   public find = async (opts:FindOpts):Promise<any> => {
     opts = {
       ...this.findOpts,
-      ...clone(opts),
+      ..._.cloneDeep(opts),
       table: this
     }
 
@@ -438,7 +433,14 @@ export default class Table extends EventEmitter {
     }
 
     const formatted = this.toDBFormat(resource)
-    const result = await this.table[method](formatted, options)
+    let result
+    try {
+      result = await this.table[method](formatted, options)
+    } catch (err) {
+      debugger
+      throw err
+    }
+
     const primaryKeys = this.getPrimaryKeys(formatted)
     this._debug(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
     return result
@@ -508,7 +510,7 @@ export default class Table extends EventEmitter {
   }
 
   private getPrimaryKeys = (resource) => {
-    const have = pick(resource, this.primaryKeyProps)
+    const have = _.pick(resource, this.primaryKeyProps)
     if (this.hashKey === typeAndPermalinkProperty && !have[typeAndPermalinkProperty]) {
       have[typeAndPermalinkProperty] = this.calcTypeAndPermalinkProperty(resource)
     }

@@ -1,14 +1,12 @@
+import _ = require('lodash')
 import { TYPE } from '@tradle/constants'
 import {
-  clone,
-  pick,
   toObject,
   debug,
   resultsToJson,
   sortResults,
   getQueryInfo,
   promisify,
-  deepEqual,
   getModelPrimaryKeys,
   doesIndexProjectProperty,
   getModelProperties
@@ -46,7 +44,7 @@ class FilterOp {
   constructor (opts:FindOpts) {
     this.opts = opts
     Object.assign(this, opts)
-    this.filter = clone(this.filter)
+    this.filter = _.cloneDeep(this.filter)
     const {
       table,
       models,
@@ -135,7 +133,7 @@ class FilterOp {
       // we need to do pagination in memory
       const idx = items.map(this.table.toDBFormat).findIndex(item => {
         for (let prop in checkpoint) {
-          if (!deepEqual(checkpoint[prop], item[prop])) {
+          if (!_.isEqual(checkpoint[prop], item[prop])) {
             return false
           }
         }
@@ -386,7 +384,7 @@ class FilterOp {
     if (!this.forbidScan) return
 
     const keySchemas = (this.table.indexes || []).concat(this.table.primaryKeys)
-      .map(props => pick(props, ['hashKey', 'rangeKey']))
+      .map(props => _.pick(props, ['hashKey', 'rangeKey']))
 
     const hint = `Specify a limit, and a combination of hashKey in the EQ filter and (optionally) rangeKey in orderBy: ${JSON.stringify(keySchemas)}`
     throw new Error(`this table does not allow scans or full reads. ${hint}`)

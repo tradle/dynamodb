@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events'
+import _ = require('lodash')
 import validateResource = require('@tradle/validate-resource')
 import { TYPE } from '@tradle/constants'
 import {
-  getValues,
   minBy,
   sha256,
   getTableName,
@@ -12,9 +12,9 @@ import {
   levenshteinDistance,
 } from './utils'
 
-import Table from './table'
-import { IDBOpts, ITableOpts, DynogelIndex, Models, TableChooser, FindOpts } from './types'
-const { isInstantiable } = validateResource.utils
+import { Table } from './table'
+import { ModelStore } from './model-store'
+import { IDBOpts, ITableOpts, DynogelIndex, Model, Models, TableChooser, FindOpts } from './types'
 
 const defaultTableChooser:TableChooser = ({
   tables,
@@ -28,7 +28,7 @@ const defaultTableChooser:TableChooser = ({
 
 export default class DB extends EventEmitter {
   public static getSafeTableName = model => getTableName({ model })
-  public models: any
+  public modelStore: ModelStore
   // table bucket name => bucket
   public tablesByName:{ [key:string]: Table }
   // tables by type (model.id)
@@ -38,19 +38,24 @@ export default class DB extends EventEmitter {
   private _choose:TableChooser
   private _instantiateTable:(name:string) => Table
   constructor ({
-    models,
     tableNames,
     defineTable,
-    chooseTable=defaultTableChooser
+    chooseTable=defaultTableChooser,
+    modelStore
   }: IDBOpts) {
     super()
 
-    if (!(models &&
+    if (!(modelStore &&
       Array.isArray(tableNames) &&
       typeof defineTable === 'function' &&
       typeof chooseTable === 'function')) {
       throw new Error('missing required parameter')
     }
+
+    this.modelStore = modelStore
+    this.modelStore.on('invalidate:model', ({ id }) => {
+      delete this.tables[id]
+    })
 
     tableNames.forEach(validateTableName)
 
@@ -58,7 +63,23 @@ export default class DB extends EventEmitter {
     this.exclusive = {}
     this._choose = chooseTable
     this._instantiateTable = defineTable
-    this.setModels(models)
+    this.tables = {}
+    this.tablesByName = {}
+    lazyDefine(
+      this.tablesByName,
+      this.tableTableNames,
+      this._instantiateTable
+    )
+
+    for (let id in this.exclusive) {
+      let table = this.exclusive[id]
+      this.tables[table.model.id] = table
+      this.tablesByName[table.name] = table
+    }
+  }
+
+  public get models():Models {
+    return this.modelStore.models
   }
 
   public setExclusive = ({ model, table }: {
@@ -74,7 +95,8 @@ export default class DB extends EventEmitter {
     this.exclusive[model.id] = table
   }
 
-  public choose = (type:string):Table => {
+  public choose = async (type:string):Promise<Table> => {
+    const model = await this.modelStore.get(type)
     const table = this._choose({
       tables: this.tableTableNames.map(name => this.tablesByName[name]),
       type
@@ -93,56 +115,64 @@ export default class DB extends EventEmitter {
     return table
   }
 
-  public put = async (item, opts?) => {
-    return await this.tables[item[TYPE]].put(item, opts)
+  public put = async (resource, opts?) => {
+    const table = await this.getTableForModel(resource[TYPE])
+    return await table.put(resource, opts)
   }
 
   public update = async (resource, opts?) => {
-    return await this.tables[resource[TYPE]].update(resource, opts)
+    const table = await this.getTableForModel(resource[TYPE])
+    return await table.update(resource, opts)
   }
 
   public merge = async (resource, opts?) => {
-    return await this.tables[resource[TYPE]].merge(resource, opts)
+    const table = await this.getTableForModel(resource[TYPE])
+    return await table.merge(resource, opts)
   }
 
   public get = async (keys:any, opts?) => {
-    return await this.tables[keys[TYPE]].get(keys, opts)
+    const table = await this.getTableForModel(keys[TYPE])
+    return await table.get(keys, opts)
   }
 
   public latest = async (keys:any, opts?) => {
-    return await this.tables[keys[TYPE]].latest(keys, opts)
+    const table = await this.getTableForModel(keys[TYPE])
+    return await table.latest(keys, opts)
   }
 
   public del = async (keys:any) => {
-    await this.tables[keys[TYPE]].del(keys)
+    const table = await this.getTableForModel(keys[TYPE])
+    await table.del(keys)
+  }
+
+  public getTableForModel = async (model:string|Model):Promise<Table> => {
+    const type:string = typeof model === 'string' ? model : model.id
+    return this.tables[type] || this.choose(type)
   }
 
   public batchPut = async (resources:any[], opts?):Promise<any[]|void> => {
     const byTable = new Map<Table, any[]>()
-    for (const resource of resources) {
-      const type = resource[TYPE]
-      const table = this.tables[type]
-      const soFar = byTable.get(table) || []
-      soFar.push(resource)
-      byTable.set(table, soFar)
-    }
-
-    const entries = Array.from(byTable.entries())
-    const results = await Promise.all(entries.map(([table, resources]) => {
-      return table.batchPut(resources, opts)
+    // prime cache
+    resources.forEach(resource => this.getTableForModel(resource[TYPE]))
+    const byType = _.groupBy(resources, TYPE)
+    const results = await Promise.all(_.map(byType, async (batch, type) => {
+      const table = await this.getTableForModel(type)
+      return table.batchPut(batch, opts)
     }))
 
-    return results.reduce((flat, item) => flat.concat(item), [])
+    return _.flatten(results)
   }
 
   public find = async (opts:FindOpts) => {
     const type = getFilterType(opts)
-    return await this.tables[type].find(opts)
+    const table = await this.getTableForModel(type)
+    return await table.find(opts)
   }
 
   public findOne = async (opts) => {
     const type = getFilterType(opts)
-    return await this.tables[type].findOne(opts)
+    const table = await this.getTableForModel(type)
+    return await table.findOne(opts)
   }
 
   public search = (opts) => this.find(opts)
@@ -159,41 +189,10 @@ export default class DB extends EventEmitter {
     }
   }
 
-  public addModels = (models:Models):void => {
-    if (Object.keys(models).length) {
-      this.setModels({ ...this.models, ...models })
-    }
-  }
-
-  public setModels = (models:Models):void => {
-    this.models = models
-    this.tables = {}
-    this.tablesByName = {}
-    lazyDefine(
-      this.tablesByName,
-      this.tableTableNames,
-      this._instantiateTable
-    )
-
-    lazyDefine(
-      this.tables,
-      Object.keys(models),
-      type => this.choose(type)
-    )
-
-    for (let id in this.exclusive) {
-      let table = this.exclusive[id]
-      this.tables[table.model.id] = table
-      this.tablesByName[table.name] = table
-    }
-
-    this.emit('update:models', { models })
-  }
-
-  public hasTableForModel = (model:any|string) => {
-    const id = typeof model === 'string' ? model : model.id
-    return !!this.tables[id]
-  }
+  // public hasTableForModel = (model:any|string) => {
+  //   const id = typeof model === 'string' ? model : model.id
+  //   return !!this.tables[id]
+  // }
 
   private _getTablesNames = ():string[] => {
     return this.tableTableNames.concat(Object.keys(this.exclusive))

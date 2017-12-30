@@ -1,19 +1,12 @@
 import crypto = require('crypto')
-const debug = require('debug')(require('../package.json').name)
+import _ = require('lodash')
 import bindAll = require('bindall')
-import clone = require('clone')
-import shallowClone = require('xtend')
-import extend = require('xtend/mutable')
-import deepEqual = require('deep-equal')
-import pick = require('object.pick')
-import omit = require('object.omit')
 import promisify = require('pify')
-import dotProp = require('dot-prop')
 import levenshtein = require('fast-levenshtein')
 import AWS = require('aws-sdk')
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
-import Table from './table'
+import { Table } from './table'
 import { defaultPrimaryKeys, defaultIndexes, defaultOrderBy, minifiedFlag } from './constants'
 import OPERATORS = require('./operators')
 import {
@@ -27,6 +20,7 @@ import {
 } from './types'
 
 import BaseObjectModel from './object-model'
+const debug = require('debug')(require('../package.json').name)
 const metadataTypes = toJoi({
   model: BaseObjectModel
 })
@@ -59,8 +53,8 @@ function sortResults ({ results, orderBy=defaultOrderBy }: {
 }
 
 function compare (a, b, propertyName, asc) {
-  const aVal = dotProp.get(a, propertyName)
-  const bVal = dotProp.get(b, propertyName)
+  const aVal = _.get(a, propertyName)
+  const bVal = _.get(b, propertyName)
   if (aVal < bVal) return asc ? -1 : 1
   if (aVal > bVal) return asc ? 1 : -1
 
@@ -99,7 +93,7 @@ function resultsToJson (items) {
 function getUsedProperties (filter) {
   const flat = flatten(filter)
   const props = flat.reduce((all, more) => {
-    extend(all, more)
+    _.extend(all, more)
     return all
   }, {})
 
@@ -227,7 +221,7 @@ function getQueryInfo ({ table, filter, orderBy }) {
   const usedProps = getUsedProperties(filter)
   const { indexes, primaryKeys } = table
   const { hashKey, rangeKey } = primaryKeys
-  const primaryKeysArr = getValues(primaryKeys)
+  const primaryKeysArr = _.values(primaryKeys)
   const indexedProps = indexes.map(index => index.hashKey)
     .concat(hashKey)
 
@@ -260,11 +254,11 @@ function getQueryInfo ({ table, filter, orderBy }) {
     if (!item) throw new Error('expected database record')
 
     if (queryProp === hashKey || opType === 'scan') {
-      return pick(item, primaryKeysArr)
+      return _.pick(item, primaryKeysArr)
     }
 
     const props = [index.hashKey, index.rangeKey].filter(notNull)
-    const indexed = pick(item, props)
+    const indexed = _.pick(item, props)
     return {
       ...indexed,
       ...table.getPrimaryKeys(item)
@@ -284,7 +278,7 @@ function getQueryInfo ({ table, filter, orderBy }) {
 }
 
 function runWithBackoffOnTableNotExists (fn, opts={}) {
-  opts = shallowClone(opts)
+  opts = _.clone(opts)
   opts.shouldTryAgain = err => err.name === 'ResourceNotFoundException'
   return runWithBackoffWhile(fn, opts)
 }
@@ -365,10 +359,6 @@ function getResourcePrimaryKeys ({ model, resource }) {
   }
 
   return primaryKeys
-}
-
-function getValues (obj) {
-  return Object.keys(obj).map(key => obj[key])
 }
 
 function notNull (val) {
@@ -567,19 +557,31 @@ const uniqueStrict = arr => {
   return uniq
 }
 
+// const cachify = (get:Function, cache:Cache) => {
+//   const cachified = async (...args) => {
+//     const str = stableStringify(args)
+//     const cached = cache.get(str)
+//     if (cached) {
+//       // refetch on error
+//       return cached.catch(err => cachified(...args))
+//     }
+
+//     const result = get(...args)
+//     result.catch(err => cache.del(str))
+//     cache.set(str, result)
+//     return result
+//   }
+
+//   return cachified
+// }
+
 const utils = {
   fromResourceStub,
   sortResults,
   compare,
   promisify,
   debug,
-  clone,
-  shallowClone,
-  extend,
   bindAll,
-  deepEqual,
-  pick,
-  omit,
   toObject,
   getIndexes,
   getTableName,
@@ -590,7 +592,6 @@ const utils = {
   waitTillActive,
   getModelPrimaryKeys,
   getResourcePrimaryKeys,
-  getValues,
   minBy,
   sha256,
   wait,
@@ -606,7 +607,8 @@ const utils = {
   toDynogelIndexDefinition,
   doesIndexProjectProperty,
   getModelProperties,
-  uniqueStrict
+  uniqueStrict,
+  // cachify
 }
 
 export = utils
