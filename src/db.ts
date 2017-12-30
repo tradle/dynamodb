@@ -147,13 +147,13 @@ export default class DB extends EventEmitter {
 
   public search = (opts) => this.find(opts)
 
-  public createTables = async (opts):Promise<void> => {
+  public createTables = async ():Promise<void> => {
     for (const name of this._getTablesNames()) {
       await this.tablesByName[name].create()
     }
   }
 
-  public destroyTables = async (opts):Promise<void> => {
+  public destroyTables = async ():Promise<void> => {
     for (const name of this._getTablesNames()) {
       await this.tablesByName[name].destroy()
     }
@@ -188,6 +188,11 @@ export default class DB extends EventEmitter {
     }
 
     this.emit('update:models', { models })
+  }
+
+  public hasTableForModel = (model:any|string) => {
+    const id = typeof model === 'string' ? model : model.id
+    return !!this.tables[id]
   }
 
   private _getTablesNames = ():string[] => {

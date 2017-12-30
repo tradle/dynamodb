@@ -83,18 +83,18 @@ export type EQ = {
 }
 
 export type Filter = {
-  EQ
+  EQ: Pojo
   NEQ?: Pojo
   NULL?: Pojo
-  IN?: any[]
-  BETWEEN?: any[]
+  IN?: Pojo
+  BETWEEN?: Pojo
   STARTS_WITH?: Pojo
   CONTAINS?: Pojo
   NOT_CONTAINS?: Pojo
-  LT?: string|number
-  LTE?: string|number
-  GT?: string|number
-  GTE?: string|number
+  LT?: Pojo
+  LTE?: Pojo
+  GT?: Pojo
+  GTE?: Pojo
 }
 
 export type OrderBy = {
@@ -103,7 +103,7 @@ export type OrderBy = {
 }
 
 export type FindOpts = {
-  table: Table
+  table?: Table
   filter?: Filter
   orderBy?: OrderBy
   select?: string[]

@@ -33,9 +33,10 @@ export default class DB extends EventEmitter {
     find: (opts: FindOpts) => Promise<any>;
     findOne: (opts: any) => Promise<any>;
     search: (opts: any) => Promise<any>;
-    createTables: (opts: any) => Promise<void>;
-    destroyTables: (opts: any) => Promise<void>;
+    createTables: () => Promise<void>;
+    destroyTables: () => Promise<void>;
     addModels: (models: Models) => void;
     setModels: (models: Models) => void;
+    hasTableForModel: (model: any) => boolean;
     private _getTablesNames;
 }

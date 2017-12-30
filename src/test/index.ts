@@ -74,6 +74,55 @@ const objects = (function () {
 
 import { DB, Table, createTable } from '../'
 
+let db:DB
+let table
+let offset = Date.now()
+let lastCreated = []
+
+const getCommonTableOpts = (tableName, indexes?) => {
+  const tableDefinition = getDefaultTableDefinition({ tableName })
+  return {
+    objects,
+    models: db.models,
+    maxItemSize: 4000,
+    docClient,
+    validate: false,
+    tableDefinition: {
+      ...tableDefinition,
+      indexes
+    }
+  }
+}
+
+const createDB = (indexes?):DB => {
+  const db = new DB({
+    models,
+    tableNames: lastCreated,
+    defineTable: name => new Table(getCommonTableOpts(DB.getSafeTableName(name), indexes))
+  })
+
+  return db
+}
+
+const cleanup = async (indexes?) => {
+  if (!lastCreated.length) return
+
+  db = createDB(indexes)
+  await db.destroyTables()
+}
+
+const reload = async (indexes?) => {
+  await cleanup(indexes)
+  const prefix = '' + (offset++)
+  lastCreated = ['a', 'b', 'c', 'd', 'e'].map(name => prefix + name)
+  db = createDB(indexes)
+  await db.createTables()
+  await db.batchPut(formRequests)
+  // table = db.tables[FORM_REQUEST]
+  // await db.batchPut(formRequests)
+}
+
+
 test('minify (big values)', function (t) {
   const bigMsg = {
     [TYPE]: 'tradle.SimpleMessage',
@@ -314,6 +363,14 @@ test('backoff after create', loudAsync(async (t) => {
   t.end()
 }))
 
+test('hasTableForModel', loudAsync(async (t) => {
+  await reload()
+  t.equal(db.hasTableForModel('tradle.ModelsPack'), true)
+  t.equal(db.hasTableForModel(models['tradle.ModelsPack']), true)
+  t.equal(db.hasTableForModel('abcdefg'), false)
+  t.end()
+}))
+
 let only
 ;[
   defaultIndexes,
@@ -332,56 +389,8 @@ let only
     return test.only(...args)
   }
 
-  let db
-  let table
-  let offset = Date.now()
-  let lastCreated = []
-
-  const getCommonTableOpts = (tableName) => {
-    const tableDefinition = getDefaultTableDefinition({ tableName })
-    return {
-      objects,
-      models: db.models,
-      maxItemSize: 4000,
-      docClient,
-      validate: false,
-      tableDefinition: {
-        ...tableDefinition,
-        indexes
-      }
-    }
-  }
-
-  const createDB = () => {
-    const db = new DB({
-      models,
-      tableNames: lastCreated,
-      defineTable: name => new Table(getCommonTableOpts(DB.getSafeTableName(name)))
-    })
-
-    return db
-  }
-
-  const cleanup = async () => {
-    if (!lastCreated.length) return
-
-    db = createDB()
-    await db.destroyTables()
-  }
-
-  const reload = async () => {
-    await cleanup()
-    const prefix = '' + (offset++)
-    lastCreated = ['a', 'b', 'c', 'd', 'e'].map(name => prefix + name)
-    db = createDB()
-    await db.createTables()
-    await db.batchPut(formRequests)
-    // table = db.tables[FORM_REQUEST]
-    // await db.batchPut(formRequests)
-  }
-
   testNamed('put/update', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     const photoId = photoIds[0]
     await db.put(photoId)
     const keys = {
@@ -407,7 +416,7 @@ let only
   }))
 
   testNamed('basic pagination', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     const filter = {
       EQ: {
         [TYPE]: FORM_REQUEST
@@ -471,7 +480,7 @@ let only
   }))
 
   testNamed('orderBy', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     const filter = {
       EQ: {
         [TYPE]: FORM_REQUEST
@@ -526,7 +535,7 @@ let only
   }))
 
   testNamed('indexed props (_author)', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     const _author = formRequests[0]._author
     const expected = formRequests.slice()
       .filter(fr => fr._author === _author)
@@ -572,7 +581,7 @@ let only
   }))
 
   testNamed('indexed props (_t)', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     await db.batchPut(formRequests)
     await db.batchPut(photoIds)
 
@@ -623,7 +632,7 @@ let only
   }))
 
   testNamed('latest', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     const v1 = formRequests[0]
     await db.put(v1)
 
@@ -658,7 +667,7 @@ let only
   }))
 
   testNamed('db', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     const req = formRequests[0]
     const type = req[TYPE]
     const link = req._link
@@ -722,7 +731,7 @@ let only
   }))
 
   testNamed('filters', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     const type = 'tradle.PhotoID'
     const photoIds = fixtures.filter(item => item[TYPE] === type)
     // const byType = groupByType(fixtures)
@@ -877,7 +886,7 @@ let only
   }))
 
   testNamed('addModels', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     const A_TYPE = 'mynamespace.modelA'
     db.addModels({
       [A_TYPE]: {
@@ -913,7 +922,7 @@ let only
   }))
 
   testNamed('custom primary keys', loudAsync(async (t) => {
-    await reload()
+    await reload(indexes)
     const ALIEN_CLASSIFIER = 'mynamespace.Alien' + Date.now()
     const alienModel = {
       type: 'tradle.Model',
@@ -994,12 +1003,11 @@ let only
     })
 
     t.same(searchResult.items, [alien])
-
     t.end()
   }))
 
   testNamed('cleanup', async (t) => {
-    await cleanup()
+    await cleanup(indexes)
     t.end()
   })
 })
