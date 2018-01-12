@@ -11,7 +11,8 @@ const MINIFY_PREFERENCES = [
     })
   },
   {
-    filter: stripOptional
+    filter: stripOptional,
+    getProperties: obj => Object.keys(obj)
   }
 ]
 
@@ -38,7 +39,7 @@ export default function minify ({ table, item, maxSize }) {
 
     let slimmed
     let currentCut = (min[minifiedFlag] || []).slice()
-    const props = getProperties ? getProperties(min) : Object.keys(min)
+    const props = getProperties(min)
     for (const propertyName of props) {
       if (size < maxSize) break
       if (propertyName.startsWith('_')) {

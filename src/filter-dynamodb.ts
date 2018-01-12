@@ -17,7 +17,7 @@ import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
 import { defaultOrderBy, defaultLimit, minifiedFlag } from './constants'
 import { OrderBy, Model, Models, DynogelIndex, FindOpts } from './types'
-import Table from './table'
+import { Table } from './table'
 
 class FilterOp {
   public opts:FindOpts

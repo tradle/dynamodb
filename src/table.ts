@@ -433,13 +433,16 @@ export class Table extends EventEmitter {
     }
 
     const formatted = this.toDBFormat(resource)
-    let result
-    try {
-      result = await this.table[method](formatted, options)
-    } catch (err) {
-      debugger
-      throw err
-    }
+    const result = await this.table[method](formatted, options)
+    // const { stack } = new Error('blah')
+    // let result
+    // try {
+    //   result = await this.table[method](formatted, options)
+    // } catch (err) {
+    //   console.log(stack)
+    //   debugger
+    //   throw err
+    // }
 
     const primaryKeys = this.getPrimaryKeys(formatted)
     this._debug(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
