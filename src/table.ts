@@ -4,6 +4,7 @@ import dynogels = require('dynogels')
 import { TYPE, SIG } from '@tradle/constants'
 import BaseModels = require('@tradle/models')
 import validateResource = require('@tradle/validate-resource')
+import Errors = require('@tradle/errors')
 import promisify = require('pify')
 import {
   minifiedFlag,
@@ -295,11 +296,7 @@ export class Table extends EventEmitter {
     try {
       await this.table.createTable()
     } catch (err) {
-      if (err.code === 'ResourceInUseException') {
-        this._debug('table already exists')
-      } else {
-        throw err
-      }
+      Errors.ignore(err, { code: 'ResourceInUseException' })
     }
 
     this._debug('created table')
@@ -310,11 +307,7 @@ export class Table extends EventEmitter {
     try {
       await this.table.deleteTable()
     } catch (err) {
-      if (err.code === 'ResourceNotFoundException') {
-        this._debug('table does not exist')
-      } else {
-        throw err
-      }
+      Errors.ignore(err, { code: 'ResourceNotFoundException' })
     }
 
     this._debug('destroyed table')
@@ -433,16 +426,14 @@ export class Table extends EventEmitter {
     }
 
     const formatted = this.toDBFormat(resource)
-    const result = await this.table[method](formatted, options)
-    // const { stack } = new Error('blah')
-    // let result
-    // try {
-    //   result = await this.table[method](formatted, options)
-    // } catch (err) {
-    //   console.log(stack)
-    //   debugger
-    //   throw err
-    // }
+    let result
+    try {
+      result = await this.table[method](formatted, options)
+    } catch (err) {
+      Errors.rethrow(err, 'developer')
+      err.input = { item: formatted, options }
+      throw err
+    }
 
     const primaryKeys = this.getPrimaryKeys(formatted)
     this._debug(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)

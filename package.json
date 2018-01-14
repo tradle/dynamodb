@@ -35,6 +35,7 @@
   "dependencies": {
     "@tradle/build-resource": "^2.14.0",
     "@tradle/constants": "^2.1.0",
+    "@tradle/errors": "^1.1.0",
     "bindall": "^2.0.1",
     "clone": "^2.1.1",
     "co": "^4.6.0",
