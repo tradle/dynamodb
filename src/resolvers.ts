@@ -90,7 +90,7 @@ export = function createResolvers ({ db, objects, models, postProcess }: {
   function withPostProcess (fn, op) {
     return async (...args) => {
       const result = await fn(...args)
-      return postProcess(result, op)
+      return postProcess(result, op, ...args)
     }
   }
 }
