@@ -168,10 +168,16 @@ const getMissingProperties = ({ resource, model, opts }: {
   return missing
 }
 
+type TablePropInfo = {
+  property: string
+  rangeKey?: string
+  index?: DynogelIndex
+}
+
 function getPreferredQueryProperty ({ table, properties }: {
   table: Table,
   properties: string[]
-}) {
+}):TablePropInfo {
   if (properties.length > 1) {
     const { indexes } = table
     const projectsAll = indexes.find(index => {
@@ -277,7 +283,7 @@ function getQueryInfo ({ table, filter, orderBy }) {
   }
 }
 
-function runWithBackoffOnTableNotExists (fn, opts={}) {
+function runWithBackoffOnTableNotExists (fn, opts:any={}) {
   opts = _.clone(opts)
   opts.shouldTryAgain = err => err.name === 'ResourceNotFoundException'
   return runWithBackoffWhile(fn, opts)
@@ -575,7 +581,7 @@ const uniqueStrict = arr => {
 //   return cachified
 // }
 
-const utils = {
+export {
   fromResourceStub,
   sortResults,
   compare,
@@ -610,5 +616,3 @@ const utils = {
   uniqueStrict,
   // cachify
 }
-
-export = utils

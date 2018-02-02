@@ -1,7 +1,7 @@
 
 import AWS = require('aws-sdk')
-import Table from '../table'
-import { ModelStore } from '../model-store'
+import { Table } from './table'
+import { ModelStore } from './model-store'
 
 type IndexType = 'global'|'local'
 
@@ -88,6 +88,7 @@ export type Filter = {
   NEQ?: Pojo
   NULL?: Pojo
   IN?: Pojo
+  NOT_IN?: Pojo
   BETWEEN?: Pojo
   STARTS_WITH?: Pojo
   CONTAINS?: Pojo

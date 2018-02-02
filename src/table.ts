@@ -277,7 +277,7 @@ export class Table extends EventEmitter {
     return items[0]
   }
 
-  public search = (...args) => this.find(...args)
+  public search = opts => this.find(opts)
 
   public getPrefix = function (type:string|any):string {
     if (typeof type === 'object') {
@@ -496,7 +496,7 @@ export class Table extends EventEmitter {
       await wait(backoff(tries++))
     }
 
-    const err = new Error('batch put failed')
+    const err:any = new Error('batch put failed')
     err.failed = failed
     err.attempts = tries
     throw err

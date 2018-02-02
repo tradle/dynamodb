@@ -1,4 +1,9 @@
 node_modules/
 *.log
 dist
-
+.sublime-project
+messages.js1
+project.sublime-project
+project.sublime-workspace
+settings.sublime-workspace
+src/db.js1

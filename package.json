@@ -29,8 +29,9 @@
     "test": "npm run copy-static-assets && node lib/test",
     "lint": "eslint --quiet --ignore-path .gitignore .",
     "prepush": "npm test",
+    "precommit": "npm run copy-static-assets",
     "commit": "git-cz",
-    "copy-static-assets": "cp src/test/fixtures.json lib/test/"
+    "copy-static-assets": "cp src/test/fixtures.json lib/test/ && cp src/types.d.ts lib/"
   },
   "dependencies": {
     "@tradle/build-resource": "^2.14.0",

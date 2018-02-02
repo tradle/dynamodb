@@ -402,12 +402,11 @@ let only
   defaultIndexes.map(toProjectionTypeAll)
 ].forEach(indexes => {
   const { ProjectionType } = indexes[0].projection
-  const testNamed = (name, fn) => {
+  const testNamed:any = (name, fn) => {
     return test(`${name} (ProjectionType: ${ProjectionType})`, fn)
   }
 
   testNamed.skip = test.skip
-
   testNamed.only = (...args) => {
     if (only) return
     only = true
@@ -910,7 +909,7 @@ let only
     t.end()
   }))
 
-  testNamed.skip('custom primary keys', loudAsync(async (t) => {
+  testNamed('custom primary keys', loudAsync(async (t) => {
     await reload(indexes)
     const ALIEN_CLASSIFIER = 'mynamespace.Alien' + Date.now()
     const alienModel = {
@@ -934,10 +933,7 @@ let only
       }
     }
 
-    db.addModels({
-      [ALIEN_CLASSIFIER]: alienModel
-    })
-
+    db.modelStore.addModel(alienModel)
     db.setExclusive({
       table: createTable({
         ...getCommonTableOpts(DB.getSafeTableName(alienModel.id)),

@@ -33,7 +33,7 @@ export declare class Table extends EventEmitter {
     merge: (resource: any, opts: any) => Promise<any>;
     find: (opts: FindOpts) => Promise<any>;
     findOne: (opts: any) => Promise<any>;
-    search: (...args: any[]) => any;
+    search: (opts: any) => Promise<any>;
     getPrefix: (type: any) => string;
     create: () => Promise<void>;
     destroy: () => Promise<void>;

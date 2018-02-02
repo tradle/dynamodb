@@ -3,7 +3,12 @@ import { TYPE } from '@tradle/constants'
 import { debug, getIndexes } from './utils'
 import { minifiedFlag } from './constants'
 
-const MINIFY_PREFERENCES = [
+type MinifyPref = {
+  filter: (item:any) => boolean
+  getProperties: (obj: any) => string[]
+}
+
+const MINIFY_PREFERENCES:MinifyPref[] = [
   {
     filter: stripBigValues,
     getProperties: obj => Object.keys(obj).sort((a, b) => {
@@ -16,7 +21,8 @@ const MINIFY_PREFERENCES = [
   }
 ]
 
-const neverStrip = ({ property }) => {
+const neverStrip = (opts:any) => {
+  const { property } = opts
   return property.ref && property.type === 'object'
 }
 

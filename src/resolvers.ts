@@ -3,7 +3,6 @@ import {
   sortResults,
   debug,
   getIndexes,
-  extend,
   resultsToJson
 } from './utils'
 
