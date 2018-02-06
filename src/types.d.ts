@@ -16,6 +16,11 @@ export type DynogelIndex = {
 export type Model = {
   id: string
   properties: any
+  abstract?: boolean
+  interfaces?: string[]
+  isInterface?: boolean
+  subClassOf?: string
+  required?: string[]
   primaryKeys?: KeyProps
 }
 
