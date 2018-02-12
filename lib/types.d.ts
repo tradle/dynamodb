@@ -15,13 +15,18 @@ export type DynogelIndex = {
 
 export type Model = {
   id: string
+  title: string
   properties: any
   abstract?: boolean
   interfaces?: string[]
   isInterface?: boolean
   subClassOf?: string
   required?: string[]
+  viewCols?: string[]
+  editCols?: string[]
+  hidden?: string[]
   primaryKeys?: KeyProps
+  [attr:string]: any
 }
 
 export type Models = {
