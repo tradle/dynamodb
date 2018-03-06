@@ -18,9 +18,10 @@ export default class DB extends EventEmitter {
     private tableTableNames;
     private _choose;
     private _instantiateTable;
+    private hooks;
     constructor({tableNames, defineTable, chooseTable, modelStore}: IDBOpts);
     readonly models: Models;
-    setExclusive: ({model, table}: {
+    setExclusive: ({ model, table }: {
         model?: any;
         table: Table;
     }) => void;
@@ -38,5 +39,6 @@ export default class DB extends EventEmitter {
     search: (opts: any) => Promise<any>;
     createTables: () => Promise<void>;
     destroyTables: () => Promise<void>;
+    hook: (method: any, handler: any) => any;
     private _getTablesNames;
 }

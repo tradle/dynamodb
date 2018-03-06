@@ -1,4 +1,4 @@
-declare const getComparators: ({queryInfo, property}: {
+declare const getComparators: ({ queryInfo, property }: {
     queryInfo: any;
     property: any;
 }) => any;

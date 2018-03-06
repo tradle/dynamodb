@@ -20,7 +20,7 @@ export declare class Table extends EventEmitter {
     readonly hashKey: string;
     readonly rangeKey: string;
     constructor(opts: ITableOpts);
-    addModel: ({model}: {
+    addModel: ({ model }: {
         model: Model;
     }) => void;
     get: (query: any, opts?: {}) => Promise<any>;
@@ -41,7 +41,7 @@ export declare class Table extends EventEmitter {
     private _initTable;
     toDBFormat: (resource: any) => any;
     fromDBFormat: (resource: any) => any;
-    prefixKey: ({type, key}: {
+    prefixKey: ({ type, key }: {
         type: string;
         key: string;
     }) => string;

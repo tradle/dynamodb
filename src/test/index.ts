@@ -388,6 +388,28 @@ test('backoff after create', loudAsync(async (t) => {
   t.end()
 }))
 
+test('db hooks', loudAsync(async (t) => {
+  const db = createDB()
+  const item = {
+    a: 1,
+    b: 2
+  }
+
+  db.hook('put', ({ resource, opts }) => {
+    t.same(resource, item)
+    throw new Error('boo')
+  })
+
+  try {
+    await db.put(item)
+    t.fail('expected error')
+  } catch (err) {
+    t.equal(err.message, 'boo')
+  }
+
+  t.end()
+}))
+
 // test('hasTableForModel', loudAsync(async (t) => {
 //   await reload()
 //   t.equal(db.hasTableForModel('tradle.ModelsPack'), true)

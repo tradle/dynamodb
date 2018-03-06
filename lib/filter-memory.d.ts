@@ -1,52 +1,47 @@
 declare const comparators: {
-    EQ: ({models, property, condition, value}: {
-        models: any;
-        property: any;
-        condition: any;
-        value: any;
-    }) => any;
+    EQ: typeof isEqual;
     NEQ: (...args: any[]) => boolean;
-    IN: ({value, condition}: {
+    IN: ({ value, condition }: {
         value: any;
         condition: any;
     }) => any;
-    NOT_IN: ({value, condition}: {
+    NOT_IN: ({ value, condition }: {
         value: any;
         condition: any;
     }) => any;
-    STARTS_WITH: ({value, condition}: {
+    STARTS_WITH: ({ value, condition }: {
         value: any;
         condition: any;
     }) => any;
-    CONTAINS: ({value, condition}: {
+    CONTAINS: ({ value, condition }: {
         value: any;
         condition: any;
     }) => boolean;
-    NOT_CONTAINS: ({value, condition}: {
+    NOT_CONTAINS: ({ value, condition }: {
         value: any;
         condition: any;
     }) => boolean;
-    BETWEEN: ({value, condition}: {
+    BETWEEN: ({ value, condition }: {
         value: any;
         condition: any;
     }) => boolean;
-    LT: ({value, condition}: {
+    LT: ({ value, condition }: {
         value: any;
         condition: any;
     }) => boolean;
-    LTE: ({value, condition}: {
+    LTE: ({ value, condition }: {
         value: any;
         condition: any;
     }) => boolean;
-    GT: ({value, condition}: {
+    GT: ({ value, condition }: {
         value: any;
         condition: any;
     }) => boolean;
-    GTE: ({value, condition}: {
+    GTE: ({ value, condition }: {
         value: any;
         condition: any;
     }) => boolean;
-    NULL: ({value, condition}: {
+    NULL: ({ value, condition }: {
         value: any;
         condition: any;
     }) => boolean;
