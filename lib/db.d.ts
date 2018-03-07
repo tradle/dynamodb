@@ -40,5 +40,7 @@ export default class DB extends EventEmitter {
     createTables: () => Promise<void>;
     destroyTables: () => Promise<void>;
     hook: (method: any, handler: any) => any;
+    private createTable;
+    private destroyTable;
     private _getTablesNames;
 }

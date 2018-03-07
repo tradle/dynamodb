@@ -17,6 +17,20 @@ import { Table } from './table'
 import { ModelStore } from './model-store'
 import { IDBOpts, ITableOpts, DynogelIndex, Model, Models, TableChooser, FindOpts } from './types'
 
+const HOOKABLE = [
+  'put',
+  'update',
+  'merge',
+  'get',
+  'latest',
+  'del',
+  'batchPut',
+  'find',
+  'findOne',
+  'createTable',
+  'destroyTable'
+]
+
 const defaultTableChooser:TableChooser = ({
   tables,
   type
@@ -80,6 +94,9 @@ export default class DB extends EventEmitter {
     }
 
     this.hooks = createHooks()
+    HOOKABLE.forEach(method => {
+      this[method] = hookUp(this[method].bind(this), method)
+    })
   }
 
   public get models():Models {
@@ -120,37 +137,31 @@ export default class DB extends EventEmitter {
   }
 
   public put = async (resource, opts?) => {
-    await this.hooks.fire('put', { resource, opts })
     const table = await this.getTableForModel(resource[TYPE])
     return await table.put(resource, opts)
   }
 
   public update = async (resource, opts?) => {
-    await this.hooks.fire('update', { resource, opts })
     const table = await this.getTableForModel(resource[TYPE])
     return await table.update(resource, opts)
   }
 
   public merge = async (resource, opts?) => {
-    await this.hooks.fire('merge', { resource, opts })
     const table = await this.getTableForModel(resource[TYPE])
     return await table.merge(resource, opts)
   }
 
   public get = async (keys:any, opts?) => {
-    await this.hooks.fire('get', { keys, opts })
     const table = await this.getTableForModel(keys[TYPE])
     return await table.get(keys, opts)
   }
 
   public latest = async (keys:any, opts?) => {
-    await this.hooks.fire('latest', { keys, opts })
     const table = await this.getTableForModel(keys[TYPE])
     return await table.latest(keys, opts)
   }
 
   public del = async (keys:any) => {
-    await this.hooks.fire('del', { keys })
     const table = await this.getTableForModel(keys[TYPE])
     await table.del(keys)
   }
@@ -161,7 +172,6 @@ export default class DB extends EventEmitter {
   }
 
   public batchPut = async (resources:any[], opts?):Promise<any[]|void> => {
-    await this.hooks.fire('batchPut', { resources, opts })
     const byTable = new Map<Table, any[]>()
     // prime cache
     resources.forEach(resource => this.getTableForModel(resource[TYPE]))
@@ -175,14 +185,12 @@ export default class DB extends EventEmitter {
   }
 
   public find = async (opts:FindOpts) => {
-    await this.hooks.fire('find', opts)
     const type = getFilterType(opts)
     const table = await this.getTableForModel(type)
     return await table.find(opts)
   }
 
   public findOne = async (opts) => {
-    await this.hooks.fire('findOne', opts)
     const type = getFilterType(opts)
     const table = await this.getTableForModel(type)
     return await table.findOne(opts)
@@ -192,14 +200,12 @@ export default class DB extends EventEmitter {
 
   public createTables = async ():Promise<void> => {
     for (const name of this._getTablesNames()) {
-      await this.hooks.fire('createTable', name)
-      await this.tablesByName[name].create()
+      await this.createTable(name)
     }
   }
 
   public destroyTables = async ():Promise<void> => {
     for (const name of this._getTablesNames()) {
-      await this.hooks.fire('destroyTable', name)
       await this.tablesByName[name].destroy()
     }
   }
@@ -211,7 +217,22 @@ export default class DB extends EventEmitter {
   //   return !!this.tables[id]
   // }
 
+  private createTable = async (name: string) => {
+    await this.tablesByName[name].create()
+  }
+
+  private destroyTable = async (name: string) => {
+    await this.tablesByName[name].destroy()
+  }
+
   private _getTablesNames = ():string[] => {
     return this.tableTableNames.concat(Object.keys(this.exclusive))
   }
+}
+
+const hookUp = (fn, event) => async function (...args) {
+  await this.hooks.fire(`${event}:pre`, { args })
+  const result = await fn.apply(this, args)
+  await this.hooks.fire(`${event}:post`, { args, result })
+  return result
 }

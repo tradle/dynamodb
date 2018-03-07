@@ -395,7 +395,7 @@ test('db hooks', loudAsync(async (t) => {
     b: 2
   }
 
-  db.hook('put', ({ resource, opts }) => {
+  db.hook('put:pre', ({ args: [resource, opts] }) => {
     t.same(resource, item)
     throw new Error('boo')
   })
