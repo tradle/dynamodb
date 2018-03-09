@@ -378,6 +378,10 @@ export class Table extends EventEmitter {
       : unprefixKeys(resource, this.getPrefix(type), DONT_PREFIX)
   }
 
+  public prefixPropertyNamesForType = function (type: string, props: string[]) {
+    return this.exclusive ? props : props.map(prop => prefixString(prop, this.getPrefix(type)))
+  }
+
   private _write = async (method:string, resource:any, options?:any):Promise<void> => {
     this._ensureWritable()
 

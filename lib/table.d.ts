@@ -49,6 +49,7 @@ export declare class Table extends EventEmitter {
     prefixPropertiesForType: (type: string, properties: any) => any;
     unprefixProperties: (resource: any) => any;
     unprefixPropertiesForType: (type: string, resource: any) => any;
+    prefixPropertyNamesForType: (type: string, props: string[]) => string[];
     private _write;
     private _validateResource;
     private _batchPut;

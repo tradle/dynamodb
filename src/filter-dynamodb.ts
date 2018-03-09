@@ -23,6 +23,7 @@ class FilterOp {
   public opts:FindOpts
   public models:Models
   public model:Model
+  public type: string
   public filter:any
   public select?:string[]
   public prefixedFilter:any
@@ -62,11 +63,12 @@ class FilterOp {
     Object.assign(this, getQueryInfo(this))
     this.prefixedFilter = {}
 
-    const type = this.filter.EQ[TYPE]
+    this.type = this.filter.EQ[TYPE]
     if (table.exclusive) {
       delete this.filter.EQ[TYPE]
     }
 
+    const { type } = this
     this.model = models[type]
     this.prefixedOrderBy = {
       property: table.prefixKey({
@@ -99,6 +101,7 @@ class FilterOp {
       builder,
       models,
       orderBy,
+      select,
       sortedByDB,
       filter,
       limit,
@@ -167,6 +170,10 @@ class FilterOp {
 
     if (items.length > limit) {
       items = items.slice(0, limit)
+    }
+
+    if (select) {
+      items = items.map(item => _.pick(item, select))
     }
 
     return {
@@ -269,7 +276,9 @@ class FilterOp {
       builder,
       sortedByDB,
       table,
-      index
+      index,
+      select,
+      type
     } = this
 
     const conditionBuilders = {
@@ -281,6 +290,15 @@ class FilterOp {
     if (sortedByDB && checkpoint) {
       builder.startKey(checkpoint)
     }
+
+    // if (select) {
+    //   const atts = _.uniq(
+    //       select.concat([hashKey, rangeKey, this.hashKey, this.rangeKey])
+    //     )
+    //     .map(key => table.prefixKey({ key, type }))
+
+    //   builder.attributes(atts)
+    // }
 
     for (let op in prefixedFilter) {
       let conditions = prefixedFilter[op]

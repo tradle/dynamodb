@@ -922,6 +922,23 @@ let only
       })
 
       t.same(photoIdsCountryNotIn.items, expected, 'country not in..')
+
+      let select = ['documentType', 'country']
+      expected = photoIds.slice()
+      sortResults({ results: expected, orderBy })
+      expected = expected.map(photoId => _.pick(photoId, select))
+
+      const photoIdsSelect = await db.find({
+        select,
+        orderBy,
+        filter: {
+          EQ: {
+            [TYPE]: type
+          }
+        }
+      })
+
+      t.same(photoIdsSelect.items, expected, 'select subset of attributes')
     })
 
     for (const test of tests) {
