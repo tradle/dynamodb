@@ -343,11 +343,11 @@ test('backoff after create', loudAsync(async (t) => {
   let expectedResult = 1
   let failsLeft = 3
 
-  const errThatCausesBackoff = new Error('yay')
-  errThatCausesBackoff.name = 'ResourceNotFoundException'
+  const errThatCausesBackoff:any = new Error('yay')
+  errThatCausesBackoff.code = 'ResourceNotFoundException'
 
-  const errThatCausesExit = new Error('nay')
-  errThatCausesExit.name = 'ResourceIsStupidException'
+  const errThatCausesExit:any = new Error('nay')
+  errThatCausesExit.code = 'ResourceIsStupidException'
 
   let result = await runWithBackoffOnTableNotExists(async () => {
     if (failsLeft-- > 0) {

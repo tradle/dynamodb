@@ -285,7 +285,7 @@ function getQueryInfo ({ table, filter, orderBy }) {
 
 function runWithBackoffOnTableNotExists (fn, opts:any={}) {
   opts = _.clone(opts)
-  opts.shouldTryAgain = err => err.name === 'ResourceNotFoundException'
+  opts.shouldTryAgain = err => err.code === 'ResourceNotFoundException'
   return runWithBackoffWhile(fn, opts)
 }
 
