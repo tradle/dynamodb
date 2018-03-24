@@ -30,7 +30,6 @@ export default class DB extends EventEmitter {
     update: (resource: any, opts?: any) => Promise<any>;
     merge: (resource: any, opts?: any) => Promise<any>;
     get: (keys: any, opts?: any) => Promise<any>;
-    latest: (keys: any, opts?: any) => Promise<any>;
     del: (keys: any) => Promise<void>;
     getTableForModel: (model: string | Model) => Promise<Table>;
     batchPut: (resources: any[], opts?: any) => Promise<void | any[]>;

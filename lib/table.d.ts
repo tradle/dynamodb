@@ -17,20 +17,20 @@ export declare class Table extends EventEmitter {
     private opts;
     private modelsStored;
     private _prefix;
-    private _latestIsSupported;
     private tableDefinition;
     private readOnly;
     private findOpts;
     private _deriveProperties;
     private _resolveOrderBy?;
+    private hooks;
     readonly hashKey: string;
     readonly rangeKey: string;
     constructor(opts: ITableOpts);
+    hook: (method: any, handler: any) => any;
     addModel: ({ model }: {
         model: Model;
     }) => void;
     get: (query: any, opts?: {}) => Promise<any>;
-    latest: (query: any, opts?: {}) => Promise<any>;
     del: (query: any, opts?: {}) => Promise<any>;
     private _exportResource;
     batchPut: (resources: any[], backoffOpts?: BackoffOptions) => Promise<any[]>;

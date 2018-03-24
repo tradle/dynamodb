@@ -6,6 +6,7 @@ import BaseModels from '@tradle/models'
 import validateResource from '@tradle/validate-resource'
 import { setVirtual } from '@tradle/build-resource'
 import Errors from '@tradle/errors'
+import createHooks from 'event-hooks'
 import promisify from 'pify'
 import {
   minifiedFlag,
@@ -38,6 +39,7 @@ import {
   getIndexForPrimaryKeys,
   getTableDefinitionForModel,
   getModelProperties,
+  hookUp
 } from './utils'
 
 import minify from './minify'
@@ -71,6 +73,19 @@ const defaultBackoffOpts:BackoffOptions = {
   maxTries: 6
 }
 
+const HOOKABLE = [
+  'put',
+  'update',
+  'merge',
+  'get',
+  'del',
+  'batchPut',
+  'find',
+  'findOne',
+  'create',
+  'destroy'
+]
+
 export class Table extends EventEmitter {
   public name:string
   public models:Models
@@ -87,12 +102,12 @@ export class Table extends EventEmitter {
   private opts:ITableOpts
   private modelsStored:Models
   private _prefix:{[key:string]: string}
-  private _latestIsSupported: boolean
   private tableDefinition:ITableDefinition
   private readOnly:boolean
   private findOpts:object
   private _deriveProperties:(item:any) => any
   private _resolveOrderBy?:(hashKey: string, property: string) => string
+  private hooks: any
   get hashKey() {
     return this.primaryKeys.hashKey
   }
@@ -142,11 +157,6 @@ export class Table extends EventEmitter {
     this._deriveProperties = deriveProperties
     this.derivedProperties = derivedProperties
     this._resolveOrderBy = resolveOrderBy
-    this._latestIsSupported = !!this.deriveProperties({
-      [TYPE]: 'a',
-      _permalink: 'b'
-    })[this.hashKey]
-
     this.findOpts = {
       models,
       forbidScan,
@@ -167,7 +177,13 @@ export class Table extends EventEmitter {
     this._initTable()
     this.on('def:update', () => this.table = null)
     this._debug('initialized')
+    this.hooks = createHooks()
+    HOOKABLE.forEach(method => {
+      this[method] = hookUp(this[method].bind(this), method)
+    })
   }
+
+  public hook = (method, handler) => this.hooks.hook(method, handler)
 
   public addModel = ({ model }: {
     model: Model
@@ -220,14 +236,6 @@ export class Table extends EventEmitter {
     }
 
     return resource
-  }
-
-  public latest = async (query, opts={}):Promise<any> => {
-    if (this._latestIsSupported) {
-      return this.get(query, opts)
-    }
-
-    throw new Error(`only supported when hashKey value is derived from type and permalink`)
   }
 
   public del = async (query, opts={}):Promise<any> => {
@@ -432,41 +440,6 @@ export class Table extends EventEmitter {
     resource = this.toDBFormat(resource)
     if (method === 'update' && !this._hasAllPrimaryKeys(resource)) {
       throw new Error('update requires values for all primary keys')
-    }
-
-    let current
-    if (this._latestIsSupported) {
-      if (!resource._link) {
-        throw new Error('expected "_link"')
-      }
-
-      if (method === 'create' && !resource._time) {
-        throw new Error('expected "_time"')
-      }
-
-      if (!options) {
-        options = {
-          ConditionExpression: Object.keys(this.primaryKeys)
-            .map(keyType => `attribute_not_exists(#${keyType})`)
-            .join(' and '),
-          ExpressionAttributeNames: Object.keys(this.primaryKeys)
-            .reduce((names, keyType) => {
-              names[`#${keyType}`] = this.primaryKeys[keyType]
-              return names
-            }, {}),
-          ExpressionAttributeValues: {
-            ':link': resource._link
-          }
-        }
-
-        options.ConditionExpression = `(${options.ConditionExpression}) OR #link = :link`
-        options.ExpressionAttributeNames['#link'] = '_link'
-        if (resource._time) {
-           options.ConditionExpression += ' OR #time < :time'
-           options.ExpressionAttributeNames['#time'] = '_time'
-           options.ExpressionAttributeValues[':time'] = resource._time
-        }
-      }
     }
 
     if (method === 'create') {

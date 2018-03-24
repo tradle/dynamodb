@@ -157,3 +157,18 @@ export interface IDynogelTableDefinition {
 //   get: (...any) => any
 //   set: (key:string, value:any) => void
 // }
+
+// export interface IItemOpts {
+//   item: any
+//   opts?: any
+// }
+
+// export interface IBatchPutOpts {
+//   items: any[]
+//   backoffOpts
+// }
+
+// export interface IKeysOpts {
+//   keys: any
+//   opts?: any
+// }

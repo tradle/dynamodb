@@ -9,14 +9,8 @@ import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
 import { Table } from './table'
 import {
-  // defaultPrimaryKeys,
-  // defaultHashKeyProperty,
-  // defaultRangeKeyProperty,
-  // defaultIndexes,
   defaultOrderBy,
   minifiedFlag,
-  // typeAndPermalinkProperty,
-  // defaultIndexPropertyNames
 } from './constants'
 
 import {
@@ -286,7 +280,6 @@ function getQueryInfo ({ table, filter, orderBy }: {
     const preferred = getPreferredQueryProperty({ table, properties: usedIndexedProps })
     queryProp = preferred.property
     index = preferred.index
-    debugger
     orderBy = {
       ...orderBy,
       property: table.resolveOrderBy(queryProp, orderBy.property)
@@ -629,6 +622,13 @@ const uniqueStrict = arr => {
 
 //   return cachified
 // }
+
+export const hookUp = (fn, event) => async function (...args) {
+  await this.hooks.fire(`${event}:pre`, { args })
+  const result = await fn.apply(this, args)
+  await this.hooks.fire(`${event}:post`, { args, result })
+  return result
+}
 
 export {
   fromResourceStub,

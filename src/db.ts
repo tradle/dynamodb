@@ -11,6 +11,7 @@ import {
   getFilterType,
   lazyDefine,
   levenshteinDistance,
+  hookUp
 } from './utils'
 
 import { Table } from './table'
@@ -22,7 +23,6 @@ const HOOKABLE = [
   'update',
   'merge',
   'get',
-  'latest',
   'del',
   'batchPut',
   'find',
@@ -156,11 +156,6 @@ export default class DB extends EventEmitter {
     return await table.get(keys, opts)
   }
 
-  public latest = async (keys:any, opts?) => {
-    const table = await this.getTableForModel(keys[TYPE])
-    return await table.latest(keys, opts)
-  }
-
   public del = async (keys:any) => {
     const table = await this.getTableForModel(keys[TYPE])
     await table.del(keys)
@@ -228,11 +223,4 @@ export default class DB extends EventEmitter {
   private _getTablesNames = ():string[] => {
     return this.tableTableNames.concat(Object.keys(this.exclusive))
   }
-}
-
-const hookUp = (fn, event) => async function (...args) {
-  await this.hooks.fire(`${event}:pre`, { args })
-  const result = await fn.apply(this, args)
-  await this.hooks.fire(`${event}:post`, { args, result })
-  return result
 }

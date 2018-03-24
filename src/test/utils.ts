@@ -9,6 +9,7 @@ import {
 } from '../types'
 
 import { prefixString } from '../prefix'
+import { createControlLatestHook } from '../hooks'
 
 import {
   DB,
@@ -107,12 +108,16 @@ export const createDB = ({
     // tableNames: lastCreated,
     defineTable: name => {
       const opts = getCommonTableOpts(DB.getSafeTableName(name), indexes)
-      return new Table({
+      const table = new Table({
         ...opts,
         models,
         objects,
         docClient
       })
+
+      table.hook('put:pre', createControlLatestHook(table, 'put'))
+      table.hook('update:pre', createControlLatestHook(table, 'update'))
+      return table
     }
   })
 

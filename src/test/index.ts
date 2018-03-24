@@ -687,11 +687,6 @@ let only
       _permalink: permalink
     }), req, 'db.get')
 
-    t.same(await db.latest({
-      [TYPE]: type,
-      _permalink: permalink
-    }), req, 'db.latest')
-
     await db.del({
       [TYPE]: type,
       _permalink: permalink
@@ -708,16 +703,16 @@ let only
       t.equal(err.name, 'NotFound')
     }
 
-    try {
-      await db.latest({
-        [TYPE]: type,
-        _permalink: permalink
-      })
+    // try {
+    //   await db.latest({
+    //     [TYPE]: type,
+    //     _permalink: permalink
+    //   })
 
-      t.fail('expected NotFound error')
-    } catch (err) {
-      t.equal(err.name, 'NotFound')
-    }
+    //   t.fail('expected NotFound error')
+    // } catch (err) {
+    //   t.equal(err.name, 'NotFound')
+    // }
 
     await db.put(req)
     t.same(await db.get({

@@ -5,4 +5,5 @@ import constants = require('./constants');
 import errors = require('./errors');
 import createResolvers = require('./resolvers');
 import { ModelStore, createModelStore } from './model-store';
-export { Table, createTable, ModelStore, createModelStore, DB, utils, constants, errors, createResolvers };
+import * as hooks from './hooks';
+export { Table, createTable, ModelStore, createModelStore, DB, utils, constants, errors, createResolvers, hooks };

@@ -14,7 +14,7 @@ declare function sortResults({results, orderBy}: {
     results: any[];
     orderBy?: OrderBy;
 }): any[];
-declare function compare(a: any, b: any, propertyName: any, asc: any): 1 | -1 | 0;
+declare function compare(a: any, b: any, propertyName: any, asc: any): 0 | 1 | -1;
 declare function toObject(arr: any): {};
 declare function fromResourceStub(props: any): {
     [x: number]: any;
@@ -62,4 +62,5 @@ declare const doesIndexProjectProperty: ({ table, index, property }: {
     property: string;
 }) => boolean;
 declare const uniqueStrict: (arr: any) => any[];
+export declare const hookUp: (fn: any, event: any) => (...args: any[]) => Promise<any>;
 export { fromResourceStub, sortResults, compare, promisify, debug, bindAll, toObject, getTableName, resultsToJson, getQueryInfo, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType, lazyDefine, levenshteinDistance, getIndexForPrimaryKeys, getTableDefinitionForModel, toDynogelTableDefinition, toDynogelIndexDefinition, doesIndexProjectProperty, getModelProperties, uniqueStrict };

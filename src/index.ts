@@ -5,6 +5,7 @@ import constants = require('./constants')
 import errors = require('./errors')
 import createResolvers = require('./resolvers')
 import { ModelStore, createModelStore } from './model-store'
+import * as hooks from './hooks'
 
 export {
   Table,
@@ -15,5 +16,6 @@ export {
   utils,
   constants,
   errors,
-  createResolvers
+  createResolvers,
+  hooks
 }
