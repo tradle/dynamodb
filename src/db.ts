@@ -15,7 +15,7 @@ import {
 
 import { Table } from './table'
 import { ModelStore } from './model-store'
-import { IDBOpts, ITableOpts, DynogelIndex, Model, Models, TableChooser, FindOpts } from './types'
+import { IDBOpts, ITableOpts, IDynogelIndex, Model, Models, TableChooser, FindOpts } from './types'
 
 const HOOKABLE = [
   'put',

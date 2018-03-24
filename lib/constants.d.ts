@@ -1,12 +1,6 @@
-import { DynogelIndex } from './types';
 declare const constants: {
-    typeAndPermalinkProperty: string;
     minifiedFlag: string;
     separator: string;
-    defaultPrimaryKeys: {
-        hashKey: string;
-    };
-    defaultIndexes: DynogelIndex[];
     defaultOrderBy: {
         property: string;
         desc: boolean;
@@ -14,5 +8,6 @@ declare const constants: {
     dateModifiedProperty: string;
     defaultLimit: number;
     batchWriteLimit: number;
+    PRIMARY_KEYS_PROPS: string[];
 };
 export = constants;

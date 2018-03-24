@@ -4,26 +4,60 @@ import bindAll = require('bindall')
 import promisify = require('pify')
 import levenshtein = require('fast-levenshtein')
 import AWS = require('aws-sdk')
+import Joi from 'joi'
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
 import { Table } from './table'
-import { defaultPrimaryKeys, defaultIndexes, defaultOrderBy, minifiedFlag } from './constants'
+import {
+  // defaultPrimaryKeys,
+  // defaultHashKeyProperty,
+  // defaultRangeKeyProperty,
+  // defaultIndexes,
+  defaultOrderBy,
+  minifiedFlag,
+  // typeAndPermalinkProperty,
+  // defaultIndexPropertyNames
+} from './constants'
+
+import {
+  prefixString
+} from './prefix'
+
 import OPERATORS = require('./operators')
 import {
   Model,
   Models,
-  DynogelIndex,
-  DynogelTableDefinition,
+  ITableDefinition,
+  IDynogelIndex,
+  IDynogelTableDefinition,
   OrderBy,
   TableChooser,
-  FindOpts
+  FindOpts,
+  PropsDeriver
 } from './types'
 
 import BaseObjectModel from './object-model'
 const debug = require('debug')(require('../package.json').name)
-const metadataTypes = toJoi({
-  model: BaseObjectModel
-})
+// const metadataTypes = toJoi({
+//   model: BaseObjectModel
+// })
+
+// const defaultTableAttributes = toJoi({
+//   models: {
+//     [BaseObjectModel.id]: BaseObjectModel
+//   },
+//   model: {
+//     properties: _.uniq(
+//         defaultIndexPropertyNames
+//         .concat(defaultHashKeyProperty)
+//         .concat(defaultRangeKeyProperty)
+//       )
+//       .reduce((props, prop) => {
+//         props[prop] = { type: 'string' }
+//         return props
+//       }, {})
+//   }
+// })
 
 const levenshteinDistance = (a:string, b:string) => levenshtein.get(a, b)
 
@@ -32,9 +66,9 @@ function getTableName ({ model, prefix='', suffix='' }) {
   return prefix + name + suffix
 }
 
-function getIndexes (model) {
-  return defaultIndexes.slice()
-}
+// function getIndexes (model) {
+//   return defaultIndexes.slice()
+// }
 
 function sortResults ({ results, orderBy=defaultOrderBy }: {
   results:any[],
@@ -142,9 +176,9 @@ function flatten (filter) {
 
 const OriginalBaseObjectModel = require('@tradle/models').models['tradle.Object']
 const ObjectModelKeys = Object.keys(OriginalBaseObjectModel.properties)
-const getModelProperties = model => {
+const getModelProperties = _.memoize(model => {
   return uniqueStrict(Object.keys(model.properties).concat(ObjectModelKeys))
-}
+}, model => model.id)
 
 const getMissingProperties = ({ resource, model, opts }: {
   resource,
@@ -171,7 +205,7 @@ const getMissingProperties = ({ resource, model, opts }: {
 type TablePropInfo = {
   property: string
   rangeKey?: string
-  index?: DynogelIndex
+  index?: IDynogelIndex
 }
 
 function getPreferredQueryProperty ({ table, properties }: {
@@ -221,17 +255,18 @@ function getIndexForProperty ({ table, property }) {
   return table.indexes.find(({ hashKey }) => hashKey === property)
 }
 
-function getQueryInfo ({ table, filter, orderBy }) {
+function getQueryInfo ({ table, filter, orderBy }: {
+  table: Table
+  filter: any
+  orderBy: any
+}) {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
   const usedProps = getUsedProperties(filter)
-  const { indexes, primaryKeys } = table
+  const { indexes, primaryKeys, hashKeyProps } = table
   const { hashKey, rangeKey } = primaryKeys
   const primaryKeysArr = _.values(primaryKeys)
-  const indexedProps = indexes.map(index => index.hashKey)
-    .concat(hashKey)
-
-  const indexedPropsMap = toObject(indexedProps)
+  const indexedPropsMap = toObject(hashKeyProps)
   const { EQ={} } = filter
   const usedIndexedProps = usedProps.filter(prop => {
     return prop in EQ && prop in indexedPropsMap
@@ -251,12 +286,19 @@ function getQueryInfo ({ table, filter, orderBy }) {
     const preferred = getPreferredQueryProperty({ table, properties: usedIndexedProps })
     queryProp = preferred.property
     index = preferred.index
+    debugger
+    orderBy = {
+      ...orderBy,
+      property: table.resolveOrderBy(queryProp, orderBy.property)
+    }
+
     if (orderBy.property === preferred.rangeKey) {
       sortedByDB = true
     }
   }
 
   const itemToPosition = function itemToPosition (item) {
+    item = table.withDerivedProperties(item)
     if (!item) throw new Error('expected database record')
 
     if (queryProp === hashKey || opType === 'scan') {
@@ -350,22 +392,22 @@ const waitTillActive = async (table) => {
   })
 }
 
-function getModelPrimaryKeys (model) {
-  return model.primaryKeys || defaultPrimaryKeys
-}
+// function getModelPrimaryKeys (model) {
+//   return model.primaryKeys || defaultPrimaryKeys
+// }
 
-function getResourcePrimaryKeys ({ model, resource }) {
-  const { hashKey, rangeKey } = getModelPrimaryKeys(model)
-  const primaryKeys = {
-    hashKey: resource[hashKey]
-  }
+// function getResourcePrimaryKeys ({ model, resource }) {
+//   const { hashKey, rangeKey } = getModelPrimaryKeys(model)
+//   const primaryKeys = {
+//     hashKey: resource[hashKey]
+//   }
 
-  if (rangeKey) {
-    primaryKeys[rangeKey] = resource[rangeKey]
-  }
+//   if (rangeKey) {
+//     primaryKeys[rangeKey] = resource[rangeKey]
+//   }
 
-  return primaryKeys
-}
+//   return primaryKeys
+// }
 
 function notNull (val) {
   return !!val
@@ -445,7 +487,7 @@ const lazyDefine = (obj:any, keys:string[], definer:Function):void => {
 
 const getIndexForPrimaryKeys = ({ model }: {
   model:Model
-}):DynogelIndex => {
+}):IDynogelIndex => {
   return {
     ...model.primaryKeys,
     type: 'global',
@@ -457,10 +499,10 @@ const getIndexForPrimaryKeys = ({ model }: {
 }
 
 const getTableDefinitionForModel = ({ models, model }: {
-  models: Models,
-  model:Model
-}):DynogelTableDefinition => {
-  const primaryKeys = model.primaryKeys || defaultPrimaryKeys
+  models: Models
+  model: Model
+}):IDynogelTableDefinition => {
+  const { primaryKeys } = model
   return {
     // values are prefixed with type
     ...primaryKeys,
@@ -470,44 +512,53 @@ const getTableDefinitionForModel = ({ models, model }: {
     // createdAt: false,
     // updatedAt: '_dateModified',
     schema: toJoi({ models, model }),
-    indexes: model.primaryKeys ? [] : defaultIndexes,
+    indexes: [],
     validation: {
       allowUnknown: true
     }
   }
 }
 
-const getDefaultTableDefinition = ({ tableName }: {
-  tableName:string
-}):DynogelTableDefinition => {
-  return {
-    // values are prefixed with type
-    ...defaultPrimaryKeys,
-    tableName,
-    timestamps: false,
-    // make this the reponsibility of the updating party
-    // createdAt: false,
-    // updatedAt: '_dateModified',
-    schema: metadataTypes,
-    indexes: defaultIndexes,
-    validation: {
-      allowUnknown: true
-    }
-  }
+// const getDefaultTableDefinition = ({ tableName }: {
+//   tableName:string
+// }):IDynogelTableDefinition => {
+//   return {
+//     // values are prefixed with type
+
+//     tableName,
+//     timestamps: false,
+//     // make this the reponsibility of the updating party
+//     // createdAt: false,
+//     // updatedAt: '_dateModified',
+//     schema: defaultTableAttributes,
+//     indexes: defaultIndexes,
+//     validation: {
+//       allowUnknown: true
+//     }
+//   }
+// }
+
+const cfToJoi = {
+  N: Joi.number(),
+  S: Joi.string()
 }
 
-const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):DynogelTableDefinition => {
+const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):IDynogelTableDefinition => {
   const { TableName, KeySchema, GlobalSecondaryIndexes=[], AttributeDefinitions } = cloudformation
   const hashKey = KeySchema.find(key => key.KeyType === 'HASH').AttributeName
   const rangeKeyDef = KeySchema.find(key => key.KeyType === 'RANGE')
   const rangeKey = rangeKeyDef && rangeKeyDef.AttributeName
   const indexes = GlobalSecondaryIndexes.map(toDynogelIndexDefinition)
   const schema = {}
+  AttributeDefinitions.forEach(def => {
+    schema[def.AttributeName] = cfToJoi[def.AttributeType]
+  })
+
   return {
     tableName: TableName,
     hashKey,
     rangeKey,
-    schema: {},
+    schema,
     indexes,
     timestamps: false,
     createdAt: false,
@@ -518,7 +569,7 @@ const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):
   }
 }
 
-const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryIndex):DynogelIndex => {
+const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryIndex):IDynogelIndex => {
   const { KeySchema, Projection, ProvisionedThroughput, IndexName } = cloudformation
   const hashKey = KeySchema.find(key => key.KeyType === 'HASH').AttributeName
   const rangeKeyDef = KeySchema.find(key => key.KeyType === 'RANGE')
@@ -527,15 +578,13 @@ const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryInd
     name: IndexName,
     type: 'global',
     rangeKey: rangeKeyDef && rangeKeyDef.AttributeName,
-    projection: {
-      ProjectionType: Projection.ProjectionType
-    }
+    projection: _.pick(Projection, ['ProjectionType', 'NonKeyAttributes'])
   }
 }
 
 const doesIndexProjectProperty = ({ table, index, property }: {
   table: Table,
-  index: DynogelIndex,
+  index: IDynogelIndex,
   property:string
 }) => {
   const { ProjectionType, NonKeyAttributes } = index.projection
@@ -589,15 +638,15 @@ export {
   debug,
   bindAll,
   toObject,
-  getIndexes,
+  // getIndexes,
   getTableName,
   resultsToJson,
   getQueryInfo,
   runWithBackoffWhile,
   runWithBackoffOnTableNotExists,
   waitTillActive,
-  getModelPrimaryKeys,
-  getResourcePrimaryKeys,
+  // getModelPrimaryKeys,
+  // getResourcePrimaryKeys,
   minBy,
   sha256,
   wait,
@@ -608,7 +657,6 @@ export {
   levenshteinDistance,
   getIndexForPrimaryKeys,
   getTableDefinitionForModel,
-  getDefaultTableDefinition,
   toDynogelTableDefinition,
   toDynogelIndexDefinition,
   doesIndexProjectProperty,

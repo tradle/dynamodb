@@ -1,20 +1,21 @@
 import { EventEmitter } from 'events'
-import _ = require('lodash')
-import dynogels = require('dynogels')
+import _ from 'lodash'
+import dynogels from 'dynogels'
 import { TYPE, SIG } from '@tradle/constants'
-import BaseModels = require('@tradle/models')
-import validateResource = require('@tradle/validate-resource')
-import Errors = require('@tradle/errors')
-import promisify = require('pify')
+import BaseModels from '@tradle/models'
+import validateResource from '@tradle/validate-resource'
+import { setVirtual } from '@tradle/build-resource'
+import Errors from '@tradle/errors'
+import promisify from 'pify'
 import {
   minifiedFlag,
   batchWriteLimit,
-  typeAndPermalinkProperty
+  // typeAndPermalinkProperty
 } from './constants'
 
 import {
-  DynogelIndex,
-  DynogelTableDefinition,
+  IDynogelIndex,
+  ITableDefinition,
   KeyProps,
   ITableOpts,
   BackoffOptions,
@@ -35,10 +36,8 @@ import {
   getFilterType,
   getTableName,
   getIndexForPrimaryKeys,
-  getDefaultTableDefinition,
   getTableDefinitionForModel,
-  toDynogelTableDefinition,
-  getModelProperties
+  getModelProperties,
 } from './utils'
 
 import minify from './minify'
@@ -46,26 +45,24 @@ import { NotFound } from './errors'
 import filterDynamoDB from './filter-dynamodb'
 import OPERATORS = require('./operators')
 import {
-  prefixKeys,
-  unprefixKeys,
-  prefixString,
-  getUniquePrefix
+  // prefixKeys,
+  // unprefixKeys,
+  // prefixString,
 } from './prefix'
 
 import BaseObjectModel from './object-model'
+import { PRIMARY_KEYS_PROPS } from './constants'
 
 // TODO: add this prop to tradle.Object
 
 const DONT_PREFIX = Object.keys(BaseObjectModel.properties)
-const HASH_AND_RANGE_KEYS = ['hashKey', 'rangeKey']
-
 const defaultOpts = {
   maxItemSize: Infinity,
   requireSigned: true,
   forbidScan: false,
   validate: false,
   defaultReadOptions: {
-    ConsistentRead: false
+    consistentRead: false
   }
 }
 
@@ -80,16 +77,22 @@ export class Table extends EventEmitter {
   public objects?:Objects
   public model?:Model
   public primaryKeyProps:string[]
+  public keyProps:string[]
+  public hashKeyProps:string[]
   public primaryKeys:KeyProps
-  public indexes:DynogelIndex[]
+  public derivedProperties: string[]
+  public indexes:IDynogelIndex[]
   public exclusive:boolean
   public table:any
-  private opts:any
+  private opts:ITableOpts
   private modelsStored:Models
   private _prefix:{[key:string]: string}
-  private tableDefinition:DynogelTableDefinition
+  private _latestIsSupported: boolean
+  private tableDefinition:ITableDefinition
   private readOnly:boolean
   private findOpts:object
+  private _deriveProperties:(item:any) => any
+  private _resolveOrderBy?:(hashKey: string, property: string) => string
   get hashKey() {
     return this.primaryKeys.hashKey
   }
@@ -106,12 +109,14 @@ export class Table extends EventEmitter {
       model,
       objects,
       exclusive,
-      primaryKeys,
       requireSigned,
       forbidScan,
       readOnly,
       defaultReadOptions,
-      tableDefinition
+      tableDefinition,
+      deriveProperties=_.stubObject,
+      derivedProperties=[],
+      resolveOrderBy
     } = this.opts
 
     if (!models) throw new Error('expected "models"')
@@ -119,9 +124,8 @@ export class Table extends EventEmitter {
       throw new Error('expected "model" when "exclusive" is true')
     }
 
-    this.tableDefinition = tableDefinition.TableName
-      ? toDynogelTableDefinition(tableDefinition)
-      : tableDefinition
+    // @ts-ignore
+    this.tableDefinition = tableDefinition.TableName ? toDynogelTableDefinition(tableDefinition) : tableDefinition
 
     validateTableName(this.tableDefinition.tableName)
     this.name = this.tableDefinition.tableName
@@ -134,7 +138,15 @@ export class Table extends EventEmitter {
     this._prefix = {}
 
     this.indexes = this.tableDefinition.indexes
-    this.primaryKeys = _.pick(this.tableDefinition, HASH_AND_RANGE_KEYS)
+    this.primaryKeys = _.pick(this.tableDefinition, PRIMARY_KEYS_PROPS)
+    this._deriveProperties = deriveProperties
+    this.derivedProperties = derivedProperties
+    this._resolveOrderBy = resolveOrderBy
+    this._latestIsSupported = !!this.deriveProperties({
+      [TYPE]: 'a',
+      _permalink: 'b'
+    })[this.hashKey]
+
     this.findOpts = {
       models,
       forbidScan,
@@ -143,6 +155,10 @@ export class Table extends EventEmitter {
     }
 
     this.primaryKeyProps = _.values(this.primaryKeys)
+    this.hashKeyProps = _.uniq([this.hashKey].concat(this.indexes.map(index => index.hashKey)))
+    this.keyProps = _.uniq(this.primaryKeyProps.concat(
+      _.flatMap(this.indexes, index => _.values(_.pick(index, PRIMARY_KEYS_PROPS)))
+    ))
 
     if (exclusive) {
       this.addModel({ model })
@@ -171,12 +187,27 @@ export class Table extends EventEmitter {
 
   public get = async (query, opts={}):Promise<any> => {
     this._debug(`get() ${JSON.stringify(query)}`)
-    query = this.toDBFormat(query)
-    const keys = _.values(this.getPrimaryKeys(query))
-    const result = await this.table.get(...keys, {
-      ...this.opts.defaultReadOptions,
-      ...opts
-    })
+    const expandedQuery = this.toDBFormat(query)
+    const keysObj = this.getPrimaryKeys(expandedQuery)
+
+    let result
+    if (this._hasAllPrimaryKeys(keysObj)) {
+      const keys = _.values(keysObj)
+      result = await this.table.get(...keys, {
+        ...this.opts.defaultReadOptions,
+        ...opts
+      })
+    } else {
+      result = await this.findOne({
+        orderBy: {
+          property: this.rangeKey,
+          desc: false
+        },
+        filter: {
+          EQ: query
+        }
+      })
+    }
 
     if (!result) {
       throw new NotFound(`query: ${JSON.stringify(query)}`)
@@ -188,15 +219,15 @@ export class Table extends EventEmitter {
       return this.objects.get(resource._link)
     }
 
-    return this._exportResource(resource)
+    return resource
   }
 
   public latest = async (query, opts={}):Promise<any> => {
-    if (this.hashKey === typeAndPermalinkProperty) {
+    if (this._latestIsSupported) {
       return this.get(query, opts)
     }
 
-    throw new Error(`only supported when hashKey is ${typeAndPermalinkProperty}`)
+    throw new Error(`only supported when hashKey value is derived from type and permalink`)
   }
 
   public del = async (query, opts={}):Promise<any> => {
@@ -207,7 +238,7 @@ export class Table extends EventEmitter {
     return await this.table.destroy(...keys, opts)
   }
 
-  private _exportResource = resource => _.omit(resource, typeAndPermalinkProperty)
+  private _exportResource = resource => this.omitDerivedProperties(resource)
 
   public batchPut = async (
     resources:any[],
@@ -217,6 +248,7 @@ export class Table extends EventEmitter {
 
     const { maxItemSize } = this.opts
     resources.forEach(this._validateResource)
+    resources = resources.map(this.withDerivedProperties)
 
     const minified = resources.map(item => minify({
       table: this,
@@ -224,7 +256,8 @@ export class Table extends EventEmitter {
       maxSize: maxItemSize
     }))
 
-    let mins = minified.map(({ min }) => this.toDBFormat(min))
+    // let mins = minified.map(({ min }) => this.toDBFormat(min))
+    let mins = minified.map(({ min }) => min)
     let batch
     while (mins.length) {
       batch = mins.slice(0, batchWriteLimit)
@@ -319,7 +352,7 @@ export class Table extends EventEmitter {
   }
 
   private _initTable = () => {
-    const table = dynogels.define(this.name, this.tableDefinition)
+    const table = dynogels.define(this.name, _.omit(this.tableDefinition, ['defaultReadOptions', 'primaryKeys']))
     this.table = promisify(table, {
       include: [
         'createTable',
@@ -333,54 +366,61 @@ export class Table extends EventEmitter {
     })
   }
 
-  public toDBFormat = (resource) => {
-    if (this.hashKey === typeAndPermalinkProperty) {
-      resource = {
-        ...resource,
-        [typeAndPermalinkProperty]: this.calcTypeAndPermalinkProperty(resource)
-      }
-    }
-
-    return this.prefixProperties(resource)
+  public deriveProperties = resource => {
+    return _.omitBy(this._deriveProperties(resource), prop => prop in resource)
   }
+
+  public toDBFormat = resource => this.withDerivedProperties(resource)
+
+  // public toDBFormat = (resource) => {
+  //   if (this.hashKey === typeAndPermalinkProperty) {
+  //     resource = {
+  //       ...resource,
+  //       [typeAndPermalinkProperty]: this.calcTypeAndPermalinkProperty(resource)
+  //     }
+  //   }
+
+  //   return this.prefixProperties(resource)
+  // }
 
   public fromDBFormat = (resource) => {
     if (typeof resource.toJSON === 'function') {
       resource = resource.toJSON()
     }
 
-    return this.unprefixProperties(resource)
+    return this._exportResource(resource)
+    // return this.unprefixProperties(resource)
   }
 
-  public prefixKey = ({ type, key }: { type:string, key:string }):string => {
-    return DONT_PREFIX.includes(key)
-      ? key
-      : prefixString(key, this.getPrefix(type))
-  }
+  // public prefixKey = ({ type, key }: { type:string, key:string }):string => {
+  //   return DONT_PREFIX.includes(key)
+  //     ? key
+  //     : prefixString(key, this.getPrefix(type))
+  // }
 
-  public prefixProperties = function (resource) {
-    return this.prefixPropertiesForType(resource[TYPE], resource)
-  }
+  // public prefixProperties = function (resource) {
+  //   return this.prefixPropertiesForType(resource[TYPE], resource)
+  // }
 
-  public prefixPropertiesForType = function (type:string, properties:any) {
-    return this.exclusive
-      ? properties
-      : prefixKeys(properties, this.getPrefix(type), DONT_PREFIX)
-  }
+  // public prefixPropertiesForType = function (type:string, properties:any) {
+  //   return this.exclusive
+  //     ? properties
+  //     : prefixKeys(properties, this.getPrefix(type), DONT_PREFIX)
+  // }
 
-  public unprefixProperties = function (resource) {
-    return this.unprefixPropertiesForType(resource[TYPE], resource)
-  }
+  // public unprefixProperties = function (resource) {
+  //   return this.unprefixPropertiesForType(resource[TYPE], resource)
+  // }
 
-  public unprefixPropertiesForType = function (type:string, resource:any) {
-    return this.exclusive
-      ? resource
-      : unprefixKeys(resource, this.getPrefix(type), DONT_PREFIX)
-  }
+  // public unprefixPropertiesForType = function (type:string, resource:any) {
+  //   return this.exclusive
+  //     ? resource
+  //     : unprefixKeys(resource, this.getPrefix(type), DONT_PREFIX)
+  // }
 
-  public prefixPropertyNamesForType = function (type: string, props: string[]) {
-    return this.exclusive ? props : props.map(prop => prefixString(prop, this.getPrefix(type)))
-  }
+  // public prefixPropertyNamesForType = function (type: string, props: string[]) {
+  //   return this.exclusive ? props : props.map(prop => prefixString(prop, this.getPrefix(type)))
+  // }
 
   private _write = async (method:string, resource:any, options?:any):Promise<void> => {
     this._ensureWritable()
@@ -389,8 +429,13 @@ export class Table extends EventEmitter {
     const model = this.modelsStored[type]
     if (!model) throw new Error(`model not found: ${type}`)
 
+    resource = this.toDBFormat(resource)
+    if (method === 'update' && !this._hasAllPrimaryKeys(resource)) {
+      throw new Error('update requires values for all primary keys')
+    }
+
     let current
-    if (this.hashKey === typeAndPermalinkProperty) {
+    if (this._latestIsSupported) {
       if (!resource._link) {
         throw new Error('expected "_link"')
       }
@@ -401,16 +446,21 @@ export class Table extends EventEmitter {
 
       if (!options) {
         options = {
-          ConditionExpression: 'attribute_not_exists(#tpermalink) OR #link = :link',
-          ExpressionAttributeNames: {
-            '#tpermalink': typeAndPermalinkProperty,
-            '#link': '_link'
-          },
+          ConditionExpression: Object.keys(this.primaryKeys)
+            .map(keyType => `attribute_not_exists(#${keyType})`)
+            .join(' and '),
+          ExpressionAttributeNames: Object.keys(this.primaryKeys)
+            .reduce((names, keyType) => {
+              names[`#${keyType}`] = this.primaryKeys[keyType]
+              return names
+            }, {}),
           ExpressionAttributeValues: {
             ':link': resource._link
           }
         }
 
+        options.ConditionExpression = `(${options.ConditionExpression}) OR #link = :link`
+        options.ExpressionAttributeNames['#link'] = '_link'
         if (resource._time) {
            options.ConditionExpression += ' OR #time < :time'
            options.ExpressionAttributeNames['#time'] = '_time'
@@ -429,17 +479,16 @@ export class Table extends EventEmitter {
       resource = minified.min
     }
 
-    const formatted = this.toDBFormat(resource)
     let result
     try {
-      result = await this.table[method](formatted, options)
+      result = await this.table[method](resource, options)
     } catch (err) {
       Errors.rethrow(err, 'developer')
-      err.input = { item: formatted, options }
+      err.input = { item: resource, options }
       throw err
     }
 
-    const primaryKeys = this.getPrimaryKeys(formatted)
+    const primaryKeys = this.getPrimaryKeys(resource)
     this._debug(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
     return result
   }
@@ -507,23 +556,41 @@ export class Table extends EventEmitter {
 
   }
 
-  private getPrimaryKeys = (resource) => {
-    const have = _.pick(resource, this.primaryKeyProps)
-    if (this.hashKey === typeAndPermalinkProperty && !have[typeAndPermalinkProperty]) {
-      have[typeAndPermalinkProperty] = this.calcTypeAndPermalinkProperty(resource)
+  public getPrimaryKeys = resource => _.pick(this.withDerivedProperties(resource), this.primaryKeyProps)
+
+  // private getPrimaryKeys = (resource) => {
+  //   const have = _.pick(resource, this.primaryKeyProps)
+  //   if (this.hashKey === typeAndPermalinkProperty && !have[typeAndPermalinkProperty]) {
+  //     have[typeAndPermalinkProperty] = this.calcTypeAndPermalinkProperty(resource)
+  //   }
+
+  //   return have
+  // }
+
+  // public calcTypeAndPermalinkProperty = (resource):string => {
+  //   if (resource[typeAndPermalinkProperty]) return resource[typeAndPermalinkProperty]
+
+  //   if (!(resource._permalink && resource[TYPE])) {
+  //     throw new Error(`missing one of required props: _permalink, ${TYPE}`)
+  //   }
+
+  //   return prefixString(resource._permalink, resource[TYPE])
+  // }
+
+  public addDerivedProperties = resource => _.extend(
+    resource,
+    this.deriveProperties(resource)
+  )
+
+  public withDerivedProperties = resource => _.extend({}, resource, this.deriveProperties(resource))
+  public omitDerivedProperties = resource => _.omit(resource, this.derivedProperties)
+
+  public resolveOrderBy = (hashKey: string, property: string) => {
+    if (this._resolveOrderBy) {
+      return this._resolveOrderBy(hashKey, property) || property
     }
 
-    return have
-  }
-
-  public calcTypeAndPermalinkProperty = (resource):string => {
-    if (resource[typeAndPermalinkProperty]) return resource[typeAndPermalinkProperty]
-
-    if (!(resource._permalink && resource[TYPE])) {
-      throw new Error(`missing one of required props: _permalink, ${TYPE}`)
-    }
-
-    return prefixString(resource._permalink, resource[TYPE])
+    return property
   }
 
   private _ensureWritable = () => {
@@ -531,6 +598,8 @@ export class Table extends EventEmitter {
       throw new Error('this table is read-only!')
     }
   }
+
+  private _hasAllPrimaryKeys = obj => _.size(this.getPrimaryKeys(obj)) === this.primaryKeyProps.length
 
   // private getPrimaryKeys = (props:string|any):KeyProps => {
   //   let hashKey, rangeKey

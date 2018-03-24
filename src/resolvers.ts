@@ -2,7 +2,6 @@ import { TYPE } from '@tradle/constants'
 import {
   sortResults,
   debug,
-  getIndexes,
   resultsToJson
 } from './utils'
 

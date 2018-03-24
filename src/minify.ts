@@ -1,6 +1,6 @@
 import _ = require('lodash')
 import { TYPE } from '@tradle/constants'
-import { debug, getIndexes } from './utils'
+import { debug } from './utils'
 import { minifiedFlag } from './constants'
 
 type MinifyPref = {

@@ -1,22 +1,28 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
-import { DynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts } from './types';
+import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts } from './types';
 export declare class Table extends EventEmitter {
     name: string;
     models: Models;
     objects?: Objects;
     model?: Model;
     primaryKeyProps: string[];
+    keyProps: string[];
+    hashKeyProps: string[];
     primaryKeys: KeyProps;
-    indexes: DynogelIndex[];
+    derivedProperties: string[];
+    indexes: IDynogelIndex[];
     exclusive: boolean;
     table: any;
     private opts;
     private modelsStored;
     private _prefix;
+    private _latestIsSupported;
     private tableDefinition;
     private readOnly;
     private findOpts;
+    private _deriveProperties;
+    private _resolveOrderBy?;
     readonly hashKey: string;
     readonly rangeKey: string;
     constructor(opts: ITableOpts);
@@ -39,22 +45,18 @@ export declare class Table extends EventEmitter {
     destroy: () => Promise<void>;
     private _debug;
     private _initTable;
+    deriveProperties: (resource: any) => any;
     toDBFormat: (resource: any) => any;
     fromDBFormat: (resource: any) => any;
-    prefixKey: ({ type, key }: {
-        type: string;
-        key: string;
-    }) => string;
-    prefixProperties: (resource: any) => any;
-    prefixPropertiesForType: (type: string, properties: any) => any;
-    unprefixProperties: (resource: any) => any;
-    unprefixPropertiesForType: (type: string, resource: any) => any;
-    prefixPropertyNamesForType: (type: string, props: string[]) => string[];
     private _write;
     private _validateResource;
     private _batchPut;
-    private getPrimaryKeys;
-    calcTypeAndPermalinkProperty: (resource: any) => string;
+    getPrimaryKeys: (resource: any) => any;
+    addDerivedProperties: (resource: any) => any;
+    withDerivedProperties: (resource: any) => any;
+    omitDerivedProperties: (resource: any) => any;
+    resolveOrderBy: (hashKey: string, property: string) => string;
     private _ensureWritable;
+    private _hasAllPrimaryKeys;
 }
 export declare const createTable: (opts: ITableOpts) => Table;

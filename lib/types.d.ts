@@ -5,7 +5,16 @@ import { ModelStore } from './model-store'
 
 type IndexType = 'global'|'local'
 
-export type DynogelIndex = {
+// export type PropertyDeriver = (item: any) => string | number
+
+export type PropsDeriver = (item: any) => any
+
+// export interface IKeysDeriver {
+//   [hashKey]: PropertyDeriver
+//   rangeKey: PropertyDeriver
+// }
+
+export interface IDynogelIndex {
   hashKey: string
   rangeKey?: string
   name: string
@@ -50,11 +59,16 @@ export interface IDBOpts {
   chooseTable?: TableChooser
 }
 
+export interface ITableDefinition extends IDynogelTableDefinition {
+  defaultReadOptions?: ReadOptions
+  primaryKeys?: KeyProps
+}
+
 export interface ITableOpts {
   models: Models
   objects?: Objects
   docClient: AWS.DynamoDB.DocumentClient
-  tableDefinition: DynogelTableDefinition
+  tableDefinition: AWS.DynamoDB.CreateTableInput|ITableDefinition
   requireSigned?: boolean
   validate?: boolean
   exclusive?: boolean
@@ -65,6 +79,9 @@ export interface ITableOpts {
   readOnly?: boolean
   defaultReadOptions?: ReadOptions
   maxItemSize?: number
+  deriveProperties?: PropsDeriver
+  derivedProperties?: string[]
+  resolveOrderBy?: (hashKey: string, property: string) => string
 }
 
 export type KeyProps = {
@@ -123,16 +140,17 @@ export type FindOpts = {
   limit?: number
 }
 
-export type DynogelTableDefinition = {
+export interface IDynogelTableDefinition {
   tableName: string,
   hashKey: string
   rangeKey?: string
   schema: any
-  indexes?: DynogelIndex[]
+  indexes?: IDynogelIndex[]
   timestamps?: boolean
   createdAt?: string|boolean
   updatedAt?: string|boolean
   validation?: any
+  deriveProperties?: PropsDeriver
 }
 
 // export type Cache = {

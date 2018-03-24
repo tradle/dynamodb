@@ -1,0 +1,90 @@
+{
+  "TableName": "resources",
+  "AttributeDefinitions": [
+    {
+      "AttributeName": "__hashKey__",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "__rangeKey__",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "__x__0h",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "__x__0r",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "__x__1h",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "__x__1r",
+      "AttributeType": "S"
+    }
+  ],
+  "KeySchema": [
+    {
+      "AttributeName": "__hashKey__",
+      "KeyType": "HASH"
+    },
+    {
+      "AttributeName": "__rangeKey__",
+      "KeyType": "RANGE"
+    }
+  ],
+  "ProvisionedThroughput": {
+    "ReadCapacityUnits": 5,
+    "WriteCapacityUnits": 5
+  },
+  "StreamSpecification": {
+    "StreamViewType": "NEW_IMAGE"
+  },
+  "GlobalSecondaryIndexes": [
+    {
+      "IndexName": "index0",
+      "KeySchema": [
+        {
+          "AttributeName": "__x__0h",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "__x__0r",
+          "KeyType": "RANGE"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "INCLUDE",
+        "NonKeyAttributes": ["_link", "_author", "_t", "_time"]
+      },
+      "ProvisionedThroughput": {
+        "ReadCapacityUnits": 5,
+        "WriteCapacityUnits": 5
+      }
+    },
+    {
+      "IndexName": "index1",
+      "KeySchema": [
+        {
+          "AttributeName": "__x__1h",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "__x__1r",
+          "KeyType": "RANGE"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "INCLUDE",
+        "NonKeyAttributes": ["_link", "_author", "_t", "_time"]
+      },
+      "ProvisionedThroughput": {
+        "ReadCapacityUnits": 5,
+        "WriteCapacityUnits": 5
+      }
+    }
+  ]
+}

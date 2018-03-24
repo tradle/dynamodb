@@ -1,12 +1,12 @@
 require('source-map-support').install()
 
-import crypto = require('crypto')
-import _ = require('lodash')
-import test = require('tape')
-import dynogels = require('dynogels')
+import crypto from 'crypto'
+import _ from 'lodash'
+import test from 'tape'
+import dynogels from 'dynogels'
 import { TYPE, SIG, PREVLINK, PERMALINK } from '@tradle/constants'
-import buildResource = require('@tradle/build-resource')
-import mergeModels = require('@tradle/merge-models')
+import buildResource from '@tradle/build-resource'
+import mergeModels from '@tradle/merge-models'
 const models = mergeModels()
   .add(require('@tradle/models').models)
   .add(require('@tradle/custom-models'))
@@ -14,16 +14,25 @@ const models = mergeModels()
 
 import { OrderBy } from '../types'
 import minify from '../minify'
-const { defaultOrderBy, defaultIndexes } = require('../constants')
-const {
+import { expandFilter } from '../filter-dynamodb'
+import {
+  defaultOrderBy,
+  // defaultIndexes
+} from '../constants'
+
+import {
   debug,
   sortResults,
   wait,
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
-  getDefaultTableDefinition,
   getQueryInfo
-} = require('../utils')
+} from '../utils'
+
+import {
+  createDB as rawCreateDB,
+  defaultIndexes
+} from './utils'
 
 dynogels.log = {
   info: debug,
@@ -31,8 +40,10 @@ dynogels.log = {
   level: 'info'
 }
 
-const fixtures = require('./fixtures')
+const fixtures = require('./fixtures/resources.json')
+const tableSchema = require('./fixtures/table-schema.json')
 const FORM_REQUEST = 'tradle.FormRequest'
+const FORM_REQUEST_MODEL = models[FORM_REQUEST]
 const formRequests = fixtures
   .filter(fixture => fixture[TYPE] === FORM_REQUEST)
   .slice(0, 20)
@@ -80,29 +91,14 @@ let table
 let offset = Date.now()
 let lastCreated = []
 
-const getCommonTableOpts = (tableName, indexes?) => {
-  const tableDefinition = getDefaultTableDefinition({ tableName })
-  return {
-    objects,
-    models: db.models,
-    maxItemSize: 4000,
-    docClient,
-    validate: false,
-    tableDefinition: {
-      ...tableDefinition,
-      indexes
-    }
-  }
-}
-
-const createDB = (indexes?):DB => {
-  const db = new DB({
-    modelStore: createModelStore({ models }),
+const createDB = (indexes?) => {
+  return rawCreateDB({
     tableNames: lastCreated,
-    defineTable: name => new Table(getCommonTableOpts(DB.getSafeTableName(name), indexes))
+    docClient,
+    objects,
+    models,
+    indexes
   })
-
-  return db
 }
 
 const cleanup = async (indexes?) => {
@@ -112,10 +108,11 @@ const cleanup = async (indexes?) => {
   await db.destroyTables()
 }
 
+const numTables = 1
 const reload = async (indexes?) => {
   await cleanup(indexes)
   const prefix = '' + (offset++)
-  lastCreated = ['a', 'b', 'c', 'd', 'e'].map(name => prefix + name)
+  lastCreated = _.range(0, numTables).map(i => prefix + i)
   db = createDB(indexes)
   await db.createTables()
   await db.batchPut(formRequests)
@@ -227,30 +224,6 @@ test('minify (retain resource values)', function (t) {
   t.same(minThingy.min, thingy)
   t.end()
 })
-
-// test('minify (embedded media)', function (t) {
-//   const photoId = {
-//     [TYPE]: 'tradle.PhotoID',
-//     scan: {
-//       url: 'data:image/jpeg;base64,' + 'blah'.repeat(1000)
-//     }
-//   }
-
-//   // fake table
-//   const table = {
-//     models,
-//     indexes: defaultIndexes
-//   }
-
-//   const minPhotoId = minify({
-//     item: photoId,
-//     table,
-//     maxSize: 1000
-//   })
-
-//   t.same(minPhotoId.min._cut, ['scan'])
-//   t.end()
-// })
 
 test('minify (optional props)', function (t) {
   // optional
@@ -410,14 +383,6 @@ test('db hooks', loudAsync(async (t) => {
   t.end()
 }))
 
-// test('hasTableForModel', loudAsync(async (t) => {
-//   await reload()
-//   t.equal(db.hasTableForModel('tradle.ModelsPack'), true)
-//   t.equal(db.hasTableForModel(models['tradle.ModelsPack']), true)
-//   t.equal(db.hasTableForModel('abcdefg'), false)
-//   t.end()
-// }))
-
 let only
 ;[
   defaultIndexes,
@@ -446,7 +411,6 @@ let only
     }
 
     const saved = await db.get(keys)
-
     t.same(saved, photoId)
 
     const update = { ...keys, _displayName: 'blah' }
@@ -493,14 +457,14 @@ let only
         desc: !orderBy.desc
       },
       checkpoint: page1.endPosition,
-      limit: 5
+      limit: 4
     })
 
     const reverseFirstPage = expected.slice(0, 4).reverse()
     t.same(page1Again.items, reverseFirstPage, '"before" works')
     t.same(page1Again.startPosition, getItemPosition({
       db,
-      filter,
+      filter: expandFilter(db.tables[FORM_REQUEST], filter),
       orderBy,
       item: reverseFirstPage[0]
     }))
@@ -975,7 +939,9 @@ let only
     db.modelStore.addModel(alienModel)
     db.setExclusive({
       table: createTable({
-        ...getCommonTableOpts(DB.getSafeTableName(alienModel.id)),
+        objects,
+        docClient,
+        // ...getCommonTableOpts(DB.getSafeTableName(alienModel.id)),
         model: alienModel,
         models: db.models,
         tableDefinition: getTableDefinitionForModel({
@@ -1021,7 +987,7 @@ let only
           color: alien.color
         },
         GT: {
-          fingerCount: 10
+          fingerCount: alien.fingerCount - 1
         }
       }
     })
@@ -1035,6 +1001,32 @@ let only
     t.end()
   })
 })
+
+// test.only('index derived props', loudAsync(async t => {
+//   // const index = {
+//   //   hashKey: '__index__0',
+//   //   rangeKey: 'time',
+//   //   name: 'overloadedindex1',
+//   //   type: 'global',
+//   //   projection: {
+//   //     ProjectionType: 'ALL'
+//   //   }
+//   // }
+
+//   // try {
+//   //   await cleanup(defaultIndexes)
+//   // } catch (err) {}
+
+//   // try {
+//   //   await cleanup(defaultIndexes.map(toProjectionTypeAll))
+//   // } catch (err) {}
+
+//   // const db = new DB({
+//   //   modelStore: createModelStore({ models }),
+//   //   tableNames: lastCreated,
+//   //   defineTable: name => new Table(getCommonTableOpts(DB.getSafeTableName(name), indexes))
+//   // })
+// }))
 
 function loudAsync (asyncFn) {
   return async (...args) => {

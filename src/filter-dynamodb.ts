@@ -7,7 +7,6 @@ import {
   sortResults,
   getQueryInfo,
   promisify,
-  getModelPrimaryKeys,
   doesIndexProjectProperty,
   getModelProperties
 } from './utils'
@@ -15,8 +14,8 @@ import {
 import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
-import { defaultOrderBy, defaultLimit, minifiedFlag } from './constants'
-import { OrderBy, Model, Models, DynogelIndex, FindOpts } from './types'
+import { defaultOrderBy, defaultLimit, minifiedFlag, PRIMARY_KEYS_PROPS } from './constants'
+import { OrderBy, Model, Models, IDynogelIndex, FindOpts } from './types'
 import { Table } from './table'
 
 class FilterOp {
@@ -25,21 +24,19 @@ class FilterOp {
   public model:Model
   public type: string
   public filter:any
+  public expandedFilter:any
   public select?:string[]
-  public prefixedFilter:any
   public orderBy:OrderBy
-  public prefixedOrderBy:OrderBy
   public limit:number
   public checkpoint?: any
   public sortedByDB:boolean
   public queryProp:string
   public opType:string
   public itemToPosition:Function
-  public index?:DynogelIndex
+  public index?:IDynogelIndex
   public forbidScan:boolean
   public bodyInObjects:boolean
   public consistentRead:boolean
-  public primaryKeys:any
   public builder:any
   public table:Table
   constructor (opts:FindOpts) {
@@ -59,31 +56,20 @@ class FilterOp {
 
     this.limit = limit
     this.orderBy = orderBy
-
-    Object.assign(this, getQueryInfo(this))
-    this.prefixedFilter = {}
-
     this.type = this.filter.EQ[TYPE]
     if (table.exclusive) {
       delete this.filter.EQ[TYPE]
     }
 
+    this.expandedFilter = expandFilter(this.table, this.filter)
+    Object.assign(this, getQueryInfo({
+      table: this.table,
+      filter: this.expandedFilter,
+      orderBy: this.orderBy
+    }))
+
     const { type } = this
     this.model = models[type]
-    this.prefixedOrderBy = {
-      property: table.prefixKey({
-        type,
-        key: orderBy.property || table.rangeKey
-      }),
-      desc: orderBy.desc
-    }
-
-    for (let operator in this.filter) {
-      if (operator in OPERATORS) {
-        this.prefixedFilter[operator] = table.prefixPropertiesForType(type, this.filter[operator])
-      }
-    }
-
     this._configureBuilder()
     this._addConditions()
   }
@@ -157,7 +143,8 @@ class FilterOp {
     }
 
     let endPosition
-    if (!orderBy || orderBy.property === queryProp) {
+    const orderByProp = orderBy && this.table.resolveOrderBy(this.queriedPrimaryKeys.hashKey, orderBy.property)
+    if (!orderBy || orderByProp === queryProp) {
       if (items.length <= limit) {
         endPosition = getStartKey(builder)
       }
@@ -248,6 +235,8 @@ class FilterOp {
       select = getModelProperties(this.model)
     }
 
+    select = _.uniq(select.concat(this.table.keyProps))
+
     const canInflateFromDB = index && index.projection.ProjectionType !== 'ALL'
     const cut = resource[minifiedFlag] || []
     let needsInflate
@@ -268,9 +257,14 @@ class FilterOp {
     return resource
   }
 
+  public get queriedPrimaryKeys() {
+    const { hashKey, rangeKey } = this.index || this.table
+    return { hashKey, rangeKey }
+  }
+
   _addConditions = function () {
     const {
-      prefixedFilter,
+      expandedFilter,
       checkpoint,
       opType,
       builder,
@@ -286,7 +280,7 @@ class FilterOp {
       filter: builder.filter && builder.filter.bind(builder)
     }
 
-    const { hashKey, rangeKey } = index || this
+    const { hashKey, rangeKey } = this.queriedPrimaryKeys
     if (sortedByDB && checkpoint) {
       builder.startKey(checkpoint)
     }
@@ -300,8 +294,8 @@ class FilterOp {
     //   builder.attributes(atts)
     // }
 
-    for (let op in prefixedFilter) {
-      let conditions = prefixedFilter[op]
+    for (let op in expandedFilter) {
+      let conditions = expandedFilter[op]
       for (let property in conditions) {
         if (property in OPERATORS) {
           this._debug('nested operators not support (yet)')
@@ -345,7 +339,7 @@ class FilterOp {
     const {
       checkpoint,
       opType,
-      filter,
+      expandedFilter,
       orderBy,
       table,
       queryProp,
@@ -354,7 +348,7 @@ class FilterOp {
       sortedByDB
     } = this
 
-    const { EQ } = filter
+    const { EQ } = expandedFilter
     const { type } = EQ
     let builder
     if (opType === 'query') {
@@ -401,8 +395,9 @@ class FilterOp {
   _throwIfScanForbidden = function () {
     if (!this.forbidScan) return
 
-    const keySchemas = (this.table.indexes || []).concat(this.table.primaryKeys)
-      .map(props => _.pick(props, ['hashKey', 'rangeKey']))
+    const keySchemas = (this.table.indexes || [])
+      .concat(this.table.primaryKeys)
+      .map(props => _.pick(props, PRIMARY_KEYS_PROPS))
 
     const hint = `Specify a limit, and a combination of hashKey in the EQ filter and (optionally) rangeKey in orderBy: ${JSON.stringify(keySchemas)}`
     throw new Error(`this table does not allow scans or full reads. ${hint}`)
@@ -425,9 +420,7 @@ const exec = async (builder, method='exec') => {
   }
 }
 
-const getStartKey = builder => {
-  return builder.request.ExclusiveStartKey
-}
+const getStartKey = builder => builder.request.ExclusiveStartKey
 
 // function usesNonPrimaryKeys ({ model, filter }) {
 //   return props.some(prop => !indexed[prop])
@@ -441,4 +434,13 @@ const notNull = val => !!val
 
 export default function (opts) {
   return new FilterOp(opts).exec()
+}
+
+export const expandFilter = (table: Table, filter: any) => {
+  const expandedFilter = _.cloneDeep(filter)
+  if (expandedFilter.EQ) {
+    table.addDerivedProperties(expandedFilter.EQ)
+  }
+
+  return expandedFilter
 }

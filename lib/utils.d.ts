@@ -2,7 +2,7 @@ import bindAll = require('bindall');
 import promisify = require('pify');
 import AWS = require('aws-sdk');
 import { Table } from './table';
-import { Model, Models, DynogelIndex, DynogelTableDefinition, OrderBy } from './types';
+import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy } from './types';
 declare const debug: any;
 declare const levenshteinDistance: (a: string, b: string) => any;
 declare function getTableName({model, prefix, suffix}: {
@@ -10,7 +10,6 @@ declare function getTableName({model, prefix, suffix}: {
     prefix?: string;
     suffix?: string;
 }): string;
-declare function getIndexes(model: any): DynogelIndex[];
 declare function sortResults({results, orderBy}: {
     results: any[];
     orderBy?: OrderBy;
@@ -23,15 +22,15 @@ declare function fromResourceStub(props: any): {
     permalink: any;
 };
 declare function resultsToJson(items: any): any;
-declare const getModelProperties: (model: any) => any[];
+declare const getModelProperties: any;
 declare function getQueryInfo({table, filter, orderBy}: {
-    table: any;
+    table: Table;
     filter: any;
     orderBy: any;
 }): {
     opType: string;
-    hashKey: any;
-    rangeKey: any;
+    hashKey: string;
+    rangeKey: string;
     queryProp: any;
     index: any;
     itemToPosition: (item: any) => any;
@@ -42,13 +41,6 @@ declare function runWithBackoffOnTableNotExists(fn: any, opts?: any): Promise<an
 declare const runWithBackoffWhile: (fn: any, opts: any) => Promise<any>;
 declare function wait(millis: any): Promise<{}>;
 declare const waitTillActive: (table: any) => Promise<void>;
-declare function getModelPrimaryKeys(model: any): any;
-declare function getResourcePrimaryKeys({model, resource}: {
-    model: any;
-    resource: any;
-}): {
-    hashKey: any;
-};
 declare function minBy<T>(arr: T[], fn: (T, i: number) => number): T;
 declare function sha256(data: any): string;
 declare function defaultBackoffFunction(retryCount: any): number;
@@ -57,20 +49,17 @@ declare const getFilterType: (opts: any) => string;
 declare const lazyDefine: (obj: any, keys: string[], definer: Function) => void;
 declare const getIndexForPrimaryKeys: ({ model }: {
     model: Model;
-}) => DynogelIndex;
+}) => IDynogelIndex;
 declare const getTableDefinitionForModel: ({ models, model }: {
     models: Models;
     model: Model;
-}) => DynogelTableDefinition;
-declare const getDefaultTableDefinition: ({ tableName }: {
-    tableName: string;
-}) => DynogelTableDefinition;
-declare const toDynogelTableDefinition: (cloudformation: AWS.DynamoDB.CreateTableInput) => DynogelTableDefinition;
-declare const toDynogelIndexDefinition: (cloudformation: AWS.DynamoDB.GlobalSecondaryIndex) => DynogelIndex;
+}) => IDynogelTableDefinition;
+declare const toDynogelTableDefinition: (cloudformation: AWS.DynamoDB.CreateTableInput) => IDynogelTableDefinition;
+declare const toDynogelIndexDefinition: (cloudformation: AWS.DynamoDB.GlobalSecondaryIndex) => IDynogelIndex;
 declare const doesIndexProjectProperty: ({ table, index, property }: {
     table: Table;
-    index: DynogelIndex;
+    index: IDynogelIndex;
     property: string;
 }) => boolean;
 declare const uniqueStrict: (arr: any) => any[];
-export { fromResourceStub, sortResults, compare, promisify, debug, bindAll, toObject, getIndexes, getTableName, resultsToJson, getQueryInfo, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, getModelPrimaryKeys, getResourcePrimaryKeys, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType, lazyDefine, levenshteinDistance, getIndexForPrimaryKeys, getTableDefinitionForModel, getDefaultTableDefinition, toDynogelTableDefinition, toDynogelIndexDefinition, doesIndexProjectProperty, getModelProperties, uniqueStrict };
+export { fromResourceStub, sortResults, compare, promisify, debug, bindAll, toObject, getTableName, resultsToJson, getQueryInfo, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType, lazyDefine, levenshteinDistance, getIndexForPrimaryKeys, getTableDefinitionForModel, toDynogelTableDefinition, toDynogelIndexDefinition, doesIndexProjectProperty, getModelProperties, uniqueStrict };
