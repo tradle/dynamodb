@@ -41,7 +41,7 @@ const defaultRangeKeyProperty = '__rangeKey__'
 const constants = {
   // typeAndPermalinkProperty,
   minifiedFlag: '_cut',
-  separator: '_',
+  separator: '::',
   // defaultHashKeyProperty,
   // defaultRangeKeyProperty,
   // defaultPrimaryKeys: {

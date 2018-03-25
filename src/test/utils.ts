@@ -1,5 +1,6 @@
 import { flatten } from 'lodash'
 import { TYPE } from '@tradle/constants'
+import { separator } from '../constants'
 import {
   IDynogelTableDefinition,
   IDynogelIndex,
@@ -32,11 +33,11 @@ const getDefaultDeriveProperties:PropsDeriver = (def:ITableDefinition) => resour
   }
 
   if (resource._author) {
-    derived[def.indexes[0].hashKey] = resource._author
+    derived[def.indexes[0].hashKey] = ['_author', resource._author].join(separator)
   }
 
-  if (resource._t) {
-    derived[def.indexes[1].hashKey] = resource._t
+  if (resource[TYPE]) {
+    derived[def.indexes[1].hashKey] = [TYPE, resource[TYPE]].join(separator)
   }
 
   if (resource._time) {
@@ -52,7 +53,7 @@ const calcTypeAndPermalinkProperty = resource => {
     throw new Error(`missing one of required props: _permalink, ${TYPE}`)
   }
 
-  return prefixString(resource._permalink, resource[TYPE])
+  return [resource._permalink, resource[TYPE]].join(separator)
 }
 
 type CommonTableOpts = {

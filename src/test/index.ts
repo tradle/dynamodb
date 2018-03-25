@@ -5,6 +5,7 @@ import _ from 'lodash'
 import test from 'tape'
 import dynogels from 'dynogels'
 import { TYPE, SIG, PREVLINK, PERMALINK } from '@tradle/constants'
+import validateResource from '@tradle/validate-resource'
 import buildResource from '@tradle/build-resource'
 import mergeModels from '@tradle/merge-models'
 const models = mergeModels()
@@ -40,16 +41,16 @@ dynogels.log = {
   level: 'info'
 }
 
-const fixtures = require('./fixtures/resources.json')
+const resources = require('./fixtures/resources.json')
 const tableSchema = require('./fixtures/table-schema.json')
 const FORM_REQUEST = 'tradle.FormRequest'
 const FORM_REQUEST_MODEL = models[FORM_REQUEST]
-const formRequests = fixtures
-  .filter(fixture => fixture[TYPE] === FORM_REQUEST)
+const formRequests = resources
+  .filter(r => r[TYPE] === FORM_REQUEST)
   .slice(0, 20)
 
-const photoIds = fixtures
-  .filter(fixture => fixture[TYPE] === 'tradle.PhotoID')
+const photoIds = resources
+  .filter(r => r[TYPE] === 'tradle.PhotoID')
   .slice(0, 20)
 
 sortResults({ results: formRequests, orderBy: defaultOrderBy })
@@ -80,7 +81,7 @@ const objects = (function () {
     }
   }
 
-  fixtures.forEach(api.put)
+  resources.forEach(api.put)
   return api
 }())
 
@@ -108,6 +109,13 @@ const cleanup = async (indexes?) => {
   await db.destroyTables()
 }
 
+const validResources = resources.filter(resource => {
+  try {
+    validateResource({ models, resource })
+    return true
+  } catch (err) {}
+})
+
 const numTables = 1
 const reload = async (indexes?) => {
   await cleanup(indexes)
@@ -115,10 +123,17 @@ const reload = async (indexes?) => {
   lastCreated = _.range(0, numTables).map(i => prefix + i)
   db = createDB(indexes)
   await db.createTables()
+  // await db.batchPut(validResources)
   await db.batchPut(formRequests)
+
   // table = db.tables[FORM_REQUEST]
   // await db.batchPut(formRequests)
 }
+
+// test.only('load', loudAsync(async (t) => {
+//   await reload()
+//   t.end()
+// }))
 
 test('model store', loudAsync(async (t) => {
   let externalSource = models
@@ -738,8 +753,8 @@ let only
   testNamed('filters', loudAsync(async (t) => {
     await reload(indexes)
     const type = 'tradle.PhotoID'
-    const photoIds = fixtures.filter(item => item[TYPE] === type)
-    // const byType = groupByType(fixtures)
+    const photoIds = resources.filter(item => item[TYPE] === type)
+    // const byType = groupByType(resources)
     // photoIds.forEach(objects.put)
     await db.batchPut(photoIds)
     // await Object.keys(byType).map(type => {
