@@ -27,7 +27,8 @@ import {
   FindOpts,
   ReadOptions,
   ResolveOrderBy,
-  ResolveOrderByInput
+  ResolveOrderByInput,
+  PropsDeriver
 } from './types'
 
 import {
@@ -101,6 +102,7 @@ export class Table extends EventEmitter {
   public primaryKeys:KeyProps
   public derivedProperties: string[]
   public indexes:IDynogelIndex[]
+  public indexed:IDynogelIndex[]
   public exclusive:boolean
   public table:any
   private opts:ITableOpts
@@ -109,7 +111,7 @@ export class Table extends EventEmitter {
   private tableDefinition:ITableDefinition
   private readOnly:boolean
   private findOpts:object
-  private _deriveProperties:(item:any, forRead: boolean) => any
+  private _deriveProperties:PropsDeriver
   private _resolveOrderBy:ResolveOrderBy
   private hooks: any
   get hashKey() {
@@ -157,15 +159,16 @@ export class Table extends EventEmitter {
     this._prefix = {}
 
     this.primaryKeys = _.pick(this.tableDefinition, PRIMARY_KEYS_PROPS)
-    this.indexes = this.tableDefinition.indexes
-    // this.indexes = this.tableDefinition.indexes.concat([{
-    //   type: 'global',
-    //   name: '_',
-    //   projection: {
-    //     ProjectionType: 'ALL'
-    //   },
-    //   ...this.primaryKeys
-    // }])
+    this.indexes = this.tableDefinition.indexes || []
+    this.indexed = this.indexes.slice()
+    this.indexed.unshift({
+      type: 'global',
+      name: '_',
+      projection: {
+        ProjectionType: 'ALL'
+      },
+      ...this.primaryKeys
+    })
 
     this._deriveProperties = deriveProperties
     this.derivedProperties = derivedProperties
@@ -178,11 +181,8 @@ export class Table extends EventEmitter {
     }
 
     this.primaryKeyProps = _.values(this.primaryKeys)
-    this.hashKeyProps = _.uniq([this.hashKey].concat(this.indexes.map(index => index.hashKey)))
-    this.keyProps = _.uniq(this.primaryKeyProps.concat(
-      _.flatMap(this.indexes, index => _.values(_.pick(index, PRIMARY_KEYS_PROPS)))
-    ))
-
+    this.hashKeyProps = _.uniq(this.indexed.map(i => i.hashKey))
+    this.keyProps = _.uniq(_.flatMap(this.indexed, index => _.values(_.pick(index, PRIMARY_KEYS_PROPS))))
     if (exclusive) {
       this.addModel({ model })
     }
@@ -270,8 +270,9 @@ export class Table extends EventEmitter {
     this._ensureWritable()
 
     const { maxItemSize } = this.opts
-    resources.forEach(this._validateResource)
     resources = resources.map(this.withDerivedProperties)
+    resources.forEach(this._ensureHasPrimaryKeys)
+    resources.forEach(this._validateResource)
 
     const minified = resources.map(item => minify({
       table: this,
@@ -389,10 +390,9 @@ export class Table extends EventEmitter {
     })
   }
 
-  public deriveProperties = (resource, forRead=false) => {
-    return _.omitBy(this._deriveProperties(resource, forRead), (value, prop) => {
-      return prop in resource || value == null
-    })
+  public deriveProperties = (item, isRead=false) => {
+    const derived = this._deriveProperties({ table: this, item, isRead })
+    return _.omitBy(derived, (value, prop) => prop in item || value == null)
   }
 
   public toDBFormat = resource => this.withDerivedProperties(resource)
@@ -455,9 +455,7 @@ export class Table extends EventEmitter {
     if (!model) throw new Error(`model not found: ${type}`)
 
     resource = this.toDBFormat(resource)
-    if (method === 'update' && !this._hasAllPrimaryKeys(resource)) {
-      throw new Error('update requires values for all primary keys')
-    }
+    this._ensureHasPrimaryKeys(resource)
 
     if (method === 'create') {
       const minified = minify({
@@ -493,14 +491,8 @@ export class Table extends EventEmitter {
       throw new Error(`missing model ${type}`)
     }
 
-    // const missingKeyProp = this.primaryKeyProps.find(prop => resource[prop] == null)
-    // if (missingKeyProp) {
-    //   throw new Error(`expected: ${missingKeyProp}`)
-    // }
-
     if (requireSigned && !resource[SIG]) {
-      const keys = JSON.stringify(this.getPrimaryKeys(resource))
-      throw new Error(`expected resource to be signed: ${keys}`)
+      throw new Error(`expected resource to be signed: ${resource._link}`)
     }
 
     validateResource({ models, model, resource })
@@ -546,7 +538,7 @@ export class Table extends EventEmitter {
 
   }
 
-  public getPrimaryKeys = resource => _.pick(this.withDerivedProperties(resource), this.primaryKeyProps)
+  public getPrimaryKeys = resource => _.pick(resource, this.primaryKeyProps)
 
   // private getPrimaryKeys = (resource) => {
   //   const have = _.pick(resource, this.primaryKeyProps)
@@ -582,6 +574,12 @@ export class Table extends EventEmitter {
   private _ensureWritable = () => {
     if (this.readOnly) {
       throw new Error('this table is read-only!')
+    }
+  }
+
+  private _ensureHasPrimaryKeys = resource => {
+    if (!this._hasAllPrimaryKeys(resource)) {
+      throw new Error('expected values for all primary keys')
     }
   }
 

@@ -28,7 +28,8 @@ import {
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
   getQueryInfo,
-  toDynogelTableDefinition
+  toDynogelTableDefinition,
+  defaultDeriveProperties
 } from '../utils'
 
 import {
@@ -1039,7 +1040,13 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
         type: 'object',
         range: 'json'
       }
-    }
+    },
+    indexedProperties: [
+      {
+        hashKey: '{{topic}}',
+        rangeKey: '{{time}}' // constant
+      }
+    ]
   }
 
   const myModels = {
@@ -1054,34 +1061,35 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     forbidScan: true,
     tableDefinition: def,
     derivedProperties: tableKeys,
-    deriveProperties: (item, forRead) => {
-      let type
-      switch (item[TYPE]) {
-      case 'tradle.Event':
-        type = item[TYPE]
-        let timeAndRand = item[rangeKey]
-        if (!timeAndRand) {
-          if (!forRead) {
-            timeAndRand = item.time + ':' + crypto.randomBytes(8).toString('hex')
-          }
-        }
+    deriveProperties: defaultDeriveProperties,
+    // deriveProperties: ({ item, isRead }) => {
+    //   let type
+    //   switch (item[TYPE]) {
+    //   case 'tradle.Event':
+    //     type = item[TYPE]
+    //     let timeAndRand = item[rangeKey]
+    //     if (!timeAndRand) {
+    //       if (!isRead) {
+    //         timeAndRand = item.time + ':' + crypto.randomBytes(8).toString('hex')
+    //       }
+    //     }
 
-        return {
-          [hashKey]: item[hashKey] || item[TYPE] && item.topic && (item[TYPE] + ':' + item.topic),
-          [rangeKey]: timeAndRand
-        }
-      default:
-        type = 'tradle.Object'
-        return {
-          [hashKey]: item[hashKey] || item[TYPE] && item._permalink && `${item[TYPE]}_${item._permalink}`,
-          [rangeKey]: item[hashKey] || '__placeholder__',
-          [def.indexes[0].hashKey]: item[def.indexes[0].hashKey] || item._author,
-          [def.indexes[0].rangeKey]: item[def.indexes[0].rangeKey] || item._time && String(item._time),
-          [def.indexes[1].hashKey]: item[def.indexes[1].hashKey] || type + ':' + item[TYPE],
-          [def.indexes[1].rangeKey]: item[def.indexes[1].rangeKey] || item._time && String(item._time),
-        }
-      }
-    },
+    //     return {
+    //       [hashKey]: item[hashKey] || item[TYPE] && item.topic && (item[TYPE] + ':' + item.topic),
+    //       [rangeKey]: timeAndRand
+    //     }
+    //   default:
+    //     type = 'tradle.Object'
+    //     return {
+    //       [hashKey]: item[hashKey] || item[TYPE] && item._permalink && `${item[TYPE]}_${item._permalink}`,
+    //       [rangeKey]: item[hashKey] || '__placeholder__',
+    //       [def.indexes[0].hashKey]: item[def.indexes[0].hashKey] || item._author,
+    //       [def.indexes[0].rangeKey]: item[def.indexes[0].rangeKey] || item._time && String(item._time),
+    //       [def.indexes[1].hashKey]: item[def.indexes[1].hashKey] || type + ':' + item[TYPE],
+    //       [def.indexes[1].rangeKey]: item[def.indexes[1].rangeKey] || item._time && String(item._time),
+    //     }
+    //   }
+    // },
     resolveOrderBy: ({ type, hashKey, property }) => {
       if (hashKey === def.hashKey) return rangeKey
 
@@ -1150,6 +1158,15 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
   })
 
   t.same(foundEvent, event)
+
+  const results = await new Promise((resolve, reject) => {
+    table.table.scan().exec((err, results) => {
+      if (err) return reject(err)
+
+      resolve(results.Items.map(item => item.toJSON()))
+    })
+  })
+
   await table.destroy()
 
   t.end()

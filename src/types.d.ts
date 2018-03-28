@@ -7,7 +7,14 @@ type IndexType = 'global'|'local'
 
 // export type PropertyDeriver = (item: any) => string | number
 
-export type PropsDeriver = (item: any, forRead: boolean) => any
+export type ReadWriteType = 'read' | 'write'
+
+export type PropsDeriver = ({
+  table: Table,
+  item: any,
+  isRead: boolean
+}) => any
+
 export type ResolveOrderByInput = {
   type: string
   hashKey: string

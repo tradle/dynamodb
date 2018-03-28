@@ -12,6 +12,7 @@ export declare class Table extends EventEmitter {
     primaryKeys: KeyProps;
     derivedProperties: string[];
     indexes: IDynogelIndex[];
+    indexed: IDynogelIndex[];
     exclusive: boolean;
     table: any;
     private opts;
@@ -45,7 +46,7 @@ export declare class Table extends EventEmitter {
     destroy: () => Promise<void>;
     private _debug;
     private _initTable;
-    deriveProperties: (resource: any, forRead?: boolean) => any;
+    deriveProperties: (item: any, isRead?: boolean) => any;
     toDBFormat: (resource: any) => any;
     fromDBFormat: (resource: any) => any;
     private _write;
@@ -57,6 +58,7 @@ export declare class Table extends EventEmitter {
     omitDerivedProperties: (resource: any) => any;
     resolveOrderBy: (opts: ResolveOrderByInput) => string;
     private _ensureWritable;
+    private _ensureHasPrimaryKeys;
     private _hasAllPrimaryKeys;
 }
 export declare const createTable: (opts: ITableOpts) => Table;

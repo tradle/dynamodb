@@ -2,7 +2,7 @@ import bindAll = require('bindall');
 import promisify = require('pify');
 import AWS = require('aws-sdk');
 import { Table } from './table';
-import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy } from './types';
+import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, PropsDeriver } from './types';
 declare const debug: any;
 declare const levenshteinDistance: (a: string, b: string) => any;
 declare function getTableName({model, prefix, suffix}: {
@@ -14,7 +14,7 @@ declare function sortResults({results, orderBy}: {
     results: any[];
     orderBy?: OrderBy;
 }): any[];
-declare function compare(a: any, b: any, propertyName: any, asc: any): 1 | 0 | -1;
+declare function compare(a: any, b: any, propertyName: any, asc: any): 1 | -1 | 0;
 declare function toObject(arr: any): {};
 declare function fromResourceStub(props: any): {
     [x: number]: any;
@@ -63,4 +63,10 @@ declare const doesIndexProjectProperty: ({ table, index, property }: {
 }) => boolean;
 declare const uniqueStrict: (arr: any) => any[];
 export declare const hookUp: (fn: any, event: any) => (...args: any[]) => Promise<any>;
+export declare const defaultIndexedProperties: {
+    hashKey: string;
+    rangeKey: string;
+}[];
+export declare const getTemplateStringVariables: (str: string) => string[];
+export declare const defaultDeriveProperties: PropsDeriver;
 export { fromResourceStub, sortResults, compare, promisify, debug, bindAll, toObject, getTableName, resultsToJson, getQueryInfo, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType, lazyDefine, levenshteinDistance, getIndexForPrimaryKeys, getTableDefinitionForModel, toDynogelTableDefinition, toDynogelIndexDefinition, doesIndexProjectProperty, getModelProperties, uniqueStrict };

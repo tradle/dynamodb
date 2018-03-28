@@ -257,9 +257,8 @@ function getQueryInfo ({ table, filter, orderBy }: {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
   const usedProps = getUsedProperties(filter)
-  const { indexes, primaryKeys, hashKeyProps } = table
+  const { indexes, primaryKeys, primaryKeyProps, hashKeyProps } = table
   const { hashKey, rangeKey } = primaryKeys
-  const primaryKeysArr = _.values(primaryKeys)
   const indexedPropsMap = toObject(hashKeyProps)
   const { EQ={} } = filter
   const usedIndexedProps = usedProps.filter(prop => {
@@ -298,15 +297,16 @@ function getQueryInfo ({ table, filter, orderBy }: {
     item = table.withDerivedProperties(item)
     if (!item) throw new Error('expected database record')
 
+    const primaryKeyValues = table.getPrimaryKeys(item)
     if (queryProp === hashKey || opType === 'scan') {
-      return _.pick(item, primaryKeysArr)
+      return primaryKeyValues
     }
 
     const props = [index.hashKey, index.rangeKey].filter(notNull)
     const indexed = _.pick(item, props)
     return {
       ...indexed,
-      ...table.getPrimaryKeys(item)
+      ...primaryKeyValues
     }
   }
 
@@ -632,6 +632,74 @@ export const hookUp = (fn, event) => async function (...args) {
   const result = await fn.apply(this, args)
   await this.hooks.fire(`${event}:post`, { args, result })
   return result
+}
+
+export const defaultIndexedProperties = [
+  {
+    // default for all tradle.Object resources
+    hashKey: 'tradle.Object_{{_t}}_{{_permalink}}',
+    rangeKey: 'placeholder' // constant
+  },
+  {
+    // default for all tradle.Object resources
+    hashKey: 'tradle.Object_{{_author}}',
+    rangeKey: '{{_time}}'
+  },
+  {
+    // default for all tradle.Object resources
+    hashKey: 'tradle.Object_{{_t}}',
+    rangeKey: '{{_time}}'
+  }
+]
+
+export const getTemplateStringVariables = (str: string) => {
+  const match = str.match(/\{\{([^}]+)\}\}/g)
+  if (match) {
+    return match.map(part => part.slice(2, part.length - 2))
+  }
+
+  return []
+}
+
+const renderTemplate = (str, data) => _.template(str, {
+  interpolate: /{{([\s\S]+?)}}/g
+})(data)
+
+export const defaultDeriveProperties: PropsDeriver = ({
+  table,
+  item,
+  isRead
+}) => {
+  const type = item[TYPE]
+  const model = table.models[type]
+  const { indexedProperties = defaultIndexedProperties } = model
+  return _.chain(indexedProperties)
+    .map((templates, i) => {
+      const { hashKey, rangeKey } = table.indexed[i]
+      const ret = [{
+        property: hashKey,
+        template: templates.hashKey
+      }]
+
+      if (rangeKey && templates.rangeKey) {
+        ret.push({
+          property: rangeKey,
+          template: templates.rangeKey
+        })
+      }
+
+      return ret
+    })
+    .flatten()
+    .filter(({ template }) => {
+      return getTemplateStringVariables(template)
+        .every(prop => prop in item)
+    })
+    .reduce((inputs, { property, template }) => {
+      inputs[property] = renderTemplate(template, item)
+      return inputs
+    }, {})
+    .value()
 }
 
 export {

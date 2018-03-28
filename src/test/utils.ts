@@ -26,24 +26,27 @@ const tableDefinition = utils.toDynogelTableDefinition(cloudformation)
 export const defaultTableDefinition = tableDefinition
 export const defaultIndexes = tableDefinition.indexes
 
-const getDefaultDeriveProperties = (def:ITableDefinition):PropsDeriver => (resource, forRead) => {
+const getDefaultDeriveProperties = (def: ITableDefinition): PropsDeriver => ({
+  item,
+  isRead
+}) => {
   const derived = {}
-  if (resource[TYPE] && resource._permalink) {
-    derived[def.hashKey] = [resource._permalink, resource[TYPE]].join(separator)
+  if (item[TYPE] && item._permalink) {
+    derived[def.hashKey] = [item._permalink, item[TYPE]].join(separator)
     derived[def.rangeKey] = '__placeholder__'
   }
 
-  if (resource._author) {
-    derived[def.indexes[0].hashKey] = ['_author', resource._author].join(separator)
+  if (item._author) {
+    derived[def.indexes[0].hashKey] = ['_author', item._author].join(separator)
   }
 
-  if (resource[TYPE]) {
-    derived[def.indexes[1].hashKey] = [TYPE, resource[TYPE]].join(separator)
+  if (item[TYPE]) {
+    derived[def.indexes[1].hashKey] = [TYPE, item[TYPE]].join(separator)
   }
 
-  if (resource._time) {
+  if (item._time) {
     derived[def.indexes[0].rangeKey] =
-    derived[def.indexes[1].rangeKey] = String(resource._time)
+    derived[def.indexes[1].rangeKey] = String(item._time)
   }
 
   const rangeKeys = def.indexes.map(def => def.rangeKey)
