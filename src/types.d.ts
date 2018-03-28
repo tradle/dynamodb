@@ -7,7 +7,14 @@ type IndexType = 'global'|'local'
 
 // export type PropertyDeriver = (item: any) => string | number
 
-export type PropsDeriver = (item: any) => any
+export type PropsDeriver = (item: any, forRead: boolean) => any
+export type ResolveOrderByInput = {
+  type: string
+  hashKey: string
+  property: string
+}
+
+export type ResolveOrderBy = (opts: ResolveOrderByInput) => string
 
 // export interface IKeysDeriver {
 //   [hashKey]: PropertyDeriver
@@ -81,7 +88,7 @@ export interface ITableOpts {
   maxItemSize?: number
   deriveProperties?: PropsDeriver
   derivedProperties?: string[]
-  resolveOrderBy?: (hashKey: string, property: string) => string
+  resolveOrderBy?: ResolveOrderBy
 }
 
 export type KeyProps = {

@@ -58,7 +58,7 @@
       ],
       "Projection": {
         "ProjectionType": "INCLUDE",
-        "NonKeyAttributes": ["_link", "_author", "_t", "_time"]
+        "NonKeyAttributes": ["topic", "_permalink", "_link", "_author", "_t", "_time"]
       },
       "ProvisionedThroughput": {
         "ReadCapacityUnits": 5,
@@ -79,7 +79,7 @@
       ],
       "Projection": {
         "ProjectionType": "INCLUDE",
-        "NonKeyAttributes": ["_link", "_author", "_t", "_time"]
+        "NonKeyAttributes": ["topic", "_permalink", "_link", "_author", "_t", "_time"]
       },
       "ProvisionedThroughput": {
         "ReadCapacityUnits": 5,

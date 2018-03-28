@@ -25,7 +25,9 @@ import {
   Models,
   TableChooser,
   FindOpts,
-  ReadOptions
+  ReadOptions,
+  ResolveOrderBy,
+  ResolveOrderByInput
 } from './types'
 
 import {
@@ -86,6 +88,8 @@ const HOOKABLE = [
   'destroy'
 ]
 
+const defaultResolveOrderBy = (opts:ResolveOrderByInput) => opts.property
+
 export class Table extends EventEmitter {
   public name:string
   public models:Models
@@ -105,8 +109,8 @@ export class Table extends EventEmitter {
   private tableDefinition:ITableDefinition
   private readOnly:boolean
   private findOpts:object
-  private _deriveProperties:(item:any) => any
-  private _resolveOrderBy?:(hashKey: string, property: string) => string
+  private _deriveProperties:(item:any, forRead: boolean) => any
+  private _resolveOrderBy:ResolveOrderBy
   private hooks: any
   get hashKey() {
     return this.primaryKeys.hashKey
@@ -152,11 +156,20 @@ export class Table extends EventEmitter {
     this.model = model
     this._prefix = {}
 
-    this.indexes = this.tableDefinition.indexes
     this.primaryKeys = _.pick(this.tableDefinition, PRIMARY_KEYS_PROPS)
+    this.indexes = this.tableDefinition.indexes
+    // this.indexes = this.tableDefinition.indexes.concat([{
+    //   type: 'global',
+    //   name: '_',
+    //   projection: {
+    //     ProjectionType: 'ALL'
+    //   },
+    //   ...this.primaryKeys
+    // }])
+
     this._deriveProperties = deriveProperties
     this.derivedProperties = derivedProperties
-    this._resolveOrderBy = resolveOrderBy
+    this._resolveOrderBy = resolveOrderBy || defaultResolveOrderBy
     this.findOpts = {
       models,
       forbidScan,
@@ -214,15 +227,17 @@ export class Table extends EventEmitter {
         ...opts
       })
     } else {
-      result = await this.findOne({
-        orderBy: {
-          property: this.rangeKey,
-          desc: false
-        },
-        filter: {
-          EQ: query
-        }
-      })
+      debugger
+      throw new Error('expected all primaryKeys')
+      // result = await this.findOne({
+      //   orderBy: {
+      //     property: this.rangeKey,
+      //     desc: false
+      //   },
+      //   filter: {
+      //     EQ: query
+      //   }
+      // })
     }
 
     if (!result) {
@@ -374,8 +389,10 @@ export class Table extends EventEmitter {
     })
   }
 
-  public deriveProperties = resource => {
-    return _.omitBy(this._deriveProperties(resource), prop => prop in resource)
+  public deriveProperties = (resource, forRead=false) => {
+    return _.omitBy(this._deriveProperties(resource, forRead), (value, prop) => {
+      return prop in resource || value == null
+    })
   }
 
   public toDBFormat = resource => this.withDerivedProperties(resource)
@@ -550,20 +567,16 @@ export class Table extends EventEmitter {
   //   return prefixString(resource._permalink, resource[TYPE])
   // }
 
-  public addDerivedProperties = resource => _.extend(
+  public addDerivedProperties = (resource, forRead) => _.extend(
     resource,
-    this.deriveProperties(resource)
+    this.deriveProperties(resource, forRead)
   )
 
   public withDerivedProperties = resource => _.extend({}, resource, this.deriveProperties(resource))
   public omitDerivedProperties = resource => _.omit(resource, this.derivedProperties)
 
-  public resolveOrderBy = (hashKey: string, property: string) => {
-    if (this._resolveOrderBy) {
-      return this._resolveOrderBy(hashKey, property) || property
-    }
-
-    return property
+  public resolveOrderBy = (opts: ResolveOrderByInput) => {
+    return this._resolveOrderBy(opts) || opts.property
   }
 
   private _ensureWritable = () => {

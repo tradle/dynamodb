@@ -27,7 +27,8 @@ import {
   wait,
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
-  getQueryInfo
+  getQueryInfo,
+  toDynogelTableDefinition
 } from '../utils'
 
 import {
@@ -1011,6 +1012,167 @@ let only
     t.end()
   })
 })
+
+test('multiple types, overloaded indexes', loudAsync(async t => {
+  const def = toDynogelTableDefinition({
+    ...tableSchema,
+    TableName: 'test-resources-' + Date.now()
+  })
+
+  const { hashKey, rangeKey } = def
+  const tableKeys = [hashKey, rangeKey]
+    .concat(_.flatten(def.indexes.map(def => [def.hashKey, def.rangeKey])))
+    .filter(_.identity)
+
+  const eventModel = {
+    type: 'tradle.Model',
+    id: 'tradle.Event',
+    title: 'Event',
+    properties: {
+      topic: {
+        type: 'string'
+      },
+      time: {
+        type: 'string'
+      },
+      payload: {
+        type: 'object',
+        range: 'json'
+      }
+    }
+  }
+
+  const myModels = {
+    ...models,
+    [eventModel.id]: eventModel
+  }
+
+  const table = new Table({
+    docClient,
+    models: myModels,
+    // objects,
+    forbidScan: true,
+    tableDefinition: def,
+    derivedProperties: tableKeys,
+    deriveProperties: (item, forRead) => {
+      let type
+      switch (item[TYPE]) {
+      case 'tradle.Event':
+        type = item[TYPE]
+        let timeAndRand = item[rangeKey]
+        if (!timeAndRand) {
+          if (!forRead) {
+            timeAndRand = item.time + ':' + crypto.randomBytes(8).toString('hex')
+          }
+        }
+
+        return {
+          [hashKey]: item[hashKey] || item[TYPE] && item.topic && (item[TYPE] + ':' + item.topic),
+          [rangeKey]: timeAndRand
+        }
+      default:
+        type = 'tradle.Object'
+        return {
+          [hashKey]: item[hashKey] || item[TYPE] && item._permalink && `${item[TYPE]}_${item._permalink}`,
+          [rangeKey]: item[hashKey] || '__placeholder__',
+          [def.indexes[0].hashKey]: item[def.indexes[0].hashKey] || item._author,
+          [def.indexes[0].rangeKey]: item[def.indexes[0].rangeKey] || item._time && String(item._time),
+          [def.indexes[1].hashKey]: item[def.indexes[1].hashKey] || type + ':' + item[TYPE],
+          [def.indexes[1].rangeKey]: item[def.indexes[1].rangeKey] || item._time && String(item._time),
+        }
+      }
+    },
+    resolveOrderBy: ({ type, hashKey, property }) => {
+      if (hashKey === def.hashKey) return rangeKey
+
+      switch (type) {
+      case 'tradle.Event':
+        return property
+      default:
+        const index = def.indexes.find(index => index.hashKey === hashKey)
+        if (index) return index.rangeKey
+        return property
+      }
+    }
+  })
+
+  for (let id in myModels) {
+    table.addModel({ model: myModels[id] })
+  }
+
+  const event = {
+    [TYPE]: 'tradle.Event',
+    topic: 'user:online',
+    time: new Date('2000-01-01').getTime(),
+    payload: {
+      user: 'bob',
+    }
+  }
+
+  const contactInfo = {
+    [TYPE]: 'tradle.BasicContactInfo',
+    [SIG]: 'abc',
+    firstName: 'bob',
+    lastName: 'gleggknook',
+    email: 'bobg@knook.com',
+    _author: 'bobhash',
+    _link: 'aaa',
+    _permalink: 'aaa',
+    _time: new Date('2000-01-01').getTime()
+  }
+
+  await table.create()
+  await table.put(event)
+  await table.put(contactInfo)
+
+  const foundContactInfo = await table.findOne({
+    orderBy: {
+      property: '_time',
+      desc: false
+    },
+    filter: {
+      EQ: {
+        [TYPE]: contactInfo[TYPE],
+        _author: contactInfo._author
+      }
+    }
+  })
+
+  t.same(foundContactInfo, contactInfo)
+
+  const foundEvent = await table.findOne({
+    filter: {
+      EQ: {
+        [TYPE]: event[TYPE],
+        topic: event.topic
+      }
+    }
+  })
+
+  t.same(foundEvent, event)
+  await table.destroy()
+
+  t.end()
+
+  // const db = new DB({
+  //   modelStore: createModelStore({ models }),
+  //   tableNames,
+  //   // tableNames: lastCreated,
+  //   defineTable: name => {
+  //     const opts = getCommonTableOpts(DB.getSafeTableName(name), indexes)
+  //     const table = new Table({
+  //       ...opts,
+  //       models,
+  //       objects,
+  //       docClient
+  //     })
+
+  //     table.hook('put:pre', createControlLatestHook(table, 'put'))
+  //     table.hook('update:pre', createControlLatestHook(table, 'update'))
+  //     return table
+  //   }
+  // })
+}))
 
 // test.only('index derived props', loudAsync(async t => {
 //   // const index = {

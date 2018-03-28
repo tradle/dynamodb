@@ -143,7 +143,12 @@ class FilterOp {
     }
 
     let endPosition
-    const orderByProp = orderBy && this.table.resolveOrderBy(this.queriedPrimaryKeys.hashKey, orderBy.property)
+    const orderByProp = orderBy && this.table.resolveOrderBy({
+      type: this.type,
+      hashKey: this.queriedPrimaryKeys.hashKey,
+      property: orderBy.property
+    })
+
     if (!orderBy || orderByProp === queryProp) {
       if (items.length <= limit) {
         endPosition = getStartKey(builder)
@@ -439,7 +444,7 @@ export default function (opts) {
 export const expandFilter = (table: Table, filter: any) => {
   const expandedFilter = _.cloneDeep(filter)
   if (expandedFilter.EQ) {
-    table.addDerivedProperties(expandedFilter.EQ)
+    table.addDerivedProperties(expandedFilter.EQ, true)
   }
 
   return expandedFilter

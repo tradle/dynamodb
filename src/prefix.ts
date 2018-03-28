@@ -18,7 +18,7 @@ function prefixKeys (obj:any, prefix:string, skip:string[]=[]) {
   return prefixed
 }
 
-function prefixValues (obj:any, prefix:string, skip:string[]) {
+function prefixValues (obj:any, prefix:string, skip:string[]=[]) {
   const prefixed = {}
   for (let key in obj) {
     if (skip.includes(key)) {

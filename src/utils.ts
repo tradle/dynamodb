@@ -282,7 +282,11 @@ function getQueryInfo ({ table, filter, orderBy }: {
     index = preferred.index
     orderBy = {
       ...orderBy,
-      property: table.resolveOrderBy(queryProp, orderBy.property)
+      property: table.resolveOrderBy({
+        type: this.type,
+        hashKey: queryProp,
+        property: orderBy.property
+      })
     }
 
     if (orderBy.property === preferred.rangeKey) {

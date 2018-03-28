@@ -1,4 +1,4 @@
-import { IDynogelTableDefinition, IDynogelIndex, PropsDeriver } from '../types';
+import { IDynogelTableDefinition, IDynogelIndex, PropsDeriver, ResolveOrderBy } from '../types';
 import { DB } from '../';
 export declare const defaultTableDefinition: IDynogelTableDefinition;
 export declare const defaultIndexes: IDynogelIndex[];
@@ -8,7 +8,7 @@ export declare const getCommonTableOpts: (tableName: any, indexes?: any) => {
     tableDefinition: IDynogelTableDefinition;
     derivedProperties: string[];
     deriveProperties: PropsDeriver;
-    resolveOrderBy?: (hashKey: string, property: string) => string;
+    resolveOrderBy?: ResolveOrderBy;
 };
 export declare const createDB: ({ models, objects, docClient, indexes, tableNames }: {
     models: any;

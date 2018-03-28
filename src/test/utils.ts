@@ -1,4 +1,4 @@
-import { flatten } from 'lodash'
+import { flatten, identity } from 'lodash'
 import { TYPE } from '@tradle/constants'
 import { separator } from '../constants'
 import {
@@ -6,10 +6,11 @@ import {
   IDynogelIndex,
   ITableOpts,
   PropsDeriver,
-  ITableDefinition
+  ITableDefinition,
+  ResolveOrderBy
 } from '../types'
 
-import { prefixString } from '../prefix'
+import { prefixString, prefixKeys, prefixValues } from '../prefix'
 import { createControlLatestHook } from '../hooks'
 
 import {
@@ -25,10 +26,10 @@ const tableDefinition = utils.toDynogelTableDefinition(cloudformation)
 export const defaultTableDefinition = tableDefinition
 export const defaultIndexes = tableDefinition.indexes
 
-const getDefaultDeriveProperties:PropsDeriver = (def:ITableDefinition) => resource => {
+const getDefaultDeriveProperties = (def:ITableDefinition):PropsDeriver => (resource, forRead) => {
   const derived = {}
   if (resource[TYPE] && resource._permalink) {
-    derived[def.hashKey] = resource[def.hashKey] || calcTypeAndPermalinkProperty(resource)
+    derived[def.hashKey] = [resource._permalink, resource[TYPE]].join(separator)
     derived[def.rangeKey] = '__placeholder__'
   }
 
@@ -45,15 +46,11 @@ const getDefaultDeriveProperties:PropsDeriver = (def:ITableDefinition) => resour
     derived[def.indexes[1].rangeKey] = String(resource._time)
   }
 
-  return derived
-}
+  const rangeKeys = def.indexes.map(def => def.rangeKey)
+    .concat(def.rangeKey)
+    .filter(identity)
 
-const calcTypeAndPermalinkProperty = resource => {
-  if (!(resource._permalink && resource[TYPE])) {
-    throw new Error(`missing one of required props: _permalink, ${TYPE}`)
-  }
-
-  return [resource._permalink, resource[TYPE]].join(separator)
+  return prefixValues(derived, 'tradle.Object', rangeKeys)
 }
 
 type CommonTableOpts = {
@@ -62,7 +59,7 @@ type CommonTableOpts = {
   tableDefinition: IDynogelTableDefinition
   derivedProperties: string[]
   deriveProperties: PropsDeriver
-  resolveOrderBy?: (hashKey: string, property: string) => string
+  resolveOrderBy?: ResolveOrderBy
 }
 
 export const getCommonTableOpts = (tableName, indexes?): CommonTableOpts => {
@@ -84,14 +81,14 @@ export const getCommonTableOpts = (tableName, indexes?): CommonTableOpts => {
     tableDefinition: def,
     derivedProperties,
     deriveProperties: getDefaultDeriveProperties(def),
-    resolveOrderBy: (hashKey, prop) => {
-      if (hashKey !== def.hashKey && prop === '_time') {
+    resolveOrderBy: ({ type, hashKey, property }) => {
+      if (hashKey !== def.hashKey && property === '_time') {
         return def.indexes
           .find(index => index.hashKey === hashKey)
           .rangeKey
       }
 
-      return prop
+      return property
     }
   }
 }

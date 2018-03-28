@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
-import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts } from './types';
+import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, ResolveOrderByInput } from './types';
 export declare class Table extends EventEmitter {
     name: string;
     models: Models;
@@ -21,7 +21,7 @@ export declare class Table extends EventEmitter {
     private readOnly;
     private findOpts;
     private _deriveProperties;
-    private _resolveOrderBy?;
+    private _resolveOrderBy;
     private hooks;
     readonly hashKey: string;
     readonly rangeKey: string;
@@ -45,17 +45,17 @@ export declare class Table extends EventEmitter {
     destroy: () => Promise<void>;
     private _debug;
     private _initTable;
-    deriveProperties: (resource: any) => any;
+    deriveProperties: (resource: any, forRead?: boolean) => any;
     toDBFormat: (resource: any) => any;
     fromDBFormat: (resource: any) => any;
     private _write;
     private _validateResource;
     private _batchPut;
     getPrimaryKeys: (resource: any) => any;
-    addDerivedProperties: (resource: any) => any;
+    addDerivedProperties: (resource: any, forRead: any) => any;
     withDerivedProperties: (resource: any) => any;
     omitDerivedProperties: (resource: any) => any;
-    resolveOrderBy: (hashKey: string, property: string) => string;
+    resolveOrderBy: (opts: ResolveOrderByInput) => string;
     private _ensureWritable;
     private _hasAllPrimaryKeys;
 }

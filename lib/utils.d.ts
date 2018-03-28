@@ -14,7 +14,7 @@ declare function sortResults({results, orderBy}: {
     results: any[];
     orderBy?: OrderBy;
 }): any[];
-declare function compare(a: any, b: any, propertyName: any, asc: any): 0 | 1 | -1;
+declare function compare(a: any, b: any, propertyName: any, asc: any): 1 | 0 | -1;
 declare function toObject(arr: any): {};
 declare function fromResourceStub(props: any): {
     [x: number]: any;

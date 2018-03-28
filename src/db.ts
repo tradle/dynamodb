@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events'
 import _ = require('lodash')
-import validateResource = require('@tradle/validate-resource')
 import { TYPE } from '@tradle/constants'
 import createHooks from 'event-hooks'
 import {
