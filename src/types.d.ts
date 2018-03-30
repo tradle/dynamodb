@@ -16,6 +16,7 @@ export type PropsDeriver = ({
 }) => any
 
 export type ResolveOrderByInput = {
+  table: Table
   type: string
   hashKey: string
   property: string

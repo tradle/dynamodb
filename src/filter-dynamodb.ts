@@ -3,7 +3,6 @@ import { TYPE } from '@tradle/constants'
 import {
   toObject,
   debug,
-  resultsToJson,
   sortResults,
   getQueryInfo,
   promisify,
@@ -14,7 +13,7 @@ import {
 import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
-import { defaultOrderBy, defaultLimit, minifiedFlag, PRIMARY_KEYS_PROPS } from './constants'
+import { defaultLimit, minifiedFlag, PRIMARY_KEYS_PROPS } from './constants'
 import { OrderBy, Model, Models, IDynogelIndex, FindOpts } from './types'
 import { Table } from './table'
 
@@ -26,7 +25,8 @@ class FilterOp {
   public filter:any
   public expandedFilter:any
   public select?:string[]
-  public orderBy:OrderBy
+  public orderBy?:OrderBy
+  public defaultOrderBy?: OrderBy
   public limit:number
   public checkpoint?: any
   public sortedByDB:boolean
@@ -46,7 +46,7 @@ class FilterOp {
     const {
       table,
       models,
-      orderBy=defaultOrderBy,
+      orderBy,
       limit=defaultLimit,
       checkpoint,
       consistentRead,
@@ -63,6 +63,7 @@ class FilterOp {
 
     this.expandedFilter = expandFilter(this.table, this.filter)
     Object.assign(this, getQueryInfo({
+      type: this.type,
       table: this.table,
       filter: this.expandedFilter,
       orderBy: this.orderBy
@@ -87,6 +88,7 @@ class FilterOp {
       builder,
       models,
       orderBy,
+      defaultOrderBy,
       select,
       sortedByDB,
       filter,
@@ -110,13 +112,10 @@ class FilterOp {
 
     let items = result.Items
     if (!sortedByDB) {
-      items = sortResults({
-        results: items,
-        orderBy
-      })
+      items = this.sortResults(items)
     }
 
-    const asc = !orderBy.desc
+    const asc = !(orderBy && orderBy.desc)
     if (checkpoint) {
       // if we're running a scan
       // we need to do pagination in memory
@@ -143,13 +142,13 @@ class FilterOp {
     }
 
     let endPosition
-    const orderByProp = orderBy && this.table.resolveOrderBy({
-      type: this.type,
-      hashKey: this.queriedPrimaryKeys.hashKey,
-      property: orderBy.property
-    })
+    // const orderByProp = orderBy && this.table.resolveOrderBy({
+    //   type: this.type,
+    //   hashKey: this.queriedPrimaryKeys.hashKey,
+    //   property: orderBy.property
+    // })
 
-    if (!orderBy || orderByProp === queryProp) {
+    if (!orderBy || orderBy.property === queryProp) {
       if (items.length <= limit) {
         endPosition = getStartKey(builder)
       }
@@ -176,6 +175,12 @@ class FilterOp {
       itemToPosition
     }
   }
+
+  sortResults = results => sortResults({
+    results,
+    orderBy: this.orderBy,
+    defaultOrderBy: this.defaultOrderBy
+  })
 
   collectInBatches = async () => {
     const { models, table, filter, limit, index, builder } = this
@@ -209,7 +214,7 @@ class FilterOp {
       started = true
       if (batch.Count) {
         result.ScannedCount += batch.ScannedCount
-        result.Items = result.Items.concat(this._filterResults(resultsToJson(batch.Items)))
+        result.Items = result.Items.concat(this._filterResults(table.fromDBFormat(batch.Items)))
       }
 
       if (!batch.LastEvaluatedKey) break
@@ -252,11 +257,17 @@ class FilterOp {
     }
 
     if (needsInflate) {
+      let more
       if (resource._link && table.objects) {
-        return await table.objects.get(resource._link)
+        more = await table.objects.get(resource._link)
+      } else {
+        more = await table.get(resource)
       }
 
-      return await table.get(resource)
+      return {
+        ...resource,
+        ...more
+      }
     }
 
     return resource
@@ -369,7 +380,7 @@ class FilterOp {
       if (sortedByDB) {
         // ordering in DB only makes sense if results
         // are sorted (but maybe in reverse)
-        if (orderBy.desc) {
+        if (orderBy && orderBy.desc) {
           builder.descending()
         } else {
           builder.ascending()

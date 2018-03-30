@@ -42,7 +42,8 @@ import {
   getIndexForPrimaryKeys,
   getTableDefinitionForModel,
   getModelProperties,
-  hookUp
+  hookUp,
+  resultsToJson
 } from './utils'
 
 import minify from './minify'
@@ -90,6 +91,13 @@ const HOOKABLE = [
 ]
 
 const defaultResolveOrderBy = (opts:ResolveOrderByInput) => opts.property
+
+type ResolveOrderByInputLite = {
+  type: string
+  hashKey: string
+  property: string
+  table?: Table
+}
 
 export class Table extends EventEmitter {
   public name:string
@@ -250,7 +258,7 @@ export class Table extends EventEmitter {
       return this.objects.get(resource._link)
     }
 
-    return resource
+    return this._exportResource(resource)
   }
 
   public del = async (query, opts={}):Promise<any> => {
@@ -408,14 +416,9 @@ export class Table extends EventEmitter {
   //   return this.prefixProperties(resource)
   // }
 
-  public fromDBFormat = (resource) => {
-    if (typeof resource.toJSON === 'function') {
-      resource = resource.toJSON()
-    }
-
-    return this._exportResource(resource)
+  public fromDBFormat = resultsToJson
+    // return this._exportResource(resource)
     // return this.unprefixProperties(resource)
-  }
 
   // public prefixKey = ({ type, key }: { type:string, key:string }):string => {
   //   return DONT_PREFIX.includes(key)
@@ -567,8 +570,8 @@ export class Table extends EventEmitter {
   public withDerivedProperties = resource => _.extend({}, resource, this.deriveProperties(resource))
   public omitDerivedProperties = resource => _.omit(resource, this.derivedProperties)
 
-  public resolveOrderBy = (opts: ResolveOrderByInput) => {
-    return this._resolveOrderBy(opts) || opts.property
+  public resolveOrderBy = (opts: ResolveOrderByInputLite) => {
+    return this._resolveOrderBy({ table: this, ...opts }) || opts.property
   }
 
   private _ensureWritable = () => {

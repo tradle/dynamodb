@@ -2,7 +2,7 @@ import bindAll = require('bindall');
 import promisify = require('pify');
 import AWS = require('aws-sdk');
 import { Table } from './table';
-import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, PropsDeriver } from './types';
+import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, PropsDeriver, ResolveOrderBy } from './types';
 declare const debug: any;
 declare const levenshteinDistance: (a: string, b: string) => any;
 declare function getTableName({model, prefix, suffix}: {
@@ -10,11 +10,12 @@ declare function getTableName({model, prefix, suffix}: {
     prefix?: string;
     suffix?: string;
 }): string;
-declare function sortResults({results, orderBy}: {
+declare function sortResults({results, orderBy, defaultOrderBy}: {
     results: any[];
     orderBy?: OrderBy;
-}): any[];
-declare function compare(a: any, b: any, propertyName: any, asc: any): 1 | -1 | 0;
+    defaultOrderBy?: OrderBy;
+}): any;
+declare function compare(a: any, b: any, propertyName: any): 1 | 0 | -1;
 declare function toObject(arr: any): {};
 declare function fromResourceStub(props: any): {
     [x: number]: any;
@@ -23,10 +24,11 @@ declare function fromResourceStub(props: any): {
 };
 declare function resultsToJson(items: any): any;
 declare const getModelProperties: any;
-declare function getQueryInfo({table, filter, orderBy}: {
+declare function getQueryInfo({table, filter, orderBy, type}: {
     table: Table;
     filter: any;
     orderBy: any;
+    type: string;
 }): {
     opType: string;
     hashKey: string;
@@ -36,6 +38,8 @@ declare function getQueryInfo({table, filter, orderBy}: {
     itemToPosition: (item: any) => any;
     filterProps: string[];
     sortedByDB: any;
+    orderBy: any;
+    defaultOrderBy: any;
 };
 declare function runWithBackoffOnTableNotExists(fn: any, opts?: any): Promise<any>;
 declare const runWithBackoffWhile: (fn: any, opts: any) => Promise<any>;
@@ -68,5 +72,6 @@ export declare const defaultIndexedProperties: {
     rangeKey: string;
 }[];
 export declare const getTemplateStringVariables: (str: string) => string[];
+export declare const defaultResolveOrderBy: ResolveOrderBy;
 export declare const defaultDeriveProperties: PropsDeriver;
 export { fromResourceStub, sortResults, compare, promisify, debug, bindAll, toObject, getTableName, resultsToJson, getQueryInfo, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType, lazyDefine, levenshteinDistance, getIndexForPrimaryKeys, getTableDefinitionForModel, toDynogelTableDefinition, toDynogelIndexDefinition, doesIndexProjectProperty, getModelProperties, uniqueStrict };

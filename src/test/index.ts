@@ -23,19 +23,25 @@ import {
 
 import {
   debug,
-  sortResults,
+  sortResults as rawSortResults,
   wait,
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
   getQueryInfo,
   toDynogelTableDefinition,
-  defaultDeriveProperties
+  defaultDeriveProperties,
+  defaultResolveOrderBy
 } from '../utils'
 
 import {
   createDB as rawCreateDB,
   defaultIndexes
 } from './utils'
+
+const sortResults = opts => rawSortResults({
+  defaultOrderBy,
+  ...opts
+})
 
 dynogels.log = {
   info: debug,
@@ -1062,6 +1068,7 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     tableDefinition: def,
     derivedProperties: tableKeys,
     deriveProperties: defaultDeriveProperties,
+    resolveOrderBy: defaultResolveOrderBy
     // deriveProperties: ({ item, isRead }) => {
     //   let type
     //   switch (item[TYPE]) {
@@ -1090,18 +1097,18 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     //     }
     //   }
     // },
-    resolveOrderBy: ({ type, hashKey, property }) => {
-      if (hashKey === def.hashKey) return rangeKey
+    // resolveOrderBy: ({ type, hashKey, property }) => {
+    //   if (hashKey === def.hashKey) return rangeKey
 
-      switch (type) {
-      case 'tradle.Event':
-        return property
-      default:
-        const index = def.indexes.find(index => index.hashKey === hashKey)
-        if (index) return index.rangeKey
-        return property
-      }
-    }
+    //   switch (type) {
+    //   case 'tradle.Event':
+    //     return property
+    //   default:
+    //     const index = def.indexes.find(index => index.hashKey === hashKey)
+    //     if (index) return index.rangeKey
+    //     return property
+    //   }
+    // }
   })
 
   for (let id in myModels) {
@@ -1275,6 +1282,7 @@ function toProjectionTypeAll (index) {
 
 function getItemPosition ({ db, filter, orderBy, item }) {
   return getQueryInfo({
+    type: filter.EQ[TYPE],
     table: db.tables[filter.EQ[TYPE]],
     filter,
     orderBy

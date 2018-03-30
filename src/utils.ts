@@ -5,11 +5,12 @@ import promisify = require('pify')
 import levenshtein = require('fast-levenshtein')
 import AWS = require('aws-sdk')
 import Joi from 'joi'
+import sort from 'array-sort'
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
 import { Table } from './table'
 import {
-  defaultOrderBy,
+  // defaultOrderBy,
   minifiedFlag,
 } from './constants'
 
@@ -27,7 +28,8 @@ import {
   OrderBy,
   TableChooser,
   FindOpts,
-  PropsDeriver
+  PropsDeriver,
+  ResolveOrderBy
 } from './types'
 
 import BaseObjectModel from './object-model'
@@ -64,27 +66,32 @@ function getTableName ({ model, prefix='', suffix='' }) {
 //   return defaultIndexes.slice()
 // }
 
-function sortResults ({ results, orderBy=defaultOrderBy }: {
-  results:any[],
+function sortResults ({ results, orderBy, defaultOrderBy }: {
+  results:any[]
   orderBy?:OrderBy
+  defaultOrderBy?: OrderBy
 }) {
-  const { property, desc } = orderBy
-  const asc = !desc // easier to think about
-  if (property === defaultOrderBy.property) {
-    return results.sort((a, b) => compare(a, b, property, asc))
+  // make sure both are initialized
+  orderBy = orderBy || defaultOrderBy
+  defaultOrderBy = defaultOrderBy || orderBy
+  if (!orderBy) {
+    debugger
+    return results
   }
 
-  return results.sort(function (a, b) {
-    return compare(a, b, property, asc) ||
-      compare(a, b, defaultOrderBy.property, asc)
-  })
+  const { property, desc } = orderBy
+  if (property === defaultOrderBy.property) {
+    return sort(results, property, { reverse: desc })
+  }
+
+  return sort(results, [property, defaultOrderBy.property], { reverse: desc })
 }
 
-function compare (a, b, propertyName, asc) {
+function compare (a, b, propertyName) {
   const aVal = _.get(a, propertyName)
   const bVal = _.get(b, propertyName)
-  if (aVal < bVal) return asc ? -1 : 1
-  if (aVal > bVal) return asc ? 1 : -1
+  if (aVal < bVal) return -1
+  if (aVal > bVal) return 1
 
   return 0
 }
@@ -249,10 +256,11 @@ function getIndexForProperty ({ table, property }) {
   return table.indexes.find(({ hashKey }) => hashKey === property)
 }
 
-function getQueryInfo ({ table, filter, orderBy }: {
+function getQueryInfo ({ table, filter, orderBy, type }: {
   table: Table
   filter: any
   orderBy: any
+  type: string
 }) {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
@@ -273,23 +281,35 @@ function getQueryInfo ({ table, filter, orderBy }: {
   let queryProp
   let sortedByDB
   let index
+  let defaultOrderBy
   if (opType === 'query') {
     // supported key condition operators:
     // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
     const preferred = getPreferredQueryProperty({ table, properties: usedIndexedProps })
     queryProp = preferred.property
     index = preferred.index
-    orderBy = {
-      ...orderBy,
-      property: table.resolveOrderBy({
-        type: this.type,
-        hashKey: queryProp,
-        property: orderBy.property
-      })
+    defaultOrderBy = { property: preferred.rangeKey }
+    if (orderBy) {
+      defaultOrderBy.desc = orderBy.desc
+      orderBy = {
+        ...orderBy,
+        property: table.resolveOrderBy({
+          type,
+          hashKey: queryProp,
+          property: orderBy.property
+        })
+      }
+    } else {
+      orderBy = defaultOrderBy
     }
 
     if (orderBy.property === preferred.rangeKey) {
       sortedByDB = true
+    }
+  } else {
+    orderBy = {}
+    if (rangeKey) {
+      orderBy.property = rangeKey
     }
   }
 
@@ -318,7 +338,9 @@ function getQueryInfo ({ table, filter, orderBy }: {
     index,
     itemToPosition,
     filterProps: usedProps,
-    sortedByDB
+    sortedByDB,
+    orderBy,
+    defaultOrderBy
   }
 }
 
@@ -661,9 +683,31 @@ export const getTemplateStringVariables = (str: string) => {
   return []
 }
 
+const canRenderTemplate = (template, dataKeys) =>
+  !_.difference(getTemplateStringVariables(template), dataKeys).length
+
 const renderTemplate = (str, data) => _.template(str, {
   interpolate: /{{([\s\S]+?)}}/g
 })(data)
+
+export const defaultResolveOrderBy: ResolveOrderBy = ({
+  table,
+  type,
+  hashKey,
+  property
+}) => {
+  const { indexed } = table
+  const index = indexed.find(index => index.hashKey === hashKey)
+  const model = table.models[type]
+  const { indexedProperties = defaultIndexedProperties } = model
+  const indexedProp = indexedProperties[indexed.indexOf(index)]
+  if (!(indexedProp && indexedProp.rangeKey)) return
+
+  const rangeKeyDerivesFromProp = canRenderTemplate(indexedProp.rangeKey, [property])
+  if (rangeKeyDerivesFromProp) {
+    return index.rangeKey
+  }
+}
 
 export const defaultDeriveProperties: PropsDeriver = ({
   table,
@@ -673,6 +717,7 @@ export const defaultDeriveProperties: PropsDeriver = ({
   const type = item[TYPE]
   const model = table.models[type]
   const { indexedProperties = defaultIndexedProperties } = model
+  const dataKeys = Object.keys(item)
   return _.chain(indexedProperties)
     .map((templates, i) => {
       const { hashKey, rangeKey } = table.indexed[i]
@@ -691,10 +736,8 @@ export const defaultDeriveProperties: PropsDeriver = ({
       return ret
     })
     .flatten()
-    .filter(({ template }) => {
-      return getTemplateStringVariables(template)
-        .every(prop => prop in item)
-    })
+    // only render the keys for which we have all the variables
+    .filter(({ template }) => canRenderTemplate(template, dataKeys))
     .reduce((inputs, { property, template }) => {
       inputs[property] = renderTemplate(template, item)
       return inputs
