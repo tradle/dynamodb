@@ -219,15 +219,7 @@ export class Table extends EventEmitter {
     return [
       this._getPrimaryKeysForModel({ table: this, model }),
       ...this._getIndexesForModel({ table: this, model })
-    ]
-    .map(normalizeIndexedProperty)
-    .map((index, i) => {
-      if (!index.rangeKey && this.indexed[i].rangeKey) {
-        return { ...index, rangeKey: RANGE_KEY_PLACEHOLDER_VALUE }
-      }
-
-      return index
-    })
+    ].map(normalizeIndexedProperty)
   }
 
   public hook = (method, handler) => this.hooks.hook(method, handler)

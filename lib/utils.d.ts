@@ -2,7 +2,7 @@ import bindAll = require('bindall');
 import promisify = require('pify');
 import AWS = require('aws-sdk');
 import { Table } from './table';
-import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, IndexedProperty } from './types';
+import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, IndexedProperty, IDynamoDBKey } from './types';
 declare const debug: any;
 export declare const levenshteinDistance: (a: string, b: string) => any;
 export declare const getTableName: ({ model, prefix, suffix }: {
@@ -92,5 +92,5 @@ export declare const hookUp: (fn: any, event: any) => (...args: any[]) => Promis
 export declare const getTemplateStringVariables: (str: string) => string[];
 export declare const canRenderTemplate: (template: any, item: any) => boolean;
 export declare const renderTemplate: (str: any, data: any) => any;
-export declare const normalizeIndexedProperty: (property: string | string[] | IndexedProperty) => IndexedProperty;
+export declare const normalizeIndexedProperty: (property: string | string[] | IDynamoDBKey | IndexedProperty) => IndexedProperty;
 export { promisify, debug, bindAll, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType };

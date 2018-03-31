@@ -31,9 +31,12 @@ export type ResolveOrderBy = (opts: ResolveOrderByInput) => string
 //   rangeKey: PropertyDeriver
 // }
 
-export interface IDynogelIndex {
+export type IDynamoDBKey = {
   hashKey: string
   rangeKey?: string
+}
+
+export interface IDynogelIndex extends IDynamoDBKey {
   name: string
   type: IndexType
   projection: AWS.DynamoDB.Types.Projection
@@ -176,9 +179,13 @@ export interface IDynogelTableDefinition {
   deriveProperties?: PropsDeriver
 }
 
+export type KeyTemplate = {
+  template: string
+}
+
 export type IndexedProperty = {
-  hashKey: string
-  rangeKey?: string
+  hashKey: KeyTemplate
+  rangeKey?: KeyTemplate
 }
 
 // export type Cache = {

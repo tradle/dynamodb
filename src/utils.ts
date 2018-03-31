@@ -14,7 +14,8 @@ import {
   minifiedFlag,
   separator,
   RANGE_KEY_PLACEHOLDER_VALUE,
-  DEFAULT_RANGE_KEY
+  DEFAULT_RANGE_KEY,
+  PRIMARY_KEYS_PROPS
 } from './constants'
 
 import {
@@ -35,7 +36,9 @@ import {
   ResolveOrderBy,
   IndexedProperty,
   GetIndexesForModel,
-  GetPrimaryKeysForModel
+  GetPrimaryKeysForModel,
+  IDynamoDBKey,
+  KeyTemplate
 } from './types'
 
 const debug = require('debug')(require('../package.json').name)
@@ -649,21 +652,22 @@ export const renderTemplate = (str, data) => _.template(str, {
   interpolate: TEMPLATE_SETTINGS
 })(data)
 
-
-export const normalizeIndexedProperty = (property:string|string[]|IndexedProperty):IndexedProperty => {
-  if (typeof property === 'string') {
-    property = [property]
-  }
-
-  if (Array.isArray(property)) {
+export const normalizeIndexedProperty = (property:string|string[]|IDynamoDBKey|IndexedProperty):IndexedProperty => {
+  if (typeof property === 'string' || Array.isArray(property)) {
+    debugger
     return {
-      hashKey: property.map(prop => `{{property}}`).join(separator),
-      rangeKey: DEFAULT_RANGE_KEY
+      hashKey: getKeyTemplateFromProperty([].concat(property).join('.'))
     }
   }
 
-  return property
+  const { hashKey, rangeKey=DEFAULT_RANGE_KEY } = property
+  return {
+    hashKey: typeof hashKey === 'string' ? getKeyTemplateFromProperty(hashKey) : hashKey,
+    rangeKey: typeof rangeKey === 'string' ? getKeyTemplateFromProperty(rangeKey) : rangeKey,
+  }
 }
+
+const getKeyTemplateFromProperty = (property:string):KeyTemplate => ({ template: `{{${property}}}` })
 
 // export const ensureRangeKey = (index: IndexedProperty):IndexedProperty => ({
 //   ...index,

@@ -16,20 +16,32 @@ import {
 
 export const primaryKeys = {
   // default for all tradle.Object resources
-  hashKey: 'tradle.Object_{{_permalink}}',
-  rangeKey: '_' // constant
+  hashKey: {
+    template: 'tradle.Object_{{_permalink}}'
+  },
+  rangeKey: {
+    template: '_' // constant
+  }
 }
 
 export const indexes = [
   {
     // default for all tradle.Object resources
-    hashKey: 'tradle.Object_{{_author}}',
-    rangeKey: '{{_time}}'
+    hashKey: {
+      template: 'tradle.Object_{{_author}}',
+    },
+    rangeKey: {
+      template: '{{_time}}'
+    }
   },
   {
     // default for all tradle.Object resources
-    hashKey: 'tradle.Object_{{_t}}',
-    rangeKey: '{{_time}}'
+    hashKey: {
+      template: 'tradle.Object_{{_t}}',
+    },
+    rangeKey: {
+      template: '{{_time}}'
+    }
   }
 ]
 
@@ -53,7 +65,7 @@ export const resolveOrderBy: ResolveOrderBy = ({
   const indexedProp = indexes[table.indexed.indexOf(index)]
   if (!(indexedProp && indexedProp.rangeKey)) return
 
-  const rangeKeyDerivesFromProp = canRenderTemplate(indexedProp.rangeKey, { [property]: 'placeholder' })
+  const rangeKeyDerivesFromProp = canRenderTemplate(indexedProp.rangeKey.template, { [property]: 'placeholder' })
   if (rangeKeyDerivesFromProp) {
     return index.rangeKey
   }
@@ -67,18 +79,18 @@ export const deriveProperties: PropsDeriver = ({
   const type = item[TYPE]
   const model = table.models[type]
   const indexes = table.getKeyTemplatesForModel(model)
-  return _.chain(indexes)
+  const renderable = _.chain(indexes)
     .map((templates, i) => {
       const { hashKey, rangeKey } = table.indexed[i]
       const ret = [{
         property: hashKey,
-        template: templates.hashKey
+        template: templates.hashKey.template
       }]
 
       if (rangeKey && templates.rangeKey) {
         ret.push({
           property: rangeKey,
-          template: templates.rangeKey
+          template: templates.rangeKey.template
         })
       }
 
@@ -87,9 +99,10 @@ export const deriveProperties: PropsDeriver = ({
     .flatten()
     // only render the keys for which we have all the variables
     .filter(({ template }) => canRenderTemplate(template, item))
-    .reduce((inputs, { property, template }) => {
-      inputs[property] = renderTemplate(template, item)
-      return inputs
-    }, {})
     .value()
+
+  return renderable.reduce((inputs, { property, template }) => {
+    inputs[property] = renderTemplate(template, item)
+    return inputs
+  }, {})
 }

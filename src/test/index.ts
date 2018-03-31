@@ -29,7 +29,8 @@ import {
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
   getQueryInfo,
-  toDynogelTableDefinition
+  toDynogelTableDefinition,
+  normalizeIndexedProperty
 } from '../utils'
 
 import {
@@ -1047,12 +1048,17 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
       }
     },
     primaryKeys: {
-      hashKey: '{{topic}}',
-      rangeKey: '{{time}}' // constant
+      hashKey: 'topic',
+      rangeKey: 'time' // constant
     },
     indexes: [
       {
-        hashKey: '{{payload.user}}'
+        hashKey: {
+          template: '{{payload.user}}'
+        },
+        rangeKey: {
+          template: '{{time}}'
+        }
       }
     ]
   }
@@ -1063,9 +1069,11 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
   }
 
   const getIndexesForModel = ({ model, table }) => {
-    if (model.id === eventModel.id) return eventModel.indexes
+    const indexes = model.id === eventModel.id
+      ? eventModel.indexes
+      : defaults.indexes.concat(model.indexes || [])
 
-    return defaults.indexes.concat(model.indexes || [])
+    return indexes.map(index => normalizeIndexedProperty(index))
   }
 
   const table = new Table({

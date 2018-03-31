@@ -30,8 +30,12 @@ export declare class Table extends EventEmitter {
     readonly rangeKey: string;
     constructor(opts: ITableOpts);
     getKeyTemplatesForModel: (model: Model) => {
-        hashKey: string;
-        rangeKey?: string;
+        hashKey: {
+            template: string;
+        };
+        rangeKey?: {
+            template: string;
+        };
     }[];
     hook: (method: any, handler: any) => any;
     storeResourcesForModels: (models: Models) => any;
