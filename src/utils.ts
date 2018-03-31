@@ -12,6 +12,9 @@ import { Table } from './table'
 import {
   // defaultOrderBy,
   minifiedFlag,
+  separator,
+  RANGE_KEY_PLACEHOLDER_VALUE,
+  DEFAULT_RANGE_KEY
 } from './constants'
 
 import {
@@ -29,35 +32,17 @@ import {
   TableChooser,
   FindOpts,
   PropsDeriver,
-  ResolveOrderBy
+  ResolveOrderBy,
+  IndexedProperty,
+  GetIndexesForModel,
+  GetPrimaryKeysForModel
 } from './types'
 
-import BaseObjectModel from './object-model'
 const debug = require('debug')(require('../package.json').name)
-// const metadataTypes = toJoi({
-//   model: BaseObjectModel
-// })
 
-// const defaultTableAttributes = toJoi({
-//   models: {
-//     [BaseObjectModel.id]: BaseObjectModel
-//   },
-//   model: {
-//     properties: _.uniq(
-//         defaultIndexPropertyNames
-//         .concat(defaultHashKeyProperty)
-//         .concat(defaultRangeKeyProperty)
-//       )
-//       .reduce((props, prop) => {
-//         props[prop] = { type: 'string' }
-//         return props
-//       }, {})
-//   }
-// })
+export const levenshteinDistance = (a:string, b:string) => levenshtein.get(a, b)
 
-const levenshteinDistance = (a:string, b:string) => levenshtein.get(a, b)
-
-function getTableName ({ model, prefix='', suffix='' }) {
+export const getTableName = ({ model, prefix='', suffix='' }) => {
   const name = (model.id || model).replace(/[.]/g, '_')
   return prefix + name + suffix
 }
@@ -66,11 +51,11 @@ function getTableName ({ model, prefix='', suffix='' }) {
 //   return defaultIndexes.slice()
 // }
 
-function sortResults ({ results, orderBy, defaultOrderBy }: {
+export const sortResults = ({ results, orderBy, defaultOrderBy }: {
   results:any[]
   orderBy?:OrderBy
   defaultOrderBy?: OrderBy
-}) {
+}) => {
   // make sure both are initialized
   orderBy = orderBy || defaultOrderBy
   defaultOrderBy = defaultOrderBy || orderBy
@@ -87,7 +72,7 @@ function sortResults ({ results, orderBy, defaultOrderBy }: {
   return sort(results, [property, defaultOrderBy.property], { reverse: desc })
 }
 
-function compare (a, b, propertyName) {
+export const compare = (a, b, propertyName) => {
   const aVal = _.get(a, propertyName)
   const bVal = _.get(b, propertyName)
   if (aVal < bVal) return -1
@@ -96,7 +81,7 @@ function compare (a, b, propertyName) {
   return 0
 }
 
-function toObject (arr) {
+export const toObject = (arr) => {
   const obj = {}
   for (let val of arr) {
     obj[val] = true
@@ -105,7 +90,7 @@ function toObject (arr) {
   return obj
 }
 
-function fromResourceStub (props) {
+export const fromResourceStub = (props) => {
   const [type, permalink, link] = props.id.split('_')
   return {
     [TYPE]: type,
@@ -114,7 +99,7 @@ function fromResourceStub (props) {
   }
 }
 
-function resultsToJson (items) {
+export const resultsToJson = (items) => {
   // return items
   if (Array.isArray(items)) {
     return items.map(item => {
@@ -125,7 +110,7 @@ function resultsToJson (items) {
   return items.toJSON ? items.toJSON() : items
 }
 
-function getUsedProperties (filter) {
+export const getUsedProperties = (filter) => {
   const flat = flatten(filter)
   const props = flat.reduce((all, more) => {
     _.extend(all, more)
@@ -141,7 +126,7 @@ function getUsedProperties (filter) {
  * has no semantic meaning, this is just to be able to check
  * which props are being filtered against
  */
-function flatten (filter) {
+export const flatten = (filter) => {
   const flat = []
   const batch = [filter]
   let len = batch.length
@@ -177,11 +162,12 @@ function flatten (filter) {
 
 const OriginalBaseObjectModel = require('@tradle/models').models['tradle.Object']
 const ObjectModelKeys = Object.keys(OriginalBaseObjectModel.properties)
-const getModelProperties = _.memoize(model => {
+
+export const getModelProperties = _.memoize(model => {
   return uniqueStrict(Object.keys(model.properties).concat(ObjectModelKeys))
 }, model => model.id)
 
-const getMissingProperties = ({ resource, model, opts }: {
+export const getMissingProperties = ({ resource, model, opts }: {
   resource,
   model,
   opts:FindOpts
@@ -209,10 +195,10 @@ type TablePropInfo = {
   index?: IDynogelIndex
 }
 
-function getPreferredQueryProperty ({ table, properties }: {
+export const getPreferredQueryProperty = ({ table, properties }: {
   table: Table,
   properties: string[]
-}):TablePropInfo {
+}):TablePropInfo => {
   if (properties.length > 1) {
     const { indexes } = table
     const projectsAll = indexes.find(index => {
@@ -252,16 +238,16 @@ function getPreferredQueryProperty ({ table, properties }: {
   }
 }
 
-function getIndexForProperty ({ table, property }) {
+export const getIndexForProperty = ({ table, property }) => {
   return table.indexes.find(({ hashKey }) => hashKey === property)
 }
 
-function getQueryInfo ({ table, filter, orderBy, type }: {
+export const getQueryInfo = ({ table, filter, orderBy, type }: {
   table: Table
   filter: any
   orderBy: any
   type: string
-}) {
+}) => {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
   const usedProps = getUsedProperties(filter)
@@ -486,7 +472,7 @@ const getFilterType = (opts):string => {
   return type
 }
 
-const lazyDefine = (obj:any, keys:string[], definer:Function):void => {
+export const lazyDefine = (obj:any, keys:string[], definer:Function):void => {
   keys.forEach(key => {
     let cachedValue
     Object.defineProperty(obj, key, {
@@ -504,20 +490,7 @@ const lazyDefine = (obj:any, keys:string[], definer:Function):void => {
   })
 }
 
-const getIndexForPrimaryKeys = ({ model }: {
-  model:Model
-}):IDynogelIndex => {
-  return {
-    ...model.primaryKeys,
-    type: 'global',
-    name: model.primaryKeys.hashKey,
-    projection: {
-      ProjectionType: 'KEYS_ONLY'
-    }
-  }
-}
-
-const getTableDefinitionForModel = ({ models, model }: {
+export const getTableDefinitionForModel = ({ models, model }: {
   models: Models
   model: Model
 }):IDynogelTableDefinition => {
@@ -562,7 +535,7 @@ const cfToJoi = {
   S: Joi.string()
 }
 
-const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):IDynogelTableDefinition => {
+export const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):IDynogelTableDefinition => {
   const { TableName, KeySchema, GlobalSecondaryIndexes=[], AttributeDefinitions } = cloudformation
   const hashKey = KeySchema.find(key => key.KeyType === 'HASH').AttributeName
   const rangeKeyDef = KeySchema.find(key => key.KeyType === 'RANGE')
@@ -588,7 +561,7 @@ const toDynogelTableDefinition = (cloudformation:AWS.DynamoDB.CreateTableInput):
   }
 }
 
-const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryIndex):IDynogelIndex => {
+export const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryIndex):IDynogelIndex => {
   const { KeySchema, Projection, ProvisionedThroughput, IndexName } = cloudformation
   const hashKey = KeySchema.find(key => key.KeyType === 'HASH').AttributeName
   const rangeKeyDef = KeySchema.find(key => key.KeyType === 'RANGE')
@@ -601,7 +574,7 @@ const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecondaryInd
   }
 }
 
-const doesIndexProjectProperty = ({ table, index, property }: {
+export const doesIndexProjectProperty = ({ table, index, property }: {
   table: Table,
   index: IDynogelIndex,
   property:string
@@ -618,7 +591,7 @@ const doesIndexProjectProperty = ({ table, index, property }: {
   return index.rangeKey === property || table.primaryKeyProps.includes(property)
 }
 
-const uniqueStrict = arr => {
+export const uniqueStrict = arr => {
   const map = new Map()
   const uniq:any[] = []
   for (const item of arr) {
@@ -656,23 +629,6 @@ export const hookUp = (fn, event) => async function (...args) {
   return result
 }
 
-export const defaultIndexedProperties = [
-  {
-    // default for all tradle.Object resources
-    hashKey: 'tradle.Object_{{_t}}_{{_permalink}}',
-    rangeKey: 'placeholder' // constant
-  },
-  {
-    // default for all tradle.Object resources
-    hashKey: 'tradle.Object_{{_author}}',
-    rangeKey: '{{_time}}'
-  },
-  {
-    // default for all tradle.Object resources
-    hashKey: 'tradle.Object_{{_t}}',
-    rangeKey: '{{_time}}'
-  }
-]
 
 export const getTemplateStringVariables = (str: string) => {
   const match = str.match(/\{\{([^}]+)\}\}/g)
@@ -683,80 +639,42 @@ export const getTemplateStringVariables = (str: string) => {
   return []
 }
 
-const canRenderTemplate = (template, dataKeys) =>
-  !_.difference(getTemplateStringVariables(template), dataKeys).length
+export const canRenderTemplate = (template, item) => {
+  const paths = getTemplateStringVariables(template)
+  return paths.every(path => typeof _.get(item, path) !== 'undefined')
+}
 
-const renderTemplate = (str, data) => _.template(str, {
-  interpolate: /{{([\s\S]+?)}}/g
+const TEMPLATE_SETTINGS = /{{([\s\S]+?)}}/g
+export const renderTemplate = (str, data) => _.template(str, {
+  interpolate: TEMPLATE_SETTINGS
 })(data)
 
-export const defaultResolveOrderBy: ResolveOrderBy = ({
-  table,
-  type,
-  hashKey,
-  property
-}) => {
-  const { indexed } = table
-  const index = indexed.find(index => index.hashKey === hashKey)
-  const model = table.models[type]
-  const { indexedProperties = defaultIndexedProperties } = model
-  const indexedProp = indexedProperties[indexed.indexOf(index)]
-  if (!(indexedProp && indexedProp.rangeKey)) return
 
-  const rangeKeyDerivesFromProp = canRenderTemplate(indexedProp.rangeKey, [property])
-  if (rangeKeyDerivesFromProp) {
-    return index.rangeKey
+export const normalizeIndexedProperty = (property:string|string[]|IndexedProperty):IndexedProperty => {
+  if (typeof property === 'string') {
+    property = [property]
   }
+
+  if (Array.isArray(property)) {
+    return {
+      hashKey: property.map(prop => `{{property}}`).join(separator),
+      rangeKey: DEFAULT_RANGE_KEY
+    }
+  }
+
+  return property
 }
 
-export const defaultDeriveProperties: PropsDeriver = ({
-  table,
-  item,
-  isRead
-}) => {
-  const type = item[TYPE]
-  const model = table.models[type]
-  const { indexedProperties = defaultIndexedProperties } = model
-  const dataKeys = Object.keys(item)
-  return _.chain(indexedProperties)
-    .map((templates, i) => {
-      const { hashKey, rangeKey } = table.indexed[i]
-      const ret = [{
-        property: hashKey,
-        template: templates.hashKey
-      }]
-
-      if (rangeKey && templates.rangeKey) {
-        ret.push({
-          property: rangeKey,
-          template: templates.rangeKey
-        })
-      }
-
-      return ret
-    })
-    .flatten()
-    // only render the keys for which we have all the variables
-    .filter(({ template }) => canRenderTemplate(template, dataKeys))
-    .reduce((inputs, { property, template }) => {
-      inputs[property] = renderTemplate(template, item)
-      return inputs
-    }, {})
-    .value()
-}
+// export const ensureRangeKey = (index: IndexedProperty):IndexedProperty => ({
+//   ...index,
+//   rangeKey: index.rangeKey || RANGE_KEY_PLACEHOLDER_VALUE
+// })
 
 export {
-  fromResourceStub,
-  sortResults,
-  compare,
   promisify,
   debug,
   bindAll,
-  toObject,
   // getIndexes,
-  getTableName,
-  resultsToJson,
-  getQueryInfo,
   runWithBackoffWhile,
   runWithBackoffOnTableNotExists,
   waitTillActive,
@@ -768,14 +686,5 @@ export {
   defaultBackoffFunction,
   validateTableName,
   getFilterType,
-  lazyDefine,
-  levenshteinDistance,
-  getIndexForPrimaryKeys,
-  getTableDefinitionForModel,
-  toDynogelTableDefinition,
-  toDynogelIndexDefinition,
-  doesIndexProjectProperty,
-  getModelProperties,
-  uniqueStrict,
   // cachify
 }

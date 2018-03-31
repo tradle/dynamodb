@@ -2,34 +2,59 @@ import bindAll = require('bindall');
 import promisify = require('pify');
 import AWS = require('aws-sdk');
 import { Table } from './table';
-import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, PropsDeriver, ResolveOrderBy } from './types';
+import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, IndexedProperty } from './types';
 declare const debug: any;
-declare const levenshteinDistance: (a: string, b: string) => any;
-declare function getTableName({model, prefix, suffix}: {
+export declare const levenshteinDistance: (a: string, b: string) => any;
+export declare const getTableName: ({ model, prefix, suffix }: {
     model: any;
     prefix?: string;
     suffix?: string;
-}): string;
-declare function sortResults({results, orderBy, defaultOrderBy}: {
+}) => string;
+export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     results: any[];
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
-}): any;
-declare function compare(a: any, b: any, propertyName: any): 1 | 0 | -1;
-declare function toObject(arr: any): {};
-declare function fromResourceStub(props: any): {
+}) => any;
+export declare const compare: (a: any, b: any, propertyName: any) => 1 | -1 | 0;
+export declare const toObject: (arr: any) => {};
+export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
     link: any;
     permalink: any;
 };
-declare function resultsToJson(items: any): any;
-declare const getModelProperties: any;
-declare function getQueryInfo({table, filter, orderBy, type}: {
+export declare const resultsToJson: (items: any) => any;
+export declare const getUsedProperties: (filter: any) => string[];
+/**
+ * flattens nested filter
+ *
+ * has no semantic meaning, this is just to be able to check
+ * which props are being filtered against
+ */
+export declare const flatten: (filter: any) => any[];
+export declare const getModelProperties: any;
+export declare const getMissingProperties: ({ resource, model, opts }: {
+    resource: any;
+    model: any;
+    opts: FindOpts;
+}) => any;
+export declare const getPreferredQueryProperty: ({ table, properties }: {
+    table: Table;
+    properties: string[];
+}) => {
+    property: string;
+    rangeKey?: string;
+    index?: IDynogelIndex;
+};
+export declare const getIndexForProperty: ({ table, property }: {
+    table: any;
+    property: any;
+}) => any;
+export declare const getQueryInfo: ({ table, filter, orderBy, type }: {
     table: Table;
     filter: any;
     orderBy: any;
     type: string;
-}): {
+}) => {
     opType: string;
     hashKey: string;
     rangeKey: string;
@@ -50,28 +75,22 @@ declare function sha256(data: any): string;
 declare function defaultBackoffFunction(retryCount: any): number;
 declare const validateTableName: (name: string) => void;
 declare const getFilterType: (opts: any) => string;
-declare const lazyDefine: (obj: any, keys: string[], definer: Function) => void;
-declare const getIndexForPrimaryKeys: ({ model }: {
-    model: Model;
-}) => IDynogelIndex;
-declare const getTableDefinitionForModel: ({ models, model }: {
+export declare const lazyDefine: (obj: any, keys: string[], definer: Function) => void;
+export declare const getTableDefinitionForModel: ({ models, model }: {
     models: Models;
     model: Model;
 }) => IDynogelTableDefinition;
-declare const toDynogelTableDefinition: (cloudformation: AWS.DynamoDB.CreateTableInput) => IDynogelTableDefinition;
-declare const toDynogelIndexDefinition: (cloudformation: AWS.DynamoDB.GlobalSecondaryIndex) => IDynogelIndex;
-declare const doesIndexProjectProperty: ({ table, index, property }: {
+export declare const toDynogelTableDefinition: (cloudformation: AWS.DynamoDB.CreateTableInput) => IDynogelTableDefinition;
+export declare const toDynogelIndexDefinition: (cloudformation: AWS.DynamoDB.GlobalSecondaryIndex) => IDynogelIndex;
+export declare const doesIndexProjectProperty: ({ table, index, property }: {
     table: Table;
     index: IDynogelIndex;
     property: string;
 }) => boolean;
-declare const uniqueStrict: (arr: any) => any[];
+export declare const uniqueStrict: (arr: any) => any[];
 export declare const hookUp: (fn: any, event: any) => (...args: any[]) => Promise<any>;
-export declare const defaultIndexedProperties: {
-    hashKey: string;
-    rangeKey: string;
-}[];
 export declare const getTemplateStringVariables: (str: string) => string[];
-export declare const defaultResolveOrderBy: ResolveOrderBy;
-export declare const defaultDeriveProperties: PropsDeriver;
-export { fromResourceStub, sortResults, compare, promisify, debug, bindAll, toObject, getTableName, resultsToJson, getQueryInfo, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType, lazyDefine, levenshteinDistance, getIndexForPrimaryKeys, getTableDefinitionForModel, toDynogelTableDefinition, toDynogelIndexDefinition, doesIndexProjectProperty, getModelProperties, uniqueStrict };
+export declare const canRenderTemplate: (template: any, item: any) => boolean;
+export declare const renderTemplate: (str: any, data: any) => any;
+export declare const normalizeIndexedProperty: (property: string | string[] | IndexedProperty) => IndexedProperty;
+export { promisify, debug, bindAll, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType };

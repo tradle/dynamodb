@@ -128,7 +128,7 @@ export default class DB extends EventEmitter {
 
     // save alias
     this.tables[type] = table
-    table.addModel({
+    table.storeResourcesForModel({
       model: this.models[type]
     })
 

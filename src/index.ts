@@ -6,6 +6,7 @@ import errors = require('./errors')
 import createResolvers = require('./resolvers')
 import { ModelStore, createModelStore } from './model-store'
 import * as hooks from './hooks'
+import * as defaults from './defaults'
 
 export {
   Table,
@@ -17,5 +18,6 @@ export {
   constants,
   errors,
   createResolvers,
-  hooks
+  hooks,
+  defaults
 }

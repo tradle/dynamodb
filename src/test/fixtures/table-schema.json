@@ -2,37 +2,37 @@
   "TableName": "resources",
   "AttributeDefinitions": [
     {
-      "AttributeName": "__hashKey__",
+      "AttributeName": "__h__",
       "AttributeType": "S"
     },
     {
-      "AttributeName": "__rangeKey__",
+      "AttributeName": "__r__",
       "AttributeType": "S"
     },
     {
-      "AttributeName": "__x__0h",
+      "AttributeName": "__x0h__",
       "AttributeType": "S"
     },
     {
-      "AttributeName": "__x__0r",
+      "AttributeName": "__x0r__",
       "AttributeType": "S"
     },
     {
-      "AttributeName": "__x__1h",
+      "AttributeName": "__x1h__",
       "AttributeType": "S"
     },
     {
-      "AttributeName": "__x__1r",
+      "AttributeName": "__x1r__",
       "AttributeType": "S"
     }
   ],
   "KeySchema": [
     {
-      "AttributeName": "__hashKey__",
+      "AttributeName": "__h__",
       "KeyType": "HASH"
     },
     {
-      "AttributeName": "__rangeKey__",
+      "AttributeName": "__r__",
       "KeyType": "RANGE"
     }
   ],
@@ -48,11 +48,11 @@
       "IndexName": "index0",
       "KeySchema": [
         {
-          "AttributeName": "__x__0h",
+          "AttributeName": "__x0h__",
           "KeyType": "HASH"
         },
         {
-          "AttributeName": "__x__0r",
+          "AttributeName": "__x0r__",
           "KeyType": "RANGE"
         }
       ],
@@ -69,11 +69,11 @@
       "IndexName": "index1",
       "KeySchema": [
         {
-          "AttributeName": "__x__1h",
+          "AttributeName": "__x1h__",
           "KeyType": "HASH"
         },
         {
-          "AttributeName": "__x__1r",
+          "AttributeName": "__x1r__",
           "KeyType": "RANGE"
         }
       ],

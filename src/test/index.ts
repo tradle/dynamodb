@@ -15,6 +15,7 @@ const models = mergeModels()
 
 import { OrderBy } from '../types'
 import minify from '../minify'
+import * as defaults from '../defaults'
 import { expandFilter } from '../filter-dynamodb'
 import {
   defaultOrderBy,
@@ -28,9 +29,7 @@ import {
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
   getQueryInfo,
-  toDynogelTableDefinition,
-  defaultDeriveProperties,
-  defaultResolveOrderBy
+  toDynogelTableDefinition
 } from '../utils'
 
 import {
@@ -1047,10 +1046,13 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
         range: 'json'
       }
     },
-    indexedProperties: [
+    primaryKeys: {
+      hashKey: '{{topic}}',
+      rangeKey: '{{time}}' // constant
+    },
+    indexes: [
       {
-        hashKey: '{{topic}}',
-        rangeKey: '{{time}}' // constant
+        hashKey: '{{payload.user}}'
       }
     ]
   }
@@ -1060,60 +1062,23 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     [eventModel.id]: eventModel
   }
 
+  const getIndexesForModel = ({ model, table }) => {
+    if (model.id === eventModel.id) return eventModel.indexes
+
+    return defaults.indexes.concat(model.indexes || [])
+  }
+
   const table = new Table({
     docClient,
     models: myModels,
+    modelsStored: myModels,
     // objects,
     forbidScan: true,
     tableDefinition: def,
     derivedProperties: tableKeys,
-    deriveProperties: defaultDeriveProperties,
-    resolveOrderBy: defaultResolveOrderBy
-    // deriveProperties: ({ item, isRead }) => {
-    //   let type
-    //   switch (item[TYPE]) {
-    //   case 'tradle.Event':
-    //     type = item[TYPE]
-    //     let timeAndRand = item[rangeKey]
-    //     if (!timeAndRand) {
-    //       if (!isRead) {
-    //         timeAndRand = item.time + ':' + crypto.randomBytes(8).toString('hex')
-    //       }
-    //     }
-
-    //     return {
-    //       [hashKey]: item[hashKey] || item[TYPE] && item.topic && (item[TYPE] + ':' + item.topic),
-    //       [rangeKey]: timeAndRand
-    //     }
-    //   default:
-    //     type = 'tradle.Object'
-    //     return {
-    //       [hashKey]: item[hashKey] || item[TYPE] && item._permalink && `${item[TYPE]}_${item._permalink}`,
-    //       [rangeKey]: item[hashKey] || '__placeholder__',
-    //       [def.indexes[0].hashKey]: item[def.indexes[0].hashKey] || item._author,
-    //       [def.indexes[0].rangeKey]: item[def.indexes[0].rangeKey] || item._time && String(item._time),
-    //       [def.indexes[1].hashKey]: item[def.indexes[1].hashKey] || type + ':' + item[TYPE],
-    //       [def.indexes[1].rangeKey]: item[def.indexes[1].rangeKey] || item._time && String(item._time),
-    //     }
-    //   }
-    // },
-    // resolveOrderBy: ({ type, hashKey, property }) => {
-    //   if (hashKey === def.hashKey) return rangeKey
-
-    //   switch (type) {
-    //   case 'tradle.Event':
-    //     return property
-    //   default:
-    //     const index = def.indexes.find(index => index.hashKey === hashKey)
-    //     if (index) return index.rangeKey
-    //     return property
-    //   }
-    // }
+    deriveProperties: defaults.deriveProperties,
+    getIndexesForModel
   })
-
-  for (let id in myModels) {
-    table.addModel({ model: myModels[id] })
-  }
 
   const event = {
     [TYPE]: 'tradle.Event',
@@ -1136,9 +1101,9 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     _time: new Date('2000-01-01').getTime()
   }
 
+  const items = [event, contactInfo]
   await table.create()
-  await table.put(event)
-  await table.put(contactInfo)
+  await Promise.all(items.map(item => table.put(item)))
 
   const foundContactInfo = await table.findOne({
     orderBy: {
@@ -1173,6 +1138,25 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
       resolve(results.Items.map(item => item.toJSON()))
     })
   })
+
+  // console.log('table', def.tableName, JSON.stringify(results, null, 2))
+
+  await Promise.all(def.indexes.map(async (index, i) => {
+    const indexed = await docClient.scan({
+      TableName: def.tableName,
+      IndexName: index.name
+    }).promise()
+
+    const expectedCount = items.map(item => {
+      const model = myModels[item[TYPE]]
+      const indexes = getIndexesForModel({ table, model })
+      return indexes[i] ? 1 : 0
+    })
+    .reduce((sum, num) => sum + num, 0)
+
+    t.equal(indexed.Items.length, expectedCount)
+    // console.log('index', index.name, JSON.stringify(indexed, null, 2))
+  }))
 
   await table.destroy()
 

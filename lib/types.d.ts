@@ -9,11 +9,13 @@ type IndexType = 'global'|'local'
 
 export type ReadWriteType = 'read' | 'write'
 
-export type PropsDeriver = ({
-  table: Table,
-  item: any,
+export type PropsDeriverInput = {
+  table: Table
+  item: any
   isRead: boolean
-}) => any
+}
+
+export type PropsDeriver = (opts: PropsDeriverInput) => any
 
 export type ResolveOrderByInput = {
   table: Table
@@ -79,8 +81,12 @@ export interface ITableDefinition extends IDynogelTableDefinition {
   primaryKeys?: KeyProps
 }
 
+export type GetIndexesForModel = ({ table: Table, model: Model }) => IndexedProperty[]
+export type GetPrimaryKeysForModel = ({ table: Table, model: Model }) => IndexedProperty
+
 export interface ITableOpts {
   models: Models
+  modelsStored?: Models
   objects?: Objects
   docClient: AWS.DynamoDB.DocumentClient
   tableDefinition: AWS.DynamoDB.CreateTableInput|ITableDefinition
@@ -97,6 +103,8 @@ export interface ITableOpts {
   deriveProperties?: PropsDeriver
   derivedProperties?: string[]
   resolveOrderBy?: ResolveOrderBy
+  getIndexesForModel?: GetIndexesForModel
+  getPrimaryKeysForModel?: GetPrimaryKeysForModel
 }
 
 export type KeyProps = {
@@ -166,6 +174,11 @@ export interface IDynogelTableDefinition {
   updatedAt?: string|boolean
   validation?: any
   deriveProperties?: PropsDeriver
+}
+
+export type IndexedProperty = {
+  hashKey: string
+  rangeKey?: string
 }
 
 // export type Cache = {

@@ -11,6 +11,7 @@ import promisify from 'pify'
 import {
   minifiedFlag,
   batchWriteLimit,
+  RANGE_KEY_PLACEHOLDER_VALUE
   // typeAndPermalinkProperty
 } from './constants'
 
@@ -28,7 +29,9 @@ import {
   ReadOptions,
   ResolveOrderBy,
   ResolveOrderByInput,
-  PropsDeriver
+  PropsDeriver,
+  GetIndexesForModel,
+  GetPrimaryKeysForModel
 } from './types'
 
 import {
@@ -39,13 +42,14 @@ import {
   validateTableName,
   getFilterType,
   getTableName,
-  getIndexForPrimaryKeys,
   getTableDefinitionForModel,
   getModelProperties,
   hookUp,
-  resultsToJson
+  resultsToJson,
+  normalizeIndexedProperty
 } from './utils'
 
+import * as defaults from './defaults'
 import minify from './minify'
 import { NotFound } from './errors'
 import filterDynamoDB from './filter-dynamodb'
@@ -121,6 +125,8 @@ export class Table extends EventEmitter {
   private findOpts:object
   private _deriveProperties:PropsDeriver
   private _resolveOrderBy:ResolveOrderBy
+  private _getIndexesForModel:GetIndexesForModel
+  private _getPrimaryKeysForModel:GetPrimaryKeysForModel
   private hooks: any
   get hashKey() {
     return this.primaryKeys.hashKey
@@ -136,6 +142,7 @@ export class Table extends EventEmitter {
     const {
       models,
       model,
+      modelsStored={},
       objects,
       exclusive,
       requireSigned,
@@ -145,7 +152,9 @@ export class Table extends EventEmitter {
       tableDefinition,
       deriveProperties=_.stubObject,
       derivedProperties=[],
-      resolveOrderBy
+      resolveOrderBy=defaults.resolveOrderBy,
+      getIndexesForModel=defaults.getIndexesForModel,
+      getPrimaryKeysForModel=defaults.getPrimaryKeysForModel
     } = this.opts
 
     if (!models) throw new Error('expected "models"')
@@ -160,7 +169,7 @@ export class Table extends EventEmitter {
     this.name = this.tableDefinition.tableName
     this.models = models
     this.objects = objects
-    this.modelsStored = {}
+    this.modelsStored = modelsStored
     this.readOnly = readOnly
     this.exclusive = exclusive
     this.model = model
@@ -180,7 +189,9 @@ export class Table extends EventEmitter {
 
     this._deriveProperties = deriveProperties
     this.derivedProperties = derivedProperties
-    this._resolveOrderBy = resolveOrderBy || defaultResolveOrderBy
+    this._resolveOrderBy = resolveOrderBy
+    this._getIndexesForModel = getIndexesForModel
+    this._getPrimaryKeysForModel = getPrimaryKeysForModel
     this.findOpts = {
       models,
       forbidScan,
@@ -192,7 +203,7 @@ export class Table extends EventEmitter {
     this.hashKeyProps = _.uniq(this.indexed.map(i => i.hashKey))
     this.keyProps = _.uniq(_.flatMap(this.indexed, index => _.values(_.pick(index, PRIMARY_KEYS_PROPS))))
     if (exclusive) {
-      this.addModel({ model })
+      this.storeResourcesForModel({ model })
     }
 
     this._initTable()
@@ -204,9 +215,26 @@ export class Table extends EventEmitter {
     })
   }
 
+  public getKeyTemplatesForModel = (model: Model) => {
+    return [
+      this._getPrimaryKeysForModel({ table: this, model }),
+      ...this._getIndexesForModel({ table: this, model })
+    ]
+    .map(normalizeIndexedProperty)
+    .map((index, i) => {
+      if (!index.rangeKey && this.indexed[i].rangeKey) {
+        return { ...index, rangeKey: RANGE_KEY_PLACEHOLDER_VALUE }
+      }
+
+      return index
+    })
+  }
+
   public hook = (method, handler) => this.hooks.hook(method, handler)
 
-  public addModel = ({ model }: {
+  public storeResourcesForModels = (models: Models) => _.each(models, model => this.storeResourcesForModel({ model }))
+
+  public storeResourcesForModel = ({ model }: {
     model: Model
   }) => {
     if (this.exclusive) {
