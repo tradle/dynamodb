@@ -1069,11 +1069,11 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
   }
 
   const getIndexesForModel = ({ model, table }) => {
-    const indexes = model.id === eventModel.id
-      ? eventModel.indexes
-      : defaults.indexes.concat(model.indexes || [])
+    if (model.id === eventModel.id) {
+      return eventModel.indexes.map(normalizeIndexedProperty)
+    }
 
-    return indexes.map(index => normalizeIndexedProperty(index))
+    return defaults.indexes.concat(model.indexes || []).map(normalizeIndexedProperty)
   }
 
   const table = new Table({
@@ -1139,13 +1139,13 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
 
   t.same(foundEvent, event)
 
-  const results = await new Promise((resolve, reject) => {
-    table.table.scan().exec((err, results) => {
-      if (err) return reject(err)
+  // const results = await new Promise((resolve, reject) => {
+  //   table.table.scan().exec((err, results) => {
+  //     if (err) return reject(err)
 
-      resolve(results.Items.map(item => item.toJSON()))
-    })
-  })
+  //     resolve(results.Items.map(item => item.toJSON()))
+  //   })
+  // })
 
   // console.log('table', def.tableName, JSON.stringify(results, null, 2))
 

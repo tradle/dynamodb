@@ -45,8 +45,10 @@ const debug = require('debug')(require('../package.json').name)
 
 export const levenshteinDistance = (a:string, b:string) => levenshtein.get(a, b)
 
+export const cleanName = str => str.replace(/[.]/g, '_')
+
 export const getTableName = ({ model, prefix='', suffix='' }) => {
-  const name = (model.id || model).replace(/[.]/g, '_')
+  const name = cleanName(model.id || model)
   return prefix + name + suffix
 }
 
@@ -671,7 +673,7 @@ export const normalizeIndexedProperty = (property:string|string[]|IDynamoDBKey|I
   }
 }
 
-const getKeyTemplateFromProperty = (property:string):KeyTemplate => ({ template: `{{${property}}}` })
+export const getKeyTemplateFromProperty = (property:string):KeyTemplate => ({ template: `{{${property}}}` })
 
 export const pickNonNull = (obj, props) => [].concat(props).reduce((picked, prop) => {
   if (obj[prop] != null) {

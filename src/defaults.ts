@@ -4,7 +4,8 @@ import { TYPE } from '@tradle/constants'
 import {
   canRenderTemplate,
   renderTemplate,
-  normalizeIndexedProperty
+  normalizeIndexedProperty,
+  cleanName
 } from './utils'
 
 import {
@@ -16,14 +17,13 @@ import {
 } from './types'
 
 import {
-  RANGE_KEY_PLACEHOLDER_VALUE
+  RANGE_KEY_PLACEHOLDER_VALUE,
+  separator
 } from './constants'
 
 export const primaryKeys = {
   // default for all tradle.Object resources
-  hashKey: {
-    template: 'tradle.Object_{{_permalink}}'
-  },
+  hashKey: '_permalink',
   rangeKey: {
     template: '_' // constant
   }
@@ -32,21 +32,13 @@ export const primaryKeys = {
 export const indexes = [
   {
     // default for all tradle.Object resources
-    hashKey: {
-      template: 'tradle.Object_{{_author}}',
-    },
-    rangeKey: {
-      template: '{{_time}}'
-    }
+    hashKey: '_author',
+    rangeKey: '_time'
   },
   {
     // default for all tradle.Object resources
-    hashKey: {
-      template: 'tradle.Object_{{_t}}',
-    },
-    rangeKey: {
-      template: '{{_time}}'
-    }
+    hashKey: '_t',
+    rangeKey: '_time'
   }
 ]
 
@@ -91,7 +83,10 @@ export const deriveProperties: PropsDeriver = ({
       const { hashKey, rangeKey } = table.indexed[i]
       const ret = [{
         property: hashKey,
-        template: templates.hashKey.template
+        template: [
+          type,
+          templates.hashKey.template
+        ].join(separator)
       }]
 
       if (rangeKey) {
@@ -108,7 +103,7 @@ export const deriveProperties: PropsDeriver = ({
     .filter(({ template }) => canRenderTemplate(template, item))
     .value()
 
-  return renderable.reduce((inputs, { property, template }) => {
+  return renderable.reduce((inputs, { property, template, sort }) => {
     inputs[property] = renderTemplate(template, item)
     return inputs
   }, {})
