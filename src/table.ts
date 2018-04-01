@@ -288,10 +288,11 @@ export class Table extends EventEmitter {
 
     query = this.toDBFormat(query)
     const keys = _.values(this.getPrimaryKeys(query))
-    return await this.table.destroy(...keys, opts)
+    const result = await this.table.destroy(...keys, opts)
+    return result && this._exportResource(result)
   }
 
-  private _exportResource = resource => this.omitDerivedProperties(resource)
+  private _exportResource = resource => this.omitDerivedProperties(resultsToJson(resource))
 
   public batchPut = async (
     resources:any[],
@@ -504,7 +505,7 @@ export class Table extends EventEmitter {
 
     const primaryKeys = this.getPrimaryKeys(resource)
     this._debug(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
-    return result
+    return result && this._exportResource(result)
   }
 
   private _validateResource = (resource) => {
