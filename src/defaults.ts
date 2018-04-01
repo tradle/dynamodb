@@ -75,8 +75,8 @@ export const deriveProperties: PropsDeriver = ({
   item,
   isRead
 }) => {
-  const type = item[TYPE]
-  const model = table.models[type]
+  const rType = item[TYPE]
+  const model = table.models[rType]
   const indexes = table.getKeyTemplatesForModel(model)
   const renderable = _.chain(indexes)
     .map((templates, i) => {
@@ -84,7 +84,7 @@ export const deriveProperties: PropsDeriver = ({
       const ret = [{
         property: hashKey,
         template: [
-          type,
+          rType,
           templates.hashKey.template
         ].join(separator)
       }]
