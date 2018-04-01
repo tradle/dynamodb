@@ -155,9 +155,9 @@ export default class DB extends EventEmitter {
     return await table.get(keys, opts)
   }
 
-  public del = async (keys:any) => {
+  public del = async (keys:any, opts?) => {
     const table = await this.getTableForModel(keys[TYPE])
-    await table.del(keys)
+    await table.del(keys, opts)
   }
 
   public getTableForModel = async (model:string|Model):Promise<Table> => {
