@@ -15,7 +15,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 1 | -1 | 0;
+export declare const compare: (a: any, b: any, propertyName: any) => 0 | 1 | -1;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
@@ -93,4 +93,5 @@ export declare const getTemplateStringVariables: (str: string) => string[];
 export declare const canRenderTemplate: (template: any, item: any) => boolean;
 export declare const renderTemplate: (str: any, data: any) => any;
 export declare const normalizeIndexedProperty: (property: string | string[] | IDynamoDBKey | IndexedProperty) => IndexedProperty;
+export declare const pickNonNull: (obj: any, props: any) => any;
 export { promisify, debug, bindAll, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType };

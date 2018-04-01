@@ -46,7 +46,9 @@ import {
   getModelProperties,
   hookUp,
   resultsToJson,
-  normalizeIndexedProperty
+  normalizeIndexedProperty,
+  toDynogelTableDefinition,
+  pickNonNull
 } from './utils'
 
 import * as defaults from './defaults'
@@ -175,7 +177,7 @@ export class Table extends EventEmitter {
     this.model = model
     this._prefix = {}
 
-    this.primaryKeys = _.pick(this.tableDefinition, PRIMARY_KEYS_PROPS)
+    this.primaryKeys = pickNonNull(this.tableDefinition, PRIMARY_KEYS_PROPS)
     this.indexes = this.tableDefinition.indexes || []
     this.indexed = this.indexes.slice()
     this.indexed.unshift({
@@ -437,6 +439,7 @@ export class Table extends EventEmitter {
   // }
 
   public fromDBFormat = resultsToJson
+
     // return this._exportResource(resource)
     // return this.unprefixProperties(resource)
 

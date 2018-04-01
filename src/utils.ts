@@ -303,6 +303,11 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
   }
 
   const itemToPosition = function itemToPosition (item) {
+    item = {
+      [TYPE]: type,
+      ...item
+    }
+
     item = table.withDerivedProperties(item)
     if (!item) throw new Error('expected database record')
 
@@ -654,13 +659,12 @@ export const renderTemplate = (str, data) => _.template(str, {
 
 export const normalizeIndexedProperty = (property:string|string[]|IDynamoDBKey|IndexedProperty):IndexedProperty => {
   if (typeof property === 'string' || Array.isArray(property)) {
-    debugger
     return {
       hashKey: getKeyTemplateFromProperty([].concat(property).join('.'))
     }
   }
 
-  const { hashKey, rangeKey=DEFAULT_RANGE_KEY } = property
+  const { hashKey, rangeKey } = property
   return {
     hashKey: typeof hashKey === 'string' ? getKeyTemplateFromProperty(hashKey) : hashKey,
     rangeKey: typeof rangeKey === 'string' ? getKeyTemplateFromProperty(rangeKey) : rangeKey,
@@ -668,6 +672,14 @@ export const normalizeIndexedProperty = (property:string|string[]|IDynamoDBKey|I
 }
 
 const getKeyTemplateFromProperty = (property:string):KeyTemplate => ({ template: `{{${property}}}` })
+
+export const pickNonNull = (obj, props) => [].concat(props).reduce((picked, prop) => {
+  if (obj[prop] != null) {
+    picked[prop] = obj[prop]
+  }
+
+  return picked
+}, {})
 
 // export const ensureRangeKey = (index: IndexedProperty):IndexedProperty => ({
 //   ...index,

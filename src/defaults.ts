@@ -3,7 +3,8 @@ import { TYPE } from '@tradle/constants'
 
 import {
   canRenderTemplate,
-  renderTemplate
+  renderTemplate,
+  normalizeIndexedProperty
 } from './utils'
 
 import {
@@ -13,6 +14,10 @@ import {
   ResolveOrderBy,
   ITableOpts
 } from './types'
+
+import {
+  RANGE_KEY_PLACEHOLDER_VALUE
+} from './constants'
 
 export const primaryKeys = {
   // default for all tradle.Object resources
@@ -46,11 +51,11 @@ export const indexes = [
 ]
 
 export const getIndexesForModel:GetIndexesForModel = ({ table, model }) => {
-  return model.indexes || indexes
+  return (model.indexes || indexes).map(normalizeIndexedProperty)
 }
 
 export const getPrimaryKeysForModel: GetPrimaryKeysForModel = ({ table, model }) => {
-  return model.primaryKeys || primaryKeys
+  return normalizeIndexedProperty(model.primaryKeys || primaryKeys)
 }
 
 export const resolveOrderBy: ResolveOrderBy = ({
@@ -61,6 +66,8 @@ export const resolveOrderBy: ResolveOrderBy = ({
 }) => {
   const index = table.indexed.find(index => index.hashKey === hashKey)
   const model = table.models[type]
+  if (!model) return
+
   const indexes = table.getKeyTemplatesForModel(model)
   const indexedProp = indexes[table.indexed.indexOf(index)]
   if (!(indexedProp && indexedProp.rangeKey)) return
@@ -87,10 +94,10 @@ export const deriveProperties: PropsDeriver = ({
         template: templates.hashKey.template
       }]
 
-      if (rangeKey && templates.rangeKey) {
+      if (rangeKey) {
         ret.push({
           property: rangeKey,
-          template: templates.rangeKey.template
+          template: templates.rangeKey ? templates.rangeKey.template : RANGE_KEY_PLACEHOLDER_VALUE
         })
       }
 
