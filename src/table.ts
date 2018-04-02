@@ -71,7 +71,7 @@ const DONT_PREFIX = Object.keys(BaseObjectModel.properties)
 const defaultOpts = {
   maxItemSize: Infinity,
   requireSigned: true,
-  forbidScan: false,
+  allowScan: true,
   validate: false,
   defaultReadOptions: {
     consistentRead: false
@@ -148,7 +148,7 @@ export class Table extends EventEmitter {
       objects,
       exclusive,
       requireSigned,
-      forbidScan,
+      allowScan,
       readOnly,
       defaultReadOptions,
       tableDefinition,
@@ -196,7 +196,7 @@ export class Table extends EventEmitter {
     this._getPrimaryKeysForModel = getPrimaryKeysForModel
     this.findOpts = {
       models,
-      forbidScan,
+      allowScan,
       primaryKeys: this.primaryKeys,
       consistentRead: defaultReadOptions.consistentRead
     }

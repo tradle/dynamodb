@@ -14,10 +14,10 @@ import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
 import { defaultLimit, minifiedFlag, PRIMARY_KEYS_PROPS } from './constants'
-import { OrderBy, Model, Models, IDynogelIndex, FindOpts } from './types'
+import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan } from './types'
 import { Table } from './table'
 
-class FilterOp {
+export class FilterOp {
   public opts:FindOpts
   public models:Models
   public model:Model
@@ -34,7 +34,7 @@ class FilterOp {
   public opType:string
   public itemToPosition:Function
   public index?:IDynogelIndex
-  public forbidScan:boolean
+  public allowScan:AllowScan
   public bodyInObjects:boolean
   public consistentRead:boolean
   public builder:any
@@ -50,7 +50,7 @@ class FilterOp {
       limit=defaultLimit,
       checkpoint,
       consistentRead,
-      forbidScan,
+      allowScan,
       bodyInObjects
     } = this
 
@@ -409,7 +409,11 @@ class FilterOp {
   }
 
   _throwIfScanForbidden = function () {
-    if (!this.forbidScan) return
+    if (this.allowScan === true) return
+    if (typeof this.allowScan === 'function') {
+      const allow = this.allowScan(this)
+      if (allow !== false) return
+    }
 
     const keySchemas = (this.table.indexes || [])
       .concat(this.table.primaryKeys)

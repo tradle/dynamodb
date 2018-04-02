@@ -2,6 +2,7 @@
 import AWS = require('aws-sdk')
 import { Table } from './table'
 import { ModelStore } from './model-store'
+import { FilterOp } from './filter-dynamodb'
 
 type IndexType = 'global'|'local'
 
@@ -87,6 +88,9 @@ export interface ITableDefinition extends IDynogelTableDefinition {
 export type GetIndexesForModel = ({ table: Table, model: Model }) => IndexedProperty[]
 export type GetPrimaryKeysForModel = ({ table: Table, model: Model }) => IndexedProperty
 
+type _AllowScan = (op:FilterOp) => boolean
+export type AllowScan = boolean | _AllowScan
+
 export interface ITableOpts {
   models: Models
   modelsStored?: Models
@@ -99,7 +103,7 @@ export interface ITableOpts {
   model?: Model
   hashKey?: string
   rangeKey?: string
-  forbidScan?: boolean
+  allowScan?: AllowScan
   readOnly?: boolean
   defaultReadOptions?: ReadOptions
   maxItemSize?: number

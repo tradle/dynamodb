@@ -1081,7 +1081,7 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     models: myModels,
     modelsStored: myModels,
     // objects,
-    forbidScan: true,
+    allowScan: false,
     tableDefinition: def,
     derivedProperties: tableKeys,
     deriveProperties: defaults.deriveProperties,
