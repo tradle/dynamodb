@@ -70,7 +70,6 @@ import { PRIMARY_KEYS_PROPS } from './constants'
 const DONT_PREFIX = Object.keys(BaseObjectModel.properties)
 const defaultOpts = {
   maxItemSize: Infinity,
-  requireSigned: true,
   allowScan: true,
   validate: false,
   defaultReadOptions: {
@@ -147,7 +146,6 @@ export class Table extends EventEmitter {
       modelsStored={},
       objects,
       exclusive,
-      requireSigned,
       allowScan,
       readOnly,
       defaultReadOptions,
@@ -509,8 +507,7 @@ export class Table extends EventEmitter {
   }
 
   private _validateResource = (resource) => {
-    const self = this
-    const { models, requireSigned } = this.opts
+    const { models } = this.opts
     const { modelsStored } = this
     const type = resource[TYPE]
     const model = models[type]
@@ -518,11 +515,9 @@ export class Table extends EventEmitter {
       throw new Error(`missing model ${type}`)
     }
 
-    if (requireSigned && !resource[SIG]) {
-      throw new Error(`expected resource to be signed: ${resource._link}`)
+    if (this.opts.validate) {
+      validateResource({ models, model, resource })
     }
-
-    validateResource({ models, model, resource })
   }
 
   private _batchPut = async (resources:any[], backoffOpts:BackoffOptions) => {
