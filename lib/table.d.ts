@@ -25,6 +25,7 @@ export declare class Table extends EventEmitter {
     private _resolveOrderBy;
     private _getIndexesForModel;
     private _getPrimaryKeysForModel;
+    private _shouldMinify;
     private hooks;
     readonly hashKey: string;
     readonly rangeKey: string;
@@ -76,5 +77,6 @@ export declare class Table extends EventEmitter {
     private _ensureWritable;
     private _ensureHasPrimaryKeys;
     private _hasAllPrimaryKeys;
+    private _minify;
 }
 export declare const createTable: (opts: ITableOpts) => Table;

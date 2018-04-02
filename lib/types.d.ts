@@ -90,6 +90,7 @@ export type GetPrimaryKeysForModel = ({ table: Table, model: Model }) => Indexed
 
 type _AllowScan = (op:FilterOp) => boolean
 export type AllowScan = boolean | _AllowScan
+export type ShouldMinify = (item:any) => boolean
 
 export interface ITableOpts {
   models: Models
@@ -112,6 +113,7 @@ export interface ITableOpts {
   resolveOrderBy?: ResolveOrderBy
   getIndexesForModel?: GetIndexesForModel
   getPrimaryKeysForModel?: GetPrimaryKeysForModel
+  shouldMinify?: ShouldMinify
 }
 
 export type KeyProps = {

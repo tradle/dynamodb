@@ -31,7 +31,8 @@ import {
   ResolveOrderByInput,
   PropsDeriver,
   GetIndexesForModel,
-  GetPrimaryKeysForModel
+  GetPrimaryKeysForModel,
+  ShouldMinify
 } from './types'
 
 import {
@@ -128,6 +129,7 @@ export class Table extends EventEmitter {
   private _resolveOrderBy:ResolveOrderBy
   private _getIndexesForModel:GetIndexesForModel
   private _getPrimaryKeysForModel:GetPrimaryKeysForModel
+  private _shouldMinify: ShouldMinify
   private hooks: any
   get hashKey() {
     return this.primaryKeys.hashKey
@@ -154,7 +156,8 @@ export class Table extends EventEmitter {
       derivedProperties=[],
       resolveOrderBy=defaults.resolveOrderBy,
       getIndexesForModel=defaults.getIndexesForModel,
-      getPrimaryKeysForModel=defaults.getPrimaryKeysForModel
+      getPrimaryKeysForModel=defaults.getPrimaryKeysForModel,
+      shouldMinify=_.stubTrue
     } = this.opts
 
     if (!models) throw new Error('expected "models"')
@@ -192,6 +195,7 @@ export class Table extends EventEmitter {
     this._resolveOrderBy = resolveOrderBy
     this._getIndexesForModel = getIndexesForModel
     this._getPrimaryKeysForModel = getPrimaryKeysForModel
+    this._shouldMinify = shouldMinify
     this.findOpts = {
       models,
       allowScan,
@@ -298,16 +302,11 @@ export class Table extends EventEmitter {
   ) => {
     this._ensureWritable()
 
-    const { maxItemSize } = this.opts
     resources = resources.map(this.withDerivedProperties)
     resources.forEach(this._ensureHasPrimaryKeys)
     resources.forEach(this._validateResource)
 
-    const minified = resources.map(item => minify({
-      table: this,
-      item,
-      maxSize: maxItemSize
-    }))
+    const minified = resources.map(this._minify)
 
     // let mins = minified.map(({ min }) => this.toDBFormat(min))
     let mins = minified.map(({ min }) => min)
@@ -483,12 +482,7 @@ export class Table extends EventEmitter {
     this._ensureHasPrimaryKeys(resource)
 
     if (method === 'create') {
-      const minified = minify({
-        table: this,
-        item: resource,
-        maxSize: this.opts.maxItemSize
-      })
-
+      const minified = this._minify(resource)
       resource = minified.min
     }
 
@@ -606,6 +600,21 @@ export class Table extends EventEmitter {
   }
 
   private _hasAllPrimaryKeys = obj => _.size(this.getPrimaryKeys(obj)) === this.primaryKeyProps.length
+
+  private _minify = (item: any) => {
+    if (this._shouldMinify(item)) {
+      return minify({
+        table: this,
+        item,
+        maxSize: this.opts.maxItemSize
+      })
+    }
+
+    return {
+      min: item,
+      diff: {}
+    }
+  }
 
   // private getPrimaryKeys = (props:string|any):KeyProps => {
   //   let hashKey, rangeKey
