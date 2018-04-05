@@ -415,11 +415,14 @@ export class FilterOp {
       if (allow !== false) return
     }
 
-    const keySchemas = (this.table.indexes || [])
-      .concat(this.table.primaryKeys)
-      .map(props => _.pick(props, PRIMARY_KEYS_PROPS))
+    // const keySchemas = (this.table.indexes || [])
+    //   .concat(this.table.primaryKeys)
+    //   .map(props => _.pick(props, PRIMARY_KEYS_PROPS))
 
-    const hint = `Specify a limit, and a combination of hashKey in the EQ filter and (optionally) rangeKey in orderBy: ${JSON.stringify(keySchemas)}`
+    const { primaryKeys, indexes } = this.model
+    const indexed = [].concat(primaryKeys).concat(indexes)
+    const indexedStr = JSON.stringify(indexed)
+    const hint = `Specify a limit, and a combination of hashKey in the EQ filter and (optionally) rangeKey in orderBy for one of the following: ${indexedStr}`
     throw new Error(`this table does not allow scans or full reads. ${hint}`)
   }
 }
