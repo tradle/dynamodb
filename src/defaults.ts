@@ -75,7 +75,16 @@ export const deriveProperties: PropsDeriver = ({
   item,
   isRead
 }) => {
-  const rType = item[TYPE]
+  let rType = item[TYPE]
+  if (!rType) {
+    const { hashKey } = table.indexed.find(i => i.hashKey in item)
+    if (!hashKey) {
+      throw new Error('unable to deduce resource type')
+    }
+
+    rType = item[hashKey].split(separator)[0] // see template below
+  }
+
   const model = table.models[rType]
   const indexes = table.getKeyTemplatesForModel(model)
   const renderable = _.chain(indexes)
