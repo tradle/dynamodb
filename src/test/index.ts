@@ -30,7 +30,7 @@ import {
   getTableDefinitionForModel,
   getQueryInfo,
   toDynogelTableDefinition,
-  normalizeIndexedProperty
+  normalizeIndexedPropertyTemplateSchema
 } from '../utils'
 
 import {
@@ -966,6 +966,7 @@ let only
           models: db.models,
           model: alienModel
         }),
+        getIndexesForModel: model => [],
         exclusive: true
       })
     })
@@ -985,9 +986,6 @@ let only
       })
       .toJSON()
 
-    // exclusive tables have no need to store type
-    // so they may omit it
-    delete alien[TYPE]
     await db.tables[ALIEN_CLASSIFIER].put(alien)
     t.same(await db.get({
       [TYPE]: ALIEN_CLASSIFIER,
@@ -1070,10 +1068,10 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
 
   const getIndexesForModel = ({ model, table }) => {
     if (model.id === eventModel.id) {
-      return eventModel.indexes.map(normalizeIndexedProperty)
+      return eventModel.indexes.map(normalizeIndexedPropertyTemplateSchema)
     }
 
-    return defaults.indexes.concat(model.indexes || []).map(normalizeIndexedProperty)
+    return defaults.indexes.concat(model.indexes || []).map(normalizeIndexedPropertyTemplateSchema)
   }
 
   const table = new Table({
@@ -1083,8 +1081,8 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     // objects,
     allowScan: false,
     tableDefinition: def,
-    derivedProperties: tableKeys,
-    deriveProperties: defaults.deriveProperties,
+    derivedProps: tableKeys,
+    deriveProps: defaults.deriveProps,
     getIndexesForModel
   })
 

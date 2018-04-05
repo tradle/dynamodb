@@ -38,7 +38,8 @@ import {
   GetIndexesForModel,
   GetPrimaryKeysForModel,
   IDynamoDBKey,
-  KeyTemplate
+  KeyTemplate,
+  KeyProps
 } from './types'
 
 const debug = require('debug')(require('../package.json').name)
@@ -507,7 +508,7 @@ export const getTableDefinitionForModel = ({ models, model }: {
   const { primaryKeys } = model
   return {
     // values are prefixed with type
-    ...primaryKeys,
+    ...normalizeIndexedProperty(primaryKeys),
     tableName: getTableName({ model }),
     timestamps: false,
     // make this the reponsibility of the updating party
@@ -659,7 +660,21 @@ export const renderTemplate = (str, data) => _.template(str, {
   interpolate: TEMPLATE_SETTINGS
 })(data)
 
-export const normalizeIndexedProperty = (property:string|string[]|IDynamoDBKey|IndexedProperty):IndexedProperty => {
+export const normalizeIndexedProperty = (property: any):KeyProps => {
+  if (typeof property === 'string') {
+    return { hashKey: property }
+  }
+
+  PRIMARY_KEYS_PROPS.forEach(key => {
+    if (typeof property[key] !== 'string') {
+      throw new Error(`expected string "${key}"`)
+    }
+  })
+
+  return _.pick(property, PRIMARY_KEYS_PROPS)
+}
+
+export const normalizeIndexedPropertyTemplateSchema = (property:any):IndexedProperty => {
   if (typeof property === 'string' || Array.isArray(property)) {
     return {
       hashKey: getKeyTemplateFromProperty([].concat(property).join('.'))
@@ -667,6 +682,8 @@ export const normalizeIndexedProperty = (property:string|string[]|IDynamoDBKey|I
   }
 
   const { hashKey, rangeKey } = property
+  if (!hashKey) throw new Error('expected "hashKey"')
+
   return {
     hashKey: typeof hashKey === 'string' ? getKeyTemplateFromProperty(hashKey) : hashKey,
     rangeKey: typeof rangeKey === 'string' ? getKeyTemplateFromProperty(rangeKey) : rangeKey,

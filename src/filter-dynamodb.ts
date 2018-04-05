@@ -7,7 +7,8 @@ import {
   getQueryInfo,
   promisify,
   doesIndexProjectProperty,
-  getModelProperties
+  getModelProperties,
+  getTemplateStringVariables
 } from './utils'
 
 import OPERATORS = require('./operators')
@@ -240,12 +241,26 @@ export class FilterOp {
   }
 
   _maybeInflate = async (resource) => {
-    let { table, select, index } = this
+    let { table, select, index, model, queriedPrimaryKeys } = this
     if (!select) {
-      select = getModelProperties(this.model)
+      select = getModelProperties(model)
     }
 
-    select = _.uniq(select.concat(this.table.keyProps))
+    select = _.uniq(select.concat(_.values(queriedPrimaryKeys)))
+
+    resource = {
+      [TYPE]: model.id,
+      ...resource,
+    }
+
+    resource = {
+      ...resource,
+      ...table.parseDerivedProps({
+        table,
+        model,
+        resource,
+      })
+    }
 
     const canInflateFromDB = index && index.projection.ProjectionType !== 'ALL'
     const cut = resource[minifiedFlag] || []

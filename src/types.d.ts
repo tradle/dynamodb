@@ -4,6 +4,8 @@ import { Table } from './table'
 import { ModelStore } from './model-store'
 import { FilterOp } from './filter-dynamodb'
 
+export { Table, ModelStore, FilterOp }
+
 type IndexType = 'global'|'local'
 
 // export type PropertyDeriver = (item: any) => string | number
@@ -17,6 +19,14 @@ export type PropsDeriverInput = {
 }
 
 export type PropsDeriver = (opts: PropsDeriverInput) => any
+
+export type DerivedPropsParserInput = {
+  table: Table
+  model: Model
+  resource: any
+}
+
+export type DerivedPropsParser = (opts: DerivedPropsParserInput) => any
 
 export type ResolveOrderByInput = {
   table: Table
@@ -55,7 +65,8 @@ export type Model = {
   viewCols?: string[]
   editCols?: string[]
   hidden?: string[]
-  primaryKeys?: KeyProps
+  primaryKeys?: string|KeyProps|IndexedProperty
+  indexes?: any[]
   [attr:string]: any
 }
 
@@ -108,8 +119,9 @@ export interface ITableOpts {
   readOnly?: boolean
   defaultReadOptions?: ReadOptions
   maxItemSize?: number
-  deriveProperties?: PropsDeriver
-  derivedProperties?: string[]
+  deriveProps?: PropsDeriver
+  derivedProps?: string[]
+  parseDerivedProps?: DerivedPropsParser
   resolveOrderBy?: ResolveOrderBy
   getIndexesForModel?: GetIndexesForModel
   getPrimaryKeysForModel?: GetPrimaryKeysForModel
@@ -182,7 +194,7 @@ export interface IDynogelTableDefinition {
   createdAt?: string|boolean
   updatedAt?: string|boolean
   validation?: any
-  deriveProperties?: PropsDeriver
+  deriveProps?: PropsDeriver
 }
 
 export type KeyTemplate = {

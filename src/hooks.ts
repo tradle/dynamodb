@@ -38,7 +38,7 @@ export const getControlLatestOptions = (table: Table, method: string, resource: 
 }
 
 export const createControlLatestHook = (table: Table, method: string) => {
-  const latestIsSupported = !!table.deriveProperties({
+  const latestIsSupported = !!table.deriveProps({
     [TYPE]: 'a',
     _permalink: 'b'
   })[table.hashKey]

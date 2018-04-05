@@ -1,4 +1,4 @@
-import { GetIndexesForModel, GetPrimaryKeysForModel, PropsDeriver, ResolveOrderBy } from './types';
+import { GetIndexesForModel, GetPrimaryKeysForModel, PropsDeriver, ResolveOrderBy, DerivedPropsParser } from './types';
 export declare const primaryKeys: {
     hashKey: string;
     rangeKey: {
@@ -12,4 +12,5 @@ export declare const indexes: {
 export declare const getIndexesForModel: GetIndexesForModel;
 export declare const getPrimaryKeysForModel: GetPrimaryKeysForModel;
 export declare const resolveOrderBy: ResolveOrderBy;
-export declare const deriveProperties: PropsDeriver;
+export declare const deriveProps: PropsDeriver;
+export declare const parseDerivedProps: DerivedPropsParser;

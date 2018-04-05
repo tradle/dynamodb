@@ -6,8 +6,8 @@ export declare const getCommonTableOpts: (tableName: any, indexes?: any) => {
     maxItemSize: number;
     validate: boolean;
     tableDefinition: IDynogelTableDefinition;
-    derivedProperties: string[];
-    deriveProperties: PropsDeriver;
+    derivedProps: string[];
+    deriveProps: PropsDeriver;
     resolveOrderBy?: ResolveOrderBy;
 };
 export declare const createDB: ({ models, objects, docClient, indexes, tableNames }: {

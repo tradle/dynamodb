@@ -26,7 +26,7 @@ const tableDefinition = utils.toDynogelTableDefinition(cloudformation)
 export const defaultTableDefinition = tableDefinition
 export const defaultIndexes = tableDefinition.indexes
 
-const getDefaultDeriveProperties = (def: ITableDefinition): PropsDeriver => ({
+const getDefaultderiveProps = (def: ITableDefinition): PropsDeriver => ({
   item,
   isRead
 }) => {
@@ -60,8 +60,8 @@ type CommonTableOpts = {
   maxItemSize: number
   validate: boolean
   tableDefinition: IDynogelTableDefinition
-  derivedProperties: string[]
-  deriveProperties: PropsDeriver
+  derivedProps: string[]
+  deriveProps: PropsDeriver
   resolveOrderBy?: ResolveOrderBy
 }
 
@@ -72,7 +72,7 @@ export const getCommonTableOpts = (tableName, indexes?): CommonTableOpts => {
     indexes: indexes || tableDefinition.indexes
   }
 
-  const derivedProperties:string[] = flatten([
+  const derivedProps:string[] = flatten([
     def.hashKey,
     def.rangeKey,
   ].concat(def.indexes.map(i => [i.hashKey, i.rangeKey])))
@@ -82,8 +82,8 @@ export const getCommonTableOpts = (tableName, indexes?): CommonTableOpts => {
     maxItemSize: 4000,
     validate: false,
     tableDefinition: def,
-    derivedProperties,
-    deriveProperties: getDefaultDeriveProperties(def),
+    derivedProps,
+    deriveProps: getDefaultderiveProps(def),
     resolveOrderBy: ({ type, hashKey, property }) => {
       if (hashKey !== def.hashKey && property === '_time') {
         return def.indexes

@@ -4,8 +4,9 @@ import { TYPE } from '@tradle/constants'
 import {
   canRenderTemplate,
   renderTemplate,
-  normalizeIndexedProperty,
-  cleanName
+  normalizeIndexedPropertyTemplateSchema,
+  cleanName,
+  getTemplateStringVariables
 } from './utils'
 
 import {
@@ -13,7 +14,10 @@ import {
   GetPrimaryKeysForModel,
   PropsDeriver,
   ResolveOrderBy,
-  ITableOpts
+  ITableOpts,
+  Table,
+  Model,
+  DerivedPropsParser
 } from './types'
 
 import {
@@ -42,12 +46,18 @@ export const indexes = [
   }
 ]
 
-export const getIndexesForModel:GetIndexesForModel = ({ table, model }) => {
-  return (model.indexes || indexes).map(normalizeIndexedProperty)
+export const getIndexesForModel:GetIndexesForModel = ({ table, model }: {
+  table: Table
+  model: Model
+}) => {
+  return (model.indexes || indexes).map(index => normalizeIndexedPropertyTemplateSchema(index))
 }
 
-export const getPrimaryKeysForModel: GetPrimaryKeysForModel = ({ table, model }) => {
-  return normalizeIndexedProperty(model.primaryKeys || primaryKeys)
+export const getPrimaryKeysForModel: GetPrimaryKeysForModel = ({ table, model }: {
+  table: Table
+  model: Model
+}) => {
+  return normalizeIndexedPropertyTemplateSchema(model.primaryKeys || primaryKeys)
 }
 
 export const resolveOrderBy: ResolveOrderBy = ({
@@ -55,11 +65,16 @@ export const resolveOrderBy: ResolveOrderBy = ({
   type,
   hashKey,
   property
+}: {
+  table: Table
+  type: string
+  hashKey: string
+  property: string
 }) => {
-  const index = table.indexed.find(index => index.hashKey === hashKey)
   const model = table.models[type]
   if (!model) return
 
+  const index = table.indexed.find(index => index.hashKey === hashKey)
   const indexes = table.getKeyTemplatesForModel(model)
   const indexedProp = indexes[table.indexed.indexOf(index)]
   if (!(indexedProp && indexedProp.rangeKey)) return
@@ -70,7 +85,7 @@ export const resolveOrderBy: ResolveOrderBy = ({
   }
 }
 
-export const deriveProperties: PropsDeriver = ({
+export const deriveProps: PropsDeriver = ({
   table,
   item,
   isRead
@@ -115,5 +130,53 @@ export const deriveProperties: PropsDeriver = ({
   return renderable.reduce((inputs, { property, template, sort }) => {
     inputs[property] = renderTemplate(template, item)
     return inputs
+  }, {})
+}
+
+export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource }) => {
+  const templates = _.chain(table.getKeyTemplatesForModel(model))
+    .flatMap(({ hashKey, rangeKey }) => {
+      return [
+        {
+          ...hashKey,
+          type: 'hash'
+        },
+        rangeKey && {
+          ...rangeKey,
+          type: 'range'
+        }
+      ]
+    })
+    .filter(_.identity)
+    .filter(info => /^[{]{2}[^}]+[}]{2}$/.test(info.template))
+    .value()
+
+  const derived = _.pick(resource, table.derivedProps)
+  const yay = {}
+  return _.transform(derived, (parsed, value, prop) => {
+    const info = templates.find(({ key }) => key === prop)
+    if (!info) return
+
+    const { key, template, type } = info
+    let propVal = value
+    if (type === 'hash') {
+      propVal = propVal.slice(model.id.length + 2)
+    }
+
+    const propName = getTemplateStringVariables(template)[0]
+    const propMeta = model.properties[propName]
+    if (!propMeta) return
+
+    const pType = propMeta.type
+    // complex props not supported at the moment
+    if (pType === 'array' || pType === 'object') return
+
+    if (pType === 'number' || pType === 'date') {
+      propVal = parseInt(propVal, 10)
+    } else if (pType === 'boolean') {
+      propVal = propVal === 'true' || propVal === '1'
+    }
+
+    parsed[propName] = propVal
   }, {})
 }

@@ -30,9 +30,10 @@ import {
   ResolveOrderBy,
   ResolveOrderByInput,
   PropsDeriver,
+  DerivedPropsParser,
   GetIndexesForModel,
   GetPrimaryKeysForModel,
-  ShouldMinify
+  ShouldMinify,
 } from './types'
 
 import {
@@ -47,7 +48,7 @@ import {
   getModelProperties,
   hookUp,
   resultsToJson,
-  normalizeIndexedProperty,
+  normalizeIndexedPropertyTemplateSchema,
   toDynogelTableDefinition,
   pickNonNull
 } from './utils'
@@ -114,7 +115,8 @@ export class Table extends EventEmitter {
   public keyProps:string[]
   public hashKeyProps:string[]
   public primaryKeys:KeyProps
-  public derivedProperties: string[]
+  public derivedProps: string[]
+  public parseDerivedProps: DerivedPropsParser
   public indexes:IDynogelIndex[]
   public indexed:IDynogelIndex[]
   public exclusive:boolean
@@ -125,7 +127,7 @@ export class Table extends EventEmitter {
   private tableDefinition:ITableDefinition
   private readOnly:boolean
   private findOpts:object
-  private _deriveProperties:PropsDeriver
+  private _deriveProps:PropsDeriver
   private _resolveOrderBy:ResolveOrderBy
   private _getIndexesForModel:GetIndexesForModel
   private _getPrimaryKeysForModel:GetPrimaryKeysForModel
@@ -152,11 +154,12 @@ export class Table extends EventEmitter {
       readOnly,
       defaultReadOptions,
       tableDefinition,
-      deriveProperties=_.stubObject,
-      derivedProperties=[],
+      deriveProps=_.stubObject,
+      derivedProps=[],
       resolveOrderBy=defaults.resolveOrderBy,
       getIndexesForModel=defaults.getIndexesForModel,
       getPrimaryKeysForModel=defaults.getPrimaryKeysForModel,
+      parseDerivedProps=_.stubObject,
       shouldMinify=_.stubTrue
     } = this.opts
 
@@ -190,8 +193,9 @@ export class Table extends EventEmitter {
       ...this.primaryKeys
     })
 
-    this._deriveProperties = deriveProperties
-    this.derivedProperties = derivedProperties
+    this._deriveProps = deriveProps
+    this.derivedProps = derivedProps
+    this.parseDerivedProps = parseDerivedProps
     this._resolveOrderBy = resolveOrderBy
     this._getIndexesForModel = getIndexesForModel
     this._getPrimaryKeysForModel = getPrimaryKeysForModel
@@ -219,11 +223,37 @@ export class Table extends EventEmitter {
     })
   }
 
+  public getKeyTemplate = (model: Model, key: string) => {
+    const keyIdx = this.keyProps.indexOf(key)
+    return _.flatMap(this.getKeyTemplatesForModel(model), ({ hashKey, rangeKey }) => {
+      return rangeKey ? [hashKey, rangeKey] : hashKey
+    })[keyIdx]
+  }
+
   public getKeyTemplatesForModel = (model: Model) => {
-    return [
+    const raw = [
       this._getPrimaryKeysForModel({ table: this, model }),
       ...this._getIndexesForModel({ table: this, model })
-    ].map(normalizeIndexedProperty)
+    ]
+    .map(normalizeIndexedPropertyTemplateSchema)
+
+    if (raw.length > this.indexed.length) {
+      console.warn(`more key templates than indexes for model: ${model.id}!`)
+    }
+
+    return raw.slice(0, this.indexed.length).map((indexedProp, i) => {
+      return {
+        ...indexedProp,
+        hashKey: {
+          ...indexedProp.hashKey,
+          key: this.indexed[i].hashKey
+        },
+        rangeKey: indexedProp.rangeKey && {
+          ...indexedProp.rangeKey,
+          key: this.indexed[i].rangeKey
+        }
+      }
+    })
   }
 
   public hook = (method, handler) => this.hooks.hook(method, handler)
@@ -418,8 +448,8 @@ export class Table extends EventEmitter {
     })
   }
 
-  public deriveProperties = (item, isRead=false) => {
-    const derived = this._deriveProperties({ table: this, item, isRead })
+  public deriveProps = (item, isRead=false) => {
+    const derived = this._deriveProps({ table: this, item, isRead })
     return _.omitBy(derived, (value, prop) => prop in item || value == null)
   }
 
@@ -577,11 +607,11 @@ export class Table extends EventEmitter {
 
   public addDerivedProperties = (resource, forRead) => _.extend(
     resource,
-    this.deriveProperties(resource, forRead)
+    this.deriveProps(resource, forRead)
   )
 
-  public withDerivedProperties = resource => _.extend({}, resource, this.deriveProperties(resource))
-  public omitDerivedProperties = resource => _.omit(resource, this.derivedProperties)
+  public withDerivedProperties = resource => _.extend({}, resource, this.deriveProps(resource))
+  public omitDerivedProperties = resource => _.omit(resource, this.derivedProps)
 
   public resolveOrderBy = (opts: ResolveOrderByInputLite) => {
     return this._resolveOrderBy({ table: this, ...opts }) || opts.property
