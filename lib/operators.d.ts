@@ -42,5 +42,9 @@ declare const _default: {
     GTE: {
         scalar: boolean;
     };
+    SUBCLASS_OF: {
+        type: string;
+        scalar: boolean;
+    };
 };
 export = _default;

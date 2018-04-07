@@ -42,6 +42,10 @@ export = {
   GTE: {
     scalar: true
   },
+  SUBCLASS_OF: {
+    type: 'array',
+    scalar: true
+  },
   // NOT IMPLEMENTED
   // OR: {
   //   type: 'array'

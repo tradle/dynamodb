@@ -1,8 +1,9 @@
 import _ = require('lodash')
 import validateResource = require('@tradle/validate-resource')
 import { TYPE } from '@tradle/constants'
+import Errors from '@tradle/errors'
 import OPERATORS = require('./operators')
-const { getRef } = validateResource.utils
+const { getRef, isDescendantOf } = validateResource.utils
 import {
   debug,
   fromResourceStub
@@ -117,4 +118,16 @@ export const comparators = {
   GT: ({ value, condition }) => value > condition,
   GTE: ({ value, condition }) => value >= condition,
   NULL: ({ value, condition }) => condition ? !value : !!value,
+  SUBCLASS_OF: ({ models, value, condition }) => {
+    try {
+      return condition.some(b => isDescendantOf({
+        models,
+        a: value,
+        b
+      }))
+    } catch (err) {
+      Errors.rethrow(err, 'developer')
+      return false
+    }
+  }
 }

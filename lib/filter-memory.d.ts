@@ -49,4 +49,9 @@ export declare const comparators: {
         value: any;
         condition: any;
     }) => boolean;
+    SUBCLASS_OF: ({ models, value, condition }: {
+        models: any;
+        value: any;
+        condition: any;
+    }) => any;
 };
