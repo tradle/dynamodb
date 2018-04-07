@@ -9,29 +9,11 @@ import {
 } from './utils'
 
 import BaseObjectModel from './object-model'
-
-const comparators = {
-  EQ: isEqual,
-  NEQ: negate(isEqual),
-  IN: ({ value, condition }) => condition.some(one => _.isEqual(one, value)),
-  NOT_IN: ({ value, condition }) => condition.every(one => !_.isEqual(one, value)),
-  STARTS_WITH: ({ value, condition }) => value && value.startsWith(condition),
-  CONTAINS: ({ value, condition }) => value && value.indexOf(condition) !== -1,
-  NOT_CONTAINS: ({ value, condition }) => !value || value.indexOf(condition) === -1,
-  BETWEEN: ({ value, condition }) => value >= condition[0] && value < condition[1],
-  LT: ({ value, condition }) => value < condition,
-  LTE: ({ value, condition }) => value <= condition,
-  GT: ({ value, condition }) => value > condition,
-  GTE: ({ value, condition }) => value >= condition,
-  NULL: ({ value, condition }) => condition ? !value : !!value,
-}
-
-export {
-  filterResults,
-  // matchesProps,
-  isEqual,
-  comparators
-}
+import {
+  FilterResultsInput,
+  MatchesFilterInput,
+  IsEqualInput
+} from './types'
 
 // function matchesProps ({ model, object, values }) {
 //   return Object.keys(values).every(propertyName => {
@@ -46,7 +28,17 @@ export {
 //   })
 // }
 
-function isEqual ({ models, property, condition, value }) {
+const isHeaderProperty = (propertyName) => {
+  return propertyName in BaseObjectModel.properties
+}
+
+const negate = (fn) => {
+  return function (...args) {
+    return !fn.apply(this, args)
+  }
+}
+
+export const isEqual = ({ models, property, condition, value }: IsEqualInput) => {
   const type = property && property.type
   if (type !== 'array' && type !== 'object') {
     return _.isEqual(condition, value)
@@ -66,7 +58,7 @@ function isEqual ({ models, property, condition, value }) {
   return metadata.link === value
 }
 
-function matchesFilter ({ models, model, object, filter }) {
+export const matchesFilter = ({ models, model, object, filter }: MatchesFilterInput) => {
   if (!filter) return true
 
   if (!model) model = models[object[TYPE]]
@@ -101,7 +93,7 @@ function matchesFilter ({ models, model, object, filter }) {
   return true
 }
 
-function filterResults ({ models, model, results, filter }) {
+export const filterResults = ({ models, model, results, filter }: FilterResultsInput) => {
   if (!filter || !Object.keys(filter).length) {
     return results
   }
@@ -111,12 +103,18 @@ function filterResults ({ models, model, results, filter }) {
   })
 }
 
-function isHeaderProperty (propertyName) {
-  return propertyName in BaseObjectModel.properties
-}
-
-function negate (fn) {
-  return function (...args) {
-    return !fn.apply(this, args)
-  }
+export const comparators = {
+  EQ: isEqual,
+  NEQ: negate(isEqual),
+  IN: ({ value, condition }) => condition.some(one => _.isEqual(one, value)),
+  NOT_IN: ({ value, condition }) => condition.every(one => !_.isEqual(one, value)),
+  STARTS_WITH: ({ value, condition }) => value && value.startsWith(condition),
+  CONTAINS: ({ value, condition }) => value && value.indexOf(condition) !== -1,
+  NOT_CONTAINS: ({ value, condition }) => !value || value.indexOf(condition) === -1,
+  BETWEEN: ({ value, condition }) => value >= condition[0] && value < condition[1],
+  LT: ({ value, condition }) => value < condition,
+  LTE: ({ value, condition }) => value <= condition,
+  GT: ({ value, condition }) => value > condition,
+  GTE: ({ value, condition }) => value >= condition,
+  NULL: ({ value, condition }) => condition ? !value : !!value,
 }

@@ -1,12 +1,14 @@
 import { Table, createTable } from './table'
 import DB from './db'
-import utils = require('./utils')
-import constants = require('./constants')
-import errors = require('./errors')
-import createResolvers = require('./resolvers')
+import * as utils from './utils'
+import constants from './constants'
+import * as Errors from './errors'
+import createResolvers from './resolvers'
 import { ModelStore, createModelStore } from './model-store'
 import * as hooks from './hooks'
 import * as defaults from './defaults'
+import find, { FilterOp } from './filter-dynamodb'
+import { filterResults } from './filter-memory'
 
 export {
   Table,
@@ -16,8 +18,11 @@ export {
   DB,
   utils,
   constants,
-  errors,
+  Errors,
   createResolvers,
   hooks,
-  defaults
+  defaults,
+  find,
+  FilterOp,
+  filterResults
 }

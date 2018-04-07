@@ -170,6 +170,27 @@ export type Filter = {
   GTE?: Pojo
 }
 
+export type FilterResultsInput = {
+  models: Models
+  model?: Model
+  filter?: Filter
+  results: any[]
+}
+
+export type MatchesFilterInput = {
+  models: Models
+  model?: Model
+  filter?: Filter
+  object: any
+}
+
+export type IsEqualInput = {
+  models: Models
+  property?: any
+  condition: any
+  value: any
+}
+
 export type OrderBy = {
   property: string
   desc?: boolean

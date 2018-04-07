@@ -36,7 +36,7 @@ export declare class FilterOp {
         ScannedCount: number;
         Items: any[];
     }>;
-    _filterResults: (results: any) => any;
+    _filterResults: (results: any) => any[];
     _postProcessResult: (result: any) => Promise<void>;
     _maybeInflate: (resource: any) => Promise<any>;
     readonly queriedPrimaryKeys: {

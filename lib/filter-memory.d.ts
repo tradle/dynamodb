@@ -1,5 +1,9 @@
-declare const comparators: {
-    EQ: typeof isEqual;
+import { FilterResultsInput, MatchesFilterInput, IsEqualInput } from './types';
+export declare const isEqual: ({ models, property, condition, value }: IsEqualInput) => any;
+export declare const matchesFilter: ({ models, model, object, filter }: MatchesFilterInput) => boolean;
+export declare const filterResults: ({ models, model, results, filter }: FilterResultsInput) => any[];
+export declare const comparators: {
+    EQ: ({ models, property, condition, value }: IsEqualInput) => any;
     NEQ: (...args: any[]) => boolean;
     IN: ({ value, condition }: {
         value: any;
@@ -46,16 +50,3 @@ declare const comparators: {
         condition: any;
     }) => boolean;
 };
-export { filterResults, isEqual, comparators };
-declare function isEqual({models, property, condition, value}: {
-    models: any;
-    property: any;
-    condition: any;
-    value: any;
-}): any;
-declare function filterResults({models, model, results, filter}: {
-    models: any;
-    model: any;
-    results: any;
-    filter: any;
-}): any;
