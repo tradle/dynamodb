@@ -1,4 +1,4 @@
-import _ = require('lodash')
+import _ from 'lodash'
 import { TYPE } from '@tradle/constants'
 
 import {
@@ -90,6 +90,9 @@ export const deriveProps: PropsDeriver = ({
   item,
   isRead
 }) => {
+  // expand '.' props
+  item = expandNestedProps(item)
+
   let rType = item[TYPE]
   if (!rType) {
     const { hashKey } = table.indexed.find(i => i.hashKey in item)
@@ -179,4 +182,13 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
 
     parsed[propName] = propVal
   }, {})
+}
+
+const expandNestedProps = obj => {
+  const expanded = {}
+  for (let key in obj) {
+    _.set(expanded, key, obj[key])
+  }
+
+  return expanded
 }
