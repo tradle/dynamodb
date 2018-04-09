@@ -6,7 +6,8 @@ import {
   renderTemplate,
   normalizeIndexedPropertyTemplateSchema,
   cleanName,
-  getTemplateStringVariables
+  getTemplateStringVariables,
+  getExpandedProperties
 } from './utils'
 
 import {
@@ -156,6 +157,7 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
 
   const derived = _.pick(resource, table.derivedProps)
   const yay = {}
+  const properties = getExpandedProperties(model)
   return _.transform(derived, (parsed, value, prop) => {
     const info = templates.find(({ key }) => key === prop)
     if (!info) return
@@ -167,7 +169,7 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
     }
 
     const propName = getTemplateStringVariables(template)[0]
-    const propMeta = model.properties[propName]
+    const propMeta = properties[propName]
     if (!propMeta) return
 
     const pType = propMeta.type

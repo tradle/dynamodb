@@ -97,4 +97,5 @@ export declare const normalizeIndexedProperty: (property: any) => KeyProps;
 export declare const normalizeIndexedPropertyTemplateSchema: (property: any) => IndexedProperty;
 export declare const getKeyTemplateFromProperty: (property: string) => KeyTemplate;
 export declare const pickNonNull: (obj: any, props: any) => any;
+export declare const getExpandedProperties: (model: any) => any;
 export { promisify, debug, bindAll, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType };

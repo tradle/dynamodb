@@ -52,7 +52,8 @@ export class FilterOp {
       checkpoint,
       consistentRead,
       allowScan,
-      bodyInObjects
+      bodyInObjects,
+      select
     } = this
 
     this.limit = limit
@@ -74,6 +75,10 @@ export class FilterOp {
     this.model = models[type]
     this._configureBuilder()
     this._addConditions()
+
+    if (select) {
+      this.select = this._normalizeSelect(select)
+    }
   }
 
   private _debug = (...args) => {
@@ -81,13 +86,26 @@ export class FilterOp {
     debug(...args)
   }
 
+  private _normalizeSelect = (select:string[]):string[] => {
+    const raw = select.concat(_.values(this.queriedPrimaryKeys))
+      .concat(this.table.primaryKeyProps)
+
+    return _.uniq(raw)
+  }
+
+  private guessSelect = () => {
+    return this._normalizeSelect(getModelProperties(this.model))
+  }
+
   public exec = async () => {
     this._debug(`running ${this.opType}`)
 
     let result
     const {
-      builder,
+      table,
+      model,
       models,
+      builder,
       orderBy,
       defaultOrderBy,
       select,
@@ -164,8 +182,18 @@ export class FilterOp {
       items = items.slice(0, limit)
     }
 
+    // this sometimes messes things up for graphql
+    // maybe we shouldn't handle select as strictly and let the caller prune
     if (select) {
-      items = items.map(item => _.pick(item, select))
+      // a shame to do this again, already did in _maybeInflate
+      items = items.map(item => _.pick(item, select)).map(resource => ({
+        ...resource,
+        ...table.parseDerivedProps({
+          table,
+          model,
+          resource,
+        })
+      }))
     }
 
     return {
@@ -242,11 +270,10 @@ export class FilterOp {
 
   _maybeInflate = async (resource) => {
     let { table, select, index, model, queriedPrimaryKeys } = this
-    if (!select) {
-      select = getModelProperties(model)
-    }
 
-    select = _.uniq(select.concat(_.values(queriedPrimaryKeys)))
+    if (!select) {
+      select = this.guessSelect()
+    }
 
     resource = {
       [TYPE]: model.id,

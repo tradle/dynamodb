@@ -24,6 +24,8 @@ export declare class FilterOp {
     table: Table;
     constructor(opts: FindOpts);
     private _debug;
+    private _normalizeSelect;
+    private guessSelect;
     exec: () => Promise<{
         items: any;
         startPosition: any;

@@ -705,6 +705,11 @@ export const pickNonNull = (obj, props) => [].concat(props).reduce((picked, prop
 //   rangeKey: index.rangeKey || RANGE_KEY_PLACEHOLDER_VALUE
 // })
 
+export const getExpandedProperties = model => ({
+  ...model.properties,
+  ...OriginalBaseObjectModel.properties
+})
+
 export {
   promisify,
   debug,
