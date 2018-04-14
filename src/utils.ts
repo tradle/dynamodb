@@ -8,6 +8,8 @@ import Joi from 'joi'
 import sort from 'array-sort'
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
+import validateModels from '@tradle/validate-model'
+import validateResource from '@tradle/validate-resource'
 import { Table } from './table'
 import {
   // defaultOrderBy,
@@ -43,6 +45,7 @@ import {
 } from './types'
 
 const debug = require('debug')(require('../package.json').name)
+const { getNestedProperties } = validateModels.utils
 
 export const levenshteinDistance = (a:string, b:string) => levenshtein.get(a, b)
 
@@ -705,9 +708,10 @@ export const pickNonNull = (obj, props) => [].concat(props).reduce((picked, prop
 //   rangeKey: index.rangeKey || RANGE_KEY_PLACEHOLDER_VALUE
 // })
 
-export const getExpandedProperties = model => ({
+export const getExpandedProperties = ({ models, model }) => ({
   ...model.properties,
-  ...OriginalBaseObjectModel.properties
+  ...OriginalBaseObjectModel.properties,
+  ...getNestedProperties({ models, model })
 })
 
 export {

@@ -138,6 +138,7 @@ export const deriveProps: PropsDeriver = ({
 }
 
 export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource }) => {
+  const { models } = table
   const templates = _.chain(table.getKeyTemplatesForModel(model))
     .flatMap(({ hashKey, rangeKey }) => {
       return [
@@ -157,7 +158,7 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
 
   const derived = _.pick(resource, table.derivedProps)
   const yay = {}
-  const properties = getExpandedProperties(model)
+  const properties = getExpandedProperties({ models, model })
   return _.transform(derived, (parsed, value, prop) => {
     const info = templates.find(({ key }) => key === prop)
     if (!info) return
