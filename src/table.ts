@@ -625,6 +625,7 @@ export class Table extends EventEmitter {
 
   private _ensureHasPrimaryKeys = resource => {
     if (!this._hasAllPrimaryKeys(resource)) {
+      debugger
       throw new Error('expected values for all primary keys')
     }
   }

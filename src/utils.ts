@@ -687,10 +687,29 @@ export const normalizeIndexedPropertyTemplateSchema = (property:any):IndexedProp
   const { hashKey, rangeKey } = property
   if (!hashKey) throw new Error('expected "hashKey"')
 
-  return {
-    hashKey: typeof hashKey === 'string' ? getKeyTemplateFromProperty(hashKey) : hashKey,
-    rangeKey: typeof rangeKey === 'string' ? getKeyTemplateFromProperty(rangeKey) : rangeKey,
+  const ret = <IndexedProperty>{}
+  for (const key of PRIMARY_KEYS_PROPS) {
+    const val = property[key]
+    if (typeof val === 'string') {
+      const vars = getTemplateStringVariables(val)
+      if (vars.length) {
+        ret[key] = {
+          template: val
+        }
+      } else {
+        ret[key] = getKeyTemplateFromProperty(val)
+      }
+    } else {
+      ret[key] = val
+    }
   }
+
+  return ret
+
+  // return {
+  //   hashKey: typeof hashKey === 'string' ? getKeyTemplateFromProperty(hashKey) : hashKey,
+  //   rangeKey: typeof rangeKey === 'string' ? getKeyTemplateFromProperty(rangeKey) : rangeKey,
+  // }
 }
 
 export const getKeyTemplateFromProperty = (property:string):KeyTemplate => ({ template: `{{${property}}}` })
