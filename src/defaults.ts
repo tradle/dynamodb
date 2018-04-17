@@ -174,8 +174,8 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
       propVal = propVal.slice(model.id.length + 2)
     }
 
-    const propName = getTemplateStringVariables(template)[0]
-    const propMeta = properties[propName]
+    const propPath = getTemplateStringVariables(template)[0]
+    const propMeta = properties[propPath]
     if (!propMeta) return
 
     const pType = propMeta.type
@@ -188,7 +188,8 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
       propVal = propVal === 'true' || propVal === '1'
     }
 
-    parsed[propName] = propVal
+    // use _.set as propPath may be a nested prop, e.g. blah._permalink
+    _.set(parsed, propPath, propVal)
   }, {})
 }
 
