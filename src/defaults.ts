@@ -22,8 +22,7 @@ import {
 } from './types'
 
 import {
-  RANGE_KEY_PLACEHOLDER_VALUE,
-  separator
+  RANGE_KEY_PLACEHOLDER_VALUE
 } from './constants'
 
 export const primaryKeys = {
@@ -101,7 +100,7 @@ export const deriveProps: PropsDeriver = ({
       throw new Error('unable to deduce resource type')
     }
 
-    rType = item[hashKey].split(separator)[0] // see template below
+    rType = item[hashKey].split('{')[0]
   }
 
   const model = table.models[rType]
@@ -111,10 +110,7 @@ export const deriveProps: PropsDeriver = ({
       const { hashKey, rangeKey } = table.indexed[i]
       const ret = [{
         property: hashKey,
-        template: [
-          rType,
-          templates.hashKey.template
-        ].join(separator)
+        template: rType + templates.hashKey.template
       }]
 
       if (rangeKey) {
@@ -158,11 +154,10 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
       ]
     })
     .filter(_.identity)
-    .filter(info => /^[{]{2}[^}]+[}]{2}$/.test(info.template))
+    // .filter(info => /^[{]{2}[^}]+[}]{2}$/.test(info.template))
     .value()
 
   const derived = _.pick(resource, table.derivedProps)
-  const yay = {}
   const properties = getExpandedProperties({ models, model })
   return _.transform(derived, (parsed, value, prop) => {
     const info = templates.find(({ key }) => key === prop)
@@ -171,26 +166,33 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
     const { key, template, type } = info
     let propVal = value
     if (type === 'hash') {
-      propVal = propVal.slice(model.id.length + 2)
+      propVal = propVal.slice(model.id.length)
     }
 
-    const propPath = getTemplateStringVariables(template)[0]
-    const propMeta = properties[propPath]
-    if (!propMeta) return
+    const propPaths = getTemplateStringVariables(template)
+    const propVals = getTemplateStringVariables(propVal).map(decodeURIComponent)
+    const pathToVal = _.zipObject(propPaths, propVals)
+    Object.keys(pathToVal).forEach(propPath => {
+      const propMeta = properties[propPath]
+      if (!propMeta) return
 
-    const pType = propMeta.type
-    // complex props not supported at the moment
-    if (pType === 'array' || pType === 'object') return
+      let val = pathToVal[propPath]
+      const pType = propMeta.type
+      // complex props not supported at the moment
+      if (pType === 'array' || pType === 'object') return
 
-    if (pType === 'number' || pType === 'date') {
-      propVal = parseInt(propVal, 10)
-    } else if (pType === 'boolean') {
-      propVal = propVal === 'true' || propVal === '1'
-    }
+      if (pType === 'number' || pType === 'date') {
+        val = parseInt(val, 10)
+      } else if (pType === 'boolean') {
+        val = val === 'true' || val === '1'
+      }
 
-    // use _.set as propPath may be a nested prop, e.g. blah._permalink
-    _.set(parsed, propPath, propVal)
-  }, {})
+      // use _.set as propPath may be a nested prop, e.g. blah._permalink
+      _.set(parsed, propPath, val)
+    })
+  }, {
+    [TYPE]: model.id
+  })
 }
 
 const expandNestedProps = obj => {

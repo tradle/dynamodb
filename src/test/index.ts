@@ -30,6 +30,7 @@ import {
   getTableDefinitionForModel,
   getQueryInfo,
   toDynogelTableDefinition,
+  getTemplateStringVariables,
   normalizeIndexedPropertyTemplateSchema
 } from '../utils'
 
@@ -51,6 +52,16 @@ dynogels.log = {
 
 const resources = require('./fixtures/resources.json')
 const tableSchema = require('./fixtures/table-schema.json')
+const def = toDynogelTableDefinition({
+  ...tableSchema,
+  TableName: 'test-resources-' + Date.now()
+})
+
+const { hashKey, rangeKey } = def
+const tableKeys = [hashKey, rangeKey]
+  .concat(_.flatten(def.indexes.map(def => [def.hashKey, def.rangeKey])))
+  .filter(_.identity)
+
 const FORM_REQUEST = 'tradle.FormRequest'
 const FORM_REQUEST_MODEL = models[FORM_REQUEST]
 const formRequests = resources
@@ -142,6 +153,83 @@ const reload = async (indexes?) => {
 //   await reload()
 //   t.end()
 // }))
+
+test('key templates', t => {
+  t.same([
+    'a',
+    ['a'],
+    ['a', 'b'],
+    '{a}{b}{c}',
+    { hashKey: ['a', 'b'], rangeKey: '{a}{b}{c}' },
+  ].map(normalizeIndexedPropertyTemplateSchema), [
+    { hashKey: { template: '{a}' } },
+    { hashKey: { template: '{a}' } },
+    { hashKey: { template: '{a}{b}' } },
+    { hashKey: { template: '{a}{b}{c}' } },
+    { hashKey: { template: '{a}{b}' }, rangeKey: { template: '{a}{b}{c}' } },
+  ])
+
+  t.same(getTemplateStringVariables('{a}lala{b}'), ['a', 'b'])
+
+  const model = {
+    type: 'tradle.Model',
+    id: 'tradle.Namey',
+    title: 'Namey name',
+    properties: {
+      firstName: { type: 'string' },
+      lastName: { type: 'string' },
+      nickName: { type: 'string' },
+      // firstName: { type: 'string' },
+    },
+    required: ['firstName', 'lastName'],
+    indexes: [
+      {
+        hashKey: '{firstName} "Angry" {lastName}',
+        rangeKey: ['lastName', 'firstName'],
+      }
+    ]
+  }
+
+  const models = { [model.id]: model }
+  const table = createTable({
+    objects,
+    docClient,
+    model,
+    models,
+    tableDefinition: tableSchema,
+    derivedProps: tableKeys
+  })
+
+  table.storeResourcesForModel({ model })
+
+  const derived = defaults.deriveProps({
+    table,
+    item: {
+      [TYPE]: model.id,
+      firstName: 'Bill S',
+      lastName: 'Preston'
+    },
+    isRead: false
+  })
+
+  t.same(derived, {
+    __r__: '_',
+    __x0h__: 'tradle.Namey{Bill%20S} "Angry" {Preston}',
+    __x0r__: '{Preston}{Bill%20S}'
+  })
+
+  t.same(defaults.parseDerivedProps({
+    table,
+    model,
+    resource: derived
+  }), {
+    [TYPE]: model.id,
+    firstName: 'Bill S',
+    lastName: 'Preston'
+  })
+
+  t.end()
+})
 
 test('model store', loudAsync(async (t) => {
   let externalSource = models
@@ -1019,16 +1107,6 @@ let only
 })
 
 test('multiple types, overloaded indexes', loudAsync(async t => {
-  const def = toDynogelTableDefinition({
-    ...tableSchema,
-    TableName: 'test-resources-' + Date.now()
-  })
-
-  const { hashKey, rangeKey } = def
-  const tableKeys = [hashKey, rangeKey]
-    .concat(_.flatten(def.indexes.map(def => [def.hashKey, def.rangeKey])))
-    .filter(_.identity)
-
   const eventModel = {
     type: 'tradle.Model',
     id: 'tradle.Event',
@@ -1052,10 +1130,10 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     indexes: [
       {
         hashKey: {
-          template: '{{payload.user}}'
+          template: '{payload.user}'
         },
         rangeKey: {
-          template: '{{time}}'
+          template: '{time}'
         }
       }
     ]

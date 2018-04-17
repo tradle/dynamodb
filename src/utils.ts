@@ -643,25 +643,34 @@ export const hookUp = (fn, event) => async function (...args) {
   return result
 }
 
-
 export const getTemplateStringVariables = (str: string) => {
-  const match = str.match(/\{\{([^}]+)\}\}/g)
+  const match = str.match(/\{([^}]+)\}/g)
   if (match) {
-    return match.map(part => part.slice(2, part.length - 2))
+    return match.map(part => part.slice(1, part.length - 1))
   }
 
   return []
 }
+
+export const getTemplateStringValues = getTemplateStringVariables
 
 export const canRenderTemplate = (template, item) => {
   const paths = getTemplateStringVariables(template)
   return paths.every(path => typeof _.get(item, path) !== 'undefined')
 }
 
-const TEMPLATE_SETTINGS = /{{([\s\S]+?)}}/g
-export const renderTemplate = (str, data) => _.template(str, {
-  interpolate: TEMPLATE_SETTINGS
-})(data)
+const TEMPLATE_SETTINGS = /{([\s\S]+?)}/g
+export const renderTemplate = (str, data) => {
+  const render = _.template(str, {
+    interpolate: TEMPLATE_SETTINGS
+  })
+
+  data = _.transform(data, (encoded, value, key) => {
+    encoded[key] = '{' + encodeURIComponent(value) + '}'
+  }, {})
+
+  return render(data)
+}
 
 export const normalizeIndexedProperty = (property: any):KeyProps => {
   if (typeof property === 'string') {
@@ -680,7 +689,7 @@ export const normalizeIndexedProperty = (property: any):KeyProps => {
 export const normalizeIndexedPropertyTemplateSchema = (property:any):IndexedProperty => {
   if (typeof property === 'string' || Array.isArray(property)) {
     return {
-      hashKey: getKeyTemplateFromProperty([].concat(property).join('.'))
+      hashKey: { template: getKeyTemplateString(property) }
     }
   }
 
@@ -690,29 +699,35 @@ export const normalizeIndexedPropertyTemplateSchema = (property:any):IndexedProp
   const ret = <IndexedProperty>{}
   for (const key of PRIMARY_KEYS_PROPS) {
     const val = property[key]
-    if (typeof val === 'string') {
-      const vars = getTemplateStringVariables(val)
-      if (vars.length) {
-        ret[key] = {
-          template: val
-        }
-      } else {
-        ret[key] = getKeyTemplateFromProperty(val)
-      }
-    } else {
+    if (val.template) {
       ret[key] = val
+    } else {
+      ret[key] = {
+        template: getKeyTemplateString(val)
+      }
     }
   }
 
   return ret
-
-  // return {
-  //   hashKey: typeof hashKey === 'string' ? getKeyTemplateFromProperty(hashKey) : hashKey,
-  //   rangeKey: typeof rangeKey === 'string' ? getKeyTemplateFromProperty(rangeKey) : rangeKey,
-  // }
 }
 
-export const getKeyTemplateFromProperty = (property:string):KeyTemplate => ({ template: `{{${property}}}` })
+export const getKeyTemplateString = (val:string|string[]) => {
+  if (typeof val === 'string') {
+    if (getTemplateStringVariables(val).length) {
+      return val
+    }
+
+    return `{${val}}`
+  }
+
+  if (Array.isArray(val)) {
+    return val.map(getKeyTemplateString).join('')
+  }
+
+  throw new Error(`unable to parse template string`)
+}
+
+// export const getKeyTemplateFromProperty = (property:string):KeyTemplate => ({ template: `{{${property}}}` })
 
 export const pickNonNull = (obj, props) => [].concat(props).reduce((picked, prop) => {
   if (obj[prop] != null) {
@@ -727,11 +742,11 @@ export const pickNonNull = (obj, props) => [].concat(props).reduce((picked, prop
 //   rangeKey: index.rangeKey || RANGE_KEY_PLACEHOLDER_VALUE
 // })
 
-export const getExpandedProperties = ({ models, model }) => ({
+export const getExpandedProperties = _.memoize(({ models, model }) => ({
   ...model.properties,
   ...OriginalBaseObjectModel.properties,
   ...getNestedProperties({ models, model })
-})
+}), ({ model }) => model.id)
 
 export {
   promisify,

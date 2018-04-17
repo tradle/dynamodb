@@ -1,7 +1,7 @@
 
 const constants = {
   minifiedFlag: '_cut',
-  separator: '::',
+  separator: '&',
   defaultOrderBy: {
     property: '_time',
     desc: true
