@@ -132,7 +132,12 @@ export const deriveProps: PropsDeriver = ({
     .value()
 
   return renderable.reduce((inputs, { property, template, sort }) => {
-    inputs[property] = renderTemplate(template, item)
+    const val = renderTemplate(template, item)
+    if (val.length) {
+      // empty strings not allowed!
+      inputs[property] = val
+    }
+
     return inputs
   }, {})
 }
