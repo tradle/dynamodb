@@ -22,9 +22,9 @@ import {
   // defaultIndexes
 } from '../constants'
 
-import {
+import * as utils from '../utils'
+const {
   debug,
-  sortResults as rawSortResults,
   wait,
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
@@ -32,14 +32,14 @@ import {
   toDynogelTableDefinition,
   getTemplateStringVariables,
   normalizeIndexedPropertyTemplateSchema
-} from '../utils'
+} = utils
 
 import {
   createDB as rawCreateDB,
   defaultIndexes
 } from './utils'
 
-const sortResults = opts => rawSortResults({
+const sortResults = opts => utils.sortResults({
   defaultOrderBy,
   ...opts
 })
@@ -161,11 +161,13 @@ test('key templates', t => {
     ['a', 'b'],
     '{a}{b}{c}',
     { hashKey: ['a', 'b'], rangeKey: '{a}{b}{c}' },
+    { hashKey: ['a', 'b'], rangeKey: { template: '{a}{b}{c}' } },
   ].map(normalizeIndexedPropertyTemplateSchema), [
     { hashKey: { template: '{a}' } },
     { hashKey: { template: '{a}' } },
     { hashKey: { template: '{a}{b}' } },
     { hashKey: { template: '{a}{b}{c}' } },
+    { hashKey: { template: '{a}{b}' }, rangeKey: { template: '{a}{b}{c}' } },
     { hashKey: { template: '{a}{b}' }, rangeKey: { template: '{a}{b}{c}' } },
   ])
 
@@ -202,7 +204,7 @@ test('key templates', t => {
 
   table.storeResourcesForModel({ model })
 
-  const derived = defaults.deriveProps({
+  const derived = utils.deriveProps({
     table,
     item: {
       [TYPE]: model.id,
@@ -218,7 +220,7 @@ test('key templates', t => {
     __x0r__: '{Preston}{Bill%20S}'
   })
 
-  t.same(defaults.parseDerivedProps({
+  t.same(utils.parseDerivedProps({
     table,
     model,
     resource: derived
@@ -1160,7 +1162,7 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     allowScan: false,
     tableDefinition: def,
     derivedProps: tableKeys,
-    deriveProps: defaults.deriveProps,
+    deriveProps: utils.deriveProps,
     getIndexesForModel
   })
 

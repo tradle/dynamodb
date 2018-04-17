@@ -2,7 +2,7 @@ import bindAll = require('bindall');
 import promisify = require('pify');
 import AWS = require('aws-sdk');
 import { Table } from './table';
-import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, IndexedProperty, KeyProps } from './types';
+import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, PropsDeriver, ResolveOrderBy, IndexedProperty, GetIndexesForModel, GetPrimaryKeysForModel, KeyProps, DerivedPropsParser } from './types';
 declare const debug: any;
 export declare const levenshteinDistance: (a: string, b: string) => any;
 export declare const cleanName: (str: any) => any;
@@ -16,7 +16,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 1 | -1 | 0;
+export declare const compare: (a: any, b: any, propertyName: any) => 1 | 0 | -1;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
@@ -99,4 +99,9 @@ export declare const normalizeIndexedPropertyTemplateSchema: (property: any) => 
 export declare const getKeyTemplateString: (val: string | string[]) => any;
 export declare const pickNonNull: (obj: any, props: any) => any;
 export declare const getExpandedProperties: any;
+export declare const getIndexesForModel: GetIndexesForModel;
+export declare const getPrimaryKeysForModel: GetPrimaryKeysForModel;
+export declare const resolveOrderBy: ResolveOrderBy;
+export declare const deriveProps: PropsDeriver;
+export declare const parseDerivedProps: DerivedPropsParser;
 export { promisify, debug, bindAll, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType };

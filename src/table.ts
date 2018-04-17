@@ -36,7 +36,8 @@ import {
   ShouldMinify,
 } from './types'
 
-import {
+import * as utils from './utils'
+const {
   debug,
   wait,
   defaultBackoffFunction,
@@ -51,7 +52,7 @@ import {
   normalizeIndexedPropertyTemplateSchema,
   toDynogelTableDefinition,
   pickNonNull
-} from './utils'
+} = utils
 
 import * as defaults from './defaults'
 import minify from './minify'
@@ -96,8 +97,6 @@ const HOOKABLE = [
   'create',
   'destroy'
 ]
-
-const defaultResolveOrderBy = (opts:ResolveOrderByInput) => opts.property
 
 type ResolveOrderByInputLite = {
   type: string
@@ -156,9 +155,9 @@ export class Table extends EventEmitter {
       tableDefinition,
       deriveProps=_.stubObject,
       derivedProps=[],
-      resolveOrderBy=defaults.resolveOrderBy,
-      getIndexesForModel=defaults.getIndexesForModel,
-      getPrimaryKeysForModel=defaults.getPrimaryKeysForModel,
+      resolveOrderBy=utils.resolveOrderBy,
+      getIndexesForModel=utils.getIndexesForModel,
+      getPrimaryKeysForModel=utils.getPrimaryKeysForModel,
       parseDerivedProps=_.stubObject,
       shouldMinify=_.stubTrue
     } = this.opts
