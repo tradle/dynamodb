@@ -153,12 +153,12 @@ export class Table extends EventEmitter {
       readOnly,
       defaultReadOptions,
       tableDefinition,
-      deriveProps=_.stubObject,
       derivedProps=[],
+      deriveProps=utils.deriveProps,
       resolveOrderBy=utils.resolveOrderBy,
       getIndexesForModel=utils.getIndexesForModel,
       getPrimaryKeysForModel=utils.getPrimaryKeysForModel,
-      parseDerivedProps=_.stubObject,
+      parseDerivedProps=utils.parseDerivedProps,
       shouldMinify=_.stubTrue
     } = this.opts
 
@@ -172,7 +172,7 @@ export class Table extends EventEmitter {
 
     validateTableName(this.tableDefinition.tableName)
     this.name = this.tableDefinition.tableName
-    this.models = models
+    this.models = _.clone(models)
     this.objects = objects
     this.modelsStored = modelsStored
     this.readOnly = readOnly
@@ -230,6 +230,11 @@ export class Table extends EventEmitter {
   }
 
   public getKeyTemplatesForModel = (model: Model) => {
+    if (!model) {
+      debugger
+      throw new Error('expected "model"')
+    }
+
     const raw = [
       this._getPrimaryKeysForModel({ table: this, model }),
       ...this._getIndexesForModel({ table: this, model })
@@ -272,6 +277,10 @@ export class Table extends EventEmitter {
     }
 
     this.modelsStored[model.id] = model
+    if (!this.models[model.id]) {
+      this.models[model.id] = model
+    }
+
     this._debug(`will store resources of model ${model.id}`)
   }
 

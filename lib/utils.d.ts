@@ -16,7 +16,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 1 | 0 | -1;
+export declare const compare: (a: any, b: any, propertyName: any) => 1 | -1 | 0;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
@@ -94,6 +94,7 @@ export declare const getTemplateStringVariables: (str: string) => string[];
 export declare const getTemplateStringValues: (str: string) => string[];
 export declare const canRenderTemplate: (template: any, item: any) => boolean;
 export declare const renderTemplate: (str: any, data: any) => any;
+export declare const encodeTemplateValues: (data: any) => any;
 export declare const normalizeIndexedProperty: (property: any) => KeyProps;
 export declare const normalizeIndexedPropertyTemplateSchema: (property: any) => IndexedProperty;
 export declare const getKeyTemplateString: (val: string | string[]) => any;
@@ -104,4 +105,5 @@ export declare const getPrimaryKeysForModel: GetPrimaryKeysForModel;
 export declare const resolveOrderBy: ResolveOrderBy;
 export declare const deriveProps: PropsDeriver;
 export declare const parseDerivedProps: DerivedPropsParser;
+export declare const getTableKeys: (def: IDynogelTableDefinition) => string[];
 export { promisify, debug, bindAll, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType };

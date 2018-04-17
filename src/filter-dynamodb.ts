@@ -186,14 +186,14 @@ export class FilterOp {
     // maybe we shouldn't handle select as strictly and let the caller prune
     if (select) {
       // a shame to do this again, already did in _maybeInflate
-      items = items.map(item => _.pick(item, select)).map(resource => ({
-        ...resource,
-        ...table.parseDerivedProps({
+      items = items.map(item => _.pick(item, select)).map(resource => _.merge(
+        table.parseDerivedProps({
           table,
           model,
           resource,
-        })
-      }))
+        }),
+        resource
+      ))
     }
 
     return {
@@ -280,14 +280,14 @@ export class FilterOp {
       ...resource,
     }
 
-    resource = {
-      ...resource,
-      ...table.parseDerivedProps({
+    resource = _.merge(
+      table.parseDerivedProps({
         table,
         model,
         resource,
-      })
-    }
+      }),
+      resource
+    )
 
     const canInflateFromDB = index && index.projection.ProjectionType !== 'ALL'
     const cut = resource[minifiedFlag] || []

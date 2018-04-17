@@ -1,2 +1,3 @@
 declare const NotFound: any;
-export { NotFound };
+declare const InvalidInput: any;
+export { NotFound, InvalidInput };

@@ -50,6 +50,7 @@
     "koa-compose": "^4.0.0",
     "lodash": "^4.17.4",
     "pify": "^3.0.0",
+    "traverse": "^0.6.6",
     "typeforce": "^1.11.1"
   },
   "peerDependencies": {

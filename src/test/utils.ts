@@ -11,7 +11,7 @@ import {
 } from '../types'
 
 import { prefixString, prefixKeys, prefixValues } from '../prefix'
-import { createControlLatestHook } from '../hooks'
+// import { createControlLatestHook } from '../hooks'
 
 import {
   DB,
@@ -26,35 +26,35 @@ const tableDefinition = utils.toDynogelTableDefinition(cloudformation)
 export const defaultTableDefinition = tableDefinition
 export const defaultIndexes = tableDefinition.indexes
 
-const getDefaultderiveProps = (def: ITableDefinition): PropsDeriver => ({
-  item,
-  isRead
-}) => {
-  const derived = {}
-  if (item[TYPE] && item._permalink) {
-    derived[def.hashKey] = [item._permalink, item[TYPE]].join(separator)
-    derived[def.rangeKey] = '__placeholder__'
-  }
+// const getDefaultderiveProps = (def: ITableDefinition): PropsDeriver => ({
+//   item,
+//   isRead
+// }) => {
+//   const derived = {}
+//   if (item[TYPE] && item._permalink) {
+//     derived[def.hashKey] = [item._permalink, item[TYPE]].join(separator)
+//     derived[def.rangeKey] = '__placeholder__'
+//   }
 
-  if (item._author) {
-    derived[def.indexes[0].hashKey] = ['_author', item._author].join(separator)
-  }
+//   if (item._author) {
+//     derived[def.indexes[0].hashKey] = ['_author', item._author].join(separator)
+//   }
 
-  if (item[TYPE]) {
-    derived[def.indexes[1].hashKey] = [TYPE, item[TYPE]].join(separator)
-  }
+//   if (item[TYPE]) {
+//     derived[def.indexes[1].hashKey] = [TYPE, item[TYPE]].join(separator)
+//   }
 
-  if (item._time) {
-    derived[def.indexes[0].rangeKey] =
-    derived[def.indexes[1].rangeKey] = String(item._time)
-  }
+//   if (item._time) {
+//     derived[def.indexes[0].rangeKey] =
+//     derived[def.indexes[1].rangeKey] = String(item._time)
+//   }
 
-  const rangeKeys = def.indexes.map(def => def.rangeKey)
-    .concat(def.rangeKey)
-    .filter(identity)
+//   const rangeKeys = def.indexes.map(def => def.rangeKey)
+//     .concat(def.rangeKey)
+//     .filter(identity)
 
-  return prefixValues(derived, 'tradle.Object', rangeKeys)
-}
+//   return prefixValues(derived, 'tradle.Object', rangeKeys)
+// }
 
 type CommonTableOpts = {
   maxItemSize: number
@@ -72,27 +72,23 @@ export const getCommonTableOpts = (tableName, indexes?): CommonTableOpts => {
     indexes: indexes || tableDefinition.indexes
   }
 
-  const derivedProps:string[] = flatten([
-    def.hashKey,
-    def.rangeKey,
-  ].concat(def.indexes.map(i => [i.hashKey, i.rangeKey])))
-  .filter(i => i)
-
   return {
     maxItemSize: 4000,
     validate: false,
     tableDefinition: def,
-    derivedProps,
-    deriveProps: getDefaultderiveProps(def),
-    resolveOrderBy: ({ type, hashKey, property }) => {
-      if (hashKey !== def.hashKey && property === '_time') {
-        return def.indexes
-          .find(index => index.hashKey === hashKey)
-          .rangeKey
-      }
+    derivedProps: utils.getTableKeys(def),
+    deriveProps: utils.deriveProps,
+    resolveOrderBy: utils.resolveOrderBy
+    // deriveProps: getDefaultderiveProps(def),
+    // resolveOrderBy: ({ type, hashKey, property }) => {
+    //   if (hashKey !== def.hashKey && property === '_time') {
+    //     return def.indexes
+    //       .find(index => index.hashKey === hashKey)
+    //       .rangeKey
+    //   }
 
-      return property
-    }
+    //   return property
+    // }
   }
 }
 
@@ -116,8 +112,8 @@ export const createDB = ({
         docClient
       })
 
-      table.hook('put:pre', createControlLatestHook(table, 'put'))
-      table.hook('update:pre', createControlLatestHook(table, 'update'))
+      // table.hook('put:pre', createControlLatestHook(table, 'put'))
+      // table.hook('update:pre', createControlLatestHook(table, 'update'))
       return table
     }
   })

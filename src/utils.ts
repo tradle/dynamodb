@@ -2,6 +2,7 @@ import crypto = require('crypto')
 import _ = require('lodash')
 import bindAll = require('bindall')
 import promisify = require('pify')
+import traverse = require('traverse')
 import levenshtein = require('fast-levenshtein')
 import AWS = require('aws-sdk')
 import Joi from 'joi'
@@ -15,7 +16,6 @@ import * as defaults from './defaults'
 import {
   // defaultOrderBy,
   minifiedFlag,
-  separator,
   RANGE_KEY_PLACEHOLDER_VALUE,
   DEFAULT_RANGE_KEY,
   PRIMARY_KEYS_PROPS
@@ -646,6 +646,7 @@ export const hookUp = (fn, event) => async function (...args) {
 }
 
 export const getTemplateStringVariables = (str: string) => {
+  if (!str) debugger
   const match = str.match(/\{([^}]+)\}/g)
   if (match) {
     return match.map(part => part.slice(1, part.length - 1))
@@ -667,12 +668,27 @@ export const renderTemplate = (str, data) => {
     interpolate: TEMPLATE_SETTINGS
   })
 
-  data = _.transform(data, (encoded, value, key) => {
-    encoded[key] = '{' + encodeURIComponent(value) + '}'
-  }, {})
-
+  data = encodeTemplateValues(data)
   return render(data)
 }
+
+export const encodeTemplateValues = data => traverse(data).map(function (val) {
+  if (this.circular) throw new Error('unexpected circular reference')
+
+  if (this.isLeaf) {
+    this.update('{' + encodeURIComponent(val) + '}')
+  }
+}, {})
+
+// const encodeTemplateValues = data => _.transform(data, (encoded, value, key) => {
+//   if (value == null) return
+
+//   if (typeof value === 'object') {
+//     encoded[key] = encodeValues(value)
+//   } else {
+//     encoded[key] = '{' + encodeURIComponent(value) + '}'
+//   }
+// }, {})
 
 export const normalizeIndexedProperty = (property: any):KeyProps => {
   if (typeof property === 'string') {
@@ -701,6 +717,8 @@ export const normalizeIndexedPropertyTemplateSchema = (property:any):IndexedProp
   const ret = <IndexedProperty>{}
   for (const key of PRIMARY_KEYS_PROPS) {
     const val = property[key]
+    if (!val) continue
+
     if (val.template) {
       ret[key] = val
     } else {
@@ -762,6 +780,7 @@ export const getPrimaryKeysForModel: GetPrimaryKeysForModel = ({ table, model }:
   table: Table
   model: Model
 }) => {
+  if (!model) debugger
   return normalizeIndexedPropertyTemplateSchema(model.primaryKeys || defaults.primaryKeys)
 }
 
@@ -808,6 +827,11 @@ export const deriveProps: PropsDeriver = ({
   item,
   isRead
 }) => {
+  if (!table.derivedProps.length) {
+    debugger
+    return {}
+  }
+
   // expand '.' props
   item = expandNestedProps(item)
 
@@ -885,6 +909,7 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
     let propVal = value
     if (type === 'hash') {
       propVal = decodeHashKeyTemplate(propVal).value
+      if (typeof propVal === 'undefined') return
     }
 
     const propPaths = getTemplateStringVariables(template)
@@ -920,6 +945,13 @@ const expandNestedProps = obj => {
   }
 
   return expanded
+}
+
+export const getTableKeys = (def:IDynogelTableDefinition) => {
+  const { hashKey, rangeKey } = def
+  return [hashKey, rangeKey]
+    .concat(_.flatten(def.indexes.map(def => [def.hashKey, def.rangeKey])))
+    .filter(_.identity)
 }
 
 export {
