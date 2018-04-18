@@ -297,17 +297,17 @@ export class Table extends EventEmitter {
         ...opts
       })
     } else {
-      debugger
-      throw new Error('expected all primaryKeys')
-      // result = await this.findOne({
-      //   orderBy: {
-      //     property: this.rangeKey,
-      //     desc: false
-      //   },
-      //   filter: {
-      //     EQ: query
-      //   }
-      // })
+      // try to fall back to index
+      const index = this.indexes.find(index => this._hasAllKeys(expandedQuery, index))
+      if (!index) {
+        throw new Error('expected primary keys or keys for an indexed property')
+      }
+
+      result = await this.findOne({
+        filter: {
+          EQ: query
+        }
+      })
     }
 
     if (!result) {
@@ -592,7 +592,10 @@ export class Table extends EventEmitter {
 
   }
 
-  public getPrimaryKeys = resource => _.pick(resource, this.primaryKeyProps)
+  public getPrimaryKeys = resource => this.getKeys(resource, this.primaryKeys)
+  public getKeys = (resource, schema:KeyProps) => {
+    return _.pick(resource, getKeyProps(schema))
+  }
 
   // private getPrimaryKeys = (resource) => {
   //   const have = _.pick(resource, this.primaryKeyProps)
@@ -631,14 +634,17 @@ export class Table extends EventEmitter {
     }
   }
 
-  private _ensureHasPrimaryKeys = resource => {
+  private _ensureHasPrimaryKeys = (resource) => {
     if (!this._hasAllPrimaryKeys(resource)) {
-      debugger
       throw new Error('expected values for all primary keys')
     }
   }
 
-  private _hasAllPrimaryKeys = obj => _.size(this.getPrimaryKeys(obj)) === this.primaryKeyProps.length
+  private _hasAllPrimaryKeys = obj => this._hasAllKeys(obj, this.primaryKeys)
+
+  private _hasAllKeys = (obj, schema:KeyProps) => {
+    return _.size(this.getKeys(obj, schema)) === _.size(getKeyProps(schema))
+  }
 
   private _minify = (item: any) => {
     if (this._shouldMinify(item)) {
@@ -669,3 +675,5 @@ export class Table extends EventEmitter {
 }
 
 export const createTable = (opts:ITableOpts) => new Table(opts)
+
+const getKeyProps = (schema: KeyProps) => _.values(pickNonNull(schema, PRIMARY_KEYS_PROPS))

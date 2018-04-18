@@ -69,6 +69,7 @@ export declare class Table extends EventEmitter {
     private _validateResource;
     private _batchPut;
     getPrimaryKeys: (resource: any) => any;
+    getKeys: (resource: any, schema: KeyProps) => any;
     addDerivedProperties: (resource: any, forRead: any) => any;
     withDerivedProperties: (resource: any) => any;
     omitDerivedProperties: (resource: any) => any;
@@ -81,6 +82,7 @@ export declare class Table extends EventEmitter {
     private _ensureWritable;
     private _ensureHasPrimaryKeys;
     private _hasAllPrimaryKeys;
+    private _hasAllKeys;
     private _minify;
 }
 export declare const createTable: (opts: ITableOpts) => Table;

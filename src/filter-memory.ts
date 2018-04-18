@@ -40,23 +40,30 @@ const negate = (fn) => {
 }
 
 export const isEqual = ({ models, property, condition, value }: IsEqualInput) => {
+  if (shouldCompareWithDeepEqual({ models, property })) {
+    return _.isEqual(condition, value)
+  }
+
   const type = property && property.type
-  if (type !== 'array' && type !== 'object') {
-    return _.isEqual(condition, value)
-  }
-
-  const ref = getRef(property)
-  if (property.inlined || (ref && models[ref].inlined)) {
-    return _.isEqual(condition, value)
-  }
-
   if (type === 'array') {
     debug(`not comparing array valued search property`)
     return false
   }
 
-  const metadata = fromResourceStub(condition)
-  return metadata.link === value
+  debugger
+  return condition._link === value
+}
+
+const shouldCompareWithDeepEqual = ({ models, property }) => {
+  const type = property && property.type
+  // primitive
+  if (type !== 'array' && type !== 'object') return true
+
+  // schema-less
+  if (property.range === 'json') return true
+
+  const ref = getRef(property)
+  return property.inlined || (ref && models[ref].inlined)
 }
 
 export const matchesFilter = ({ models, model, object, filter }: MatchesFilterInput) => {

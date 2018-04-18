@@ -1141,12 +1141,8 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
     },
     indexes: [
       {
-        hashKey: {
-          template: '{payload.user}'
-        },
-        rangeKey: {
-          template: '{time}'
-        }
+        hashKey: 'payload.user',
+        rangeKey: 'time'
       }
     ]
   }
@@ -1226,6 +1222,16 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
   })
 
   t.same(foundEvent, event)
+
+  const gotEvent = await table.get({
+    [TYPE]: event[TYPE],
+    payload: {
+      user: event.payload.user
+    },
+    time: event.time
+  })
+
+  t.same(gotEvent, event, 'get() falls back to index')
 
   // const results = await new Promise((resolve, reject) => {
   //   table.table.scan().exec((err, results) => {
