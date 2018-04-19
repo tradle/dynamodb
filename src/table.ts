@@ -4,7 +4,6 @@ import dynogels from 'dynogels'
 import { TYPE, SIG } from '@tradle/constants'
 import BaseModels from '@tradle/models'
 import validateResource from '@tradle/validate-resource'
-import { setVirtual } from '@tradle/build-resource'
 import Errors from '@tradle/errors'
 import createHooks from 'event-hooks'
 import promisify from 'pify'
@@ -56,7 +55,7 @@ const {
 
 import * as defaults from './defaults'
 import minify from './minify'
-import { NotFound } from './errors'
+import { NotFound, InvalidInput } from './errors'
 import filterDynamoDB from './filter-dynamodb'
 import OPERATORS = require('./operators')
 import {
@@ -522,6 +521,15 @@ export class Table extends EventEmitter {
     if (method === 'create') {
       const minified = this._minify(resource)
       resource = minified.min
+    } else if (options && options.diff) {
+      const { diff } = options
+      validateDiff(diff)
+      options = {
+        ...utils.createUpdateOptionsFromDiff(diff),
+        ..._.omit(options, ['diff'])
+      }
+
+      resource = this.getPrimaryKeys(resource)
     }
 
     let result
@@ -677,3 +685,22 @@ export class Table extends EventEmitter {
 export const createTable = (opts:ITableOpts) => new Table(opts)
 
 const getKeyProps = (schema: KeyProps) => _.values(pickNonNull(schema, PRIMARY_KEYS_PROPS))
+
+const DIFF_OPS = ['add', 'remove', 'replace']
+const validateDiff = diff => {
+  if (!Array.isArray(diff)) {
+    throw new InvalidInput(`expected diff to be array of diff items`)
+  }
+
+  diff.forEach(validateDiffItem)
+}
+
+const validateDiffItem = ({ op, path, value }) => {
+  if (!DIFF_OPS.includes(op)) {
+    throw new InvalidInput(`invalid diff op: ${op}`)
+  }
+
+  if (!(Array.isArray(path) && path.every(sub => typeof sub === 'string'))) {
+    throw new InvalidInput(`invalid diff path, expected string array: ${JSON.stringify(path)}`)
+  }
+}

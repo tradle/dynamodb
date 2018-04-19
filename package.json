@@ -21,6 +21,7 @@
     "cz-conventional-changelog": "^2.0.0",
     "eslint": "^3.19.0",
     "husky": "^0.13.3",
+    "just-diff": "^2.1.1",
     "source-map-support": "^0.5.0",
     "tape": "^4.6.3",
     "tslib": "^1.9.0",
@@ -35,6 +36,7 @@
     "copy-static-assets": "cp src/test/fixtures/* lib/test/fixtures/ && cp src/types.d.ts lib/"
   },
   "dependencies": {
+    "@aws/dynamodb-expressions": "^0.4.0",
     "@tradle/constants": "^2.1.0",
     "@tradle/errors": "^1.1.0",
     "array-sort": "^1.0.0",

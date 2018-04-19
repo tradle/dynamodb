@@ -1,5 +1,9 @@
 
 import AWS = require('aws-sdk')
+import {
+  PathElement,
+} from '@aws/dynamodb-expressions'
+
 import { Table } from './table'
 import { ModelStore } from './model-store'
 import { FilterOp } from './filter-dynamodb'
@@ -246,3 +250,14 @@ export type IndexedProperty = {
 //   keys: any
 //   opts?: any
 // }
+
+export type PropPath = string|string[]
+export type PathAndValuePair = [PropPath, any]
+export type DiffType = 'add'|'remove'|'replace'
+export type DiffPart = {
+  op: DiffType
+  path: string[]
+  value: any
+}
+
+export type Diff = DiffPart[]

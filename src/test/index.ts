@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import _ from 'lodash'
 import test from 'tape'
 import dynogels from 'dynogels'
+import { diff } from 'just-diff'
 import { TYPE, SIG, PREVLINK, PERMALINK } from '@tradle/constants'
 import validateResource from '@tradle/validate-resource'
 import buildResource from '@tradle/build-resource'
@@ -534,7 +535,10 @@ let only
 
     const update = { ...keys, _displayName: 'blah' }
     const expected = { ...photoId, ...update }
-    await db.update(update)
+    await db.update(update, {
+      diff: diff(photoId, expected)
+    })
+
     const updated = await db.get({
       [TYPE]: photoId[TYPE],
       _permalink: photoId._permalink

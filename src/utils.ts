@@ -7,6 +7,13 @@ import levenshtein = require('fast-levenshtein')
 import AWS = require('aws-sdk')
 import Joi from 'joi'
 import sort from 'array-sort'
+import {
+  AttributePath,
+  PathElement,
+  UpdateExpression,
+  ConditionExpression,
+  ExpressionAttributes
+} from '@aws/dynamodb-expressions'
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
 import validateModels from '@tradle/validate-model'
@@ -43,11 +50,21 @@ import {
   IDynamoDBKey,
   KeyTemplate,
   KeyProps,
-  DerivedPropsParser
+  DerivedPropsParser,
+  PropPath
 } from './types'
 
 const debug = require('debug')(require('../package.json').name)
 const { getNestedProperties } = validateModels.utils
+const { marshall, unmarshall } = AWS.DynamoDB.Converter
+const fixUnmarshallItem = item => traverse(item).map(function (value) {
+  // unwrap Set instances
+  if (value &&
+    value.values &&
+    value.constructor !== Object) {
+    this.update(value.values)
+  }
+})
 
 export const levenshteinDistance = (a:string, b:string) => levenshtein.get(a, b)
 
@@ -952,6 +969,37 @@ export const getTableKeys = (def:IDynogelTableDefinition) => {
   return [hashKey, rangeKey]
     .concat(_.flatten(def.indexes.map(def => [def.hashKey, def.rangeKey])))
     .filter(_.identity)
+}
+
+export const toAttributePath = (path: PropPath) => {
+  const parts = [].concat(path).map(name => ({
+    type: 'AttributeName',
+    name
+  })) as PathElement[]
+
+  return new AttributePath(parts)
+}
+
+export const marshallDBItem = item => marshall(item)
+export const unmarshallDBItem = item => fixUnmarshallItem(unmarshall(item))
+export const createUpdateOptionsFromDiff = diff => {
+  const atts = new ExpressionAttributes()
+  const updateExp = new UpdateExpression()
+  diff.forEach(({ op, path, value }) => {
+    const attPath = toAttributePath(path)
+    if (op === 'remove') {
+      updateExp.remove(attPath)
+    } else {
+      updateExp.set(attPath, value)
+    }
+  })
+
+  const updateExpStr = updateExp.serialize(atts)
+  return {
+    UpdateExpression: updateExpStr,
+    ExpressionAttributeNames: atts.names,
+    ExpressionAttributeValues: unmarshallDBItem(atts.values)
+  }
 }
 
 export {
