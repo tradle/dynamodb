@@ -1,4 +1,3 @@
-/// <reference types="node" />
 import { EventEmitter } from 'events';
 import { Model, Models } from './types';
 export declare type OnMissingModelPromiser = (id: string) => Promise<void>;

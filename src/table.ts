@@ -275,12 +275,14 @@ export class Table extends EventEmitter {
       throw new Error(`this table is exclusive to type: ${model.id}`)
     }
 
+    if (!this.modelsStored[model.id]) {
+      this._debug(`will store resources of model ${model.id}`)
+    }
+
     this.modelsStored[model.id] = model
     if (!this.models[model.id]) {
       this.models[model.id] = model
     }
-
-    this._debug(`will store resources of model ${model.id}`)
   }
 
   public get = async (query, opts={}):Promise<any> => {

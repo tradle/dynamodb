@@ -1,4 +1,3 @@
-/// <reference types="node" />
 import { EventEmitter } from 'events';
 import { Table } from './table';
 import { ModelStore } from './model-store';

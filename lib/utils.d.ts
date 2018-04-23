@@ -1,7 +1,5 @@
 import bindAll = require('bindall');
 import promisify = require('pify');
-import AWS = require('aws-sdk');
-import { AttributePath } from '@aws/dynamodb-expressions';
 import { Table } from './table';
 import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, PropsDeriver, ResolveOrderBy, IndexedProperty, GetIndexesForModel, GetPrimaryKeysForModel, KeyProps, DerivedPropsParser } from './types';
 declare const debug: any;
@@ -17,7 +15,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 0 | 1 | -1;
+export declare const compare: (a: any, b: any, propertyName: any) => 1 | -1 | 0;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
@@ -82,13 +80,13 @@ export declare const getTableDefinitionForModel: ({ models, model }: {
     models: Models;
     model: Model;
 }) => IDynogelTableDefinition;
-export declare const toDynogelTableDefinition: (cloudformation: AWS.DynamoDB.CreateTableInput) => IDynogelTableDefinition;
-export declare const toDynogelIndexDefinition: (cloudformation: AWS.DynamoDB.GlobalSecondaryIndex) => IDynogelIndex;
+export declare const toDynogelTableDefinition: (cloudformation: any) => IDynogelTableDefinition;
+export declare const toDynogelIndexDefinition: (cloudformation: any) => IDynogelIndex;
 export declare const doesIndexProjectProperty: ({ table, index, property }: {
     table: Table;
     index: IDynogelIndex;
     property: string;
-}) => boolean;
+}) => any;
 export declare const uniqueStrict: (arr: any) => any[];
 export declare const hookUp: (fn: any, event: any) => (...args: any[]) => Promise<any>;
 export declare const getTemplateStringVariables: (str: string) => string[];
@@ -107,12 +105,12 @@ export declare const resolveOrderBy: ResolveOrderBy;
 export declare const deriveProps: PropsDeriver;
 export declare const parseDerivedProps: DerivedPropsParser;
 export declare const getTableKeys: (def: IDynogelTableDefinition) => string[];
-export declare const toAttributePath: (path: string | string[]) => AttributePath;
-export declare const marshallDBItem: (item: any) => AWS.DynamoDB.AttributeMap;
+export declare const toAttributePath: (path: string | string[]) => any;
+export declare const marshallDBItem: (item: any) => any;
 export declare const unmarshallDBItem: (item: any) => any;
 export declare const createUpdateOptionsFromDiff: (diff: any) => {
-    UpdateExpression: string;
-    ExpressionAttributeNames: AWS.DynamoDB.ExpressionAttributeNameMap;
+    UpdateExpression: any;
+    ExpressionAttributeNames: any;
     ExpressionAttributeValues: any;
 };
 export { promisify, debug, bindAll, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType };
