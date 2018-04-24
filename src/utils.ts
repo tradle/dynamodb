@@ -51,7 +51,8 @@ import {
   KeyTemplate,
   KeyProps,
   DerivedPropsParser,
-  PropPath
+  PropPath,
+  Filter
 } from './types'
 
 const debug = require('debug')(require('../package.json').name)
@@ -1000,6 +1001,14 @@ export const createUpdateOptionsFromDiff = diff => {
     ExpressionAttributeNames: atts.names,
     ExpressionAttributeValues: unmarshallDBItem(atts.values)
   }
+}
+
+export const getDecisionProps = ({ filter, select }: {
+  filter?: Filter
+  select?: string[]
+}) => {
+  const props = (select || []).concat(getUsedProperties(filter || {}))
+  return uniqueStrict(props)
 }
 
 export {

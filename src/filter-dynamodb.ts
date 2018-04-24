@@ -8,7 +8,8 @@ import {
   promisify,
   doesIndexProjectProperty,
   getModelProperties,
-  getTemplateStringVariables
+  getTemplateStringVariables,
+  getDecisionProps
 } from './utils'
 
 import OPERATORS = require('./operators')
@@ -26,6 +27,7 @@ export class FilterOp {
   public filter:any
   public expandedFilter:any
   public select?:string[]
+  public decisionProps:string[]
   public orderBy?:OrderBy
   public defaultOrderBy?: OrderBy
   public limit:number
@@ -79,6 +81,11 @@ export class FilterOp {
     if (select) {
       this.select = this._normalizeSelect(select)
     }
+
+    this.decisionProps = getDecisionProps({
+      filter: this.filter,
+      select: this.select || this.guessSelect()
+    })
   }
 
   private _debug = (...args) => {
@@ -269,7 +276,7 @@ export class FilterOp {
   }
 
   _maybeInflate = async (resource) => {
-    let { table, select, index, model, queriedPrimaryKeys } = this
+    let { table, select, decisionProps, index, model, queriedPrimaryKeys } = this
 
     if (!select) {
       select = this.guessSelect()
@@ -293,9 +300,9 @@ export class FilterOp {
     const cut = resource[minifiedFlag] || []
     let needsInflate
     if (cut.length) {
-      needsInflate = select.some(prop => cut.includes(prop))
+      needsInflate = decisionProps.some(prop => cut.includes(prop))
     } else if (canInflateFromDB) {
-      needsInflate = select.some(prop => !(prop in resource))
+      needsInflate = decisionProps.some(prop => !(prop in resource))
     }
 
     if (needsInflate) {

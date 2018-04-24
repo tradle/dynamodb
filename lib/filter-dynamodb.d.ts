@@ -8,6 +8,7 @@ export declare class FilterOp {
     filter: any;
     expandedFilter: any;
     select?: string[];
+    decisionProps: string[];
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
     limit: number;
