@@ -207,6 +207,7 @@ export type FindOpts = {
   select?: string[]
   checkpoint?: any
   limit?: number
+  allowScan?: AllowScan
 }
 
 export interface IDynogelTableDefinition {

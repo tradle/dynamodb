@@ -17,7 +17,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 1 | 0 | -1;
+export declare const compare: (a: any, b: any, propertyName: any) => 0 | 1 | -1;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
