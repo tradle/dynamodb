@@ -1,4 +1,5 @@
 import _ = require('lodash')
+import Errors from '@tradle/errors'
 import { TYPE } from '@tradle/constants'
 import {
   toObject,
@@ -308,14 +309,21 @@ export class FilterOp {
     if (needsInflate) {
       let more
       if (resource._link && table.objects) {
-        more = await table.objects.get(resource._link)
+        try {
+          more = await table.objects.get(resource._link)
+        } catch (err) {
+          Errors.rethrow(err, 'developer')
+          this._debug('failed to inflate via object storages', _.pick(resource, ['_t', '_link']))
+        }
       } else {
         more = await table.get(resource)
       }
 
-      return {
-        ...resource,
-        ...more
+      if (more) {
+        return {
+          ...resource,
+          ...more
+        }
       }
     }
 
