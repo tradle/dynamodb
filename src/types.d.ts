@@ -172,6 +172,7 @@ export type Filter = {
   LTE?: Pojo
   GT?: Pojo
   GTE?: Pojo
+  SUBCLASS_OF?: Pojo
 }
 
 export type FilterResultsInput = {
