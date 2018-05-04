@@ -12,6 +12,7 @@ export declare class FilterOp {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
     limit: number;
+    batchLimit?: number;
     checkpoint?: any;
     sortedByDB: boolean;
     queryProp: string;

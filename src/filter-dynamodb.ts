@@ -233,7 +233,7 @@ export class FilterOp {
         batchLimit = limit * 2
         if (batchLimit < 10) batchLimit = 10
       }
-    ]
+    }
 
     builder.limit(batchLimit)
 

@@ -208,6 +208,7 @@ export type FindOpts = {
   select?: string[]
   checkpoint?: any
   limit?: number
+  batchLimit?: number
   allowScan?: AllowScan
 }
 
