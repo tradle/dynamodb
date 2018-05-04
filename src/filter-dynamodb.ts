@@ -32,6 +32,7 @@ export class FilterOp {
   public orderBy?:OrderBy
   public defaultOrderBy?: OrderBy
   public limit:number
+  public batchLimit?: number
   public checkpoint?: any
   public sortedByDB:boolean
   public queryProp:string
@@ -225,11 +226,14 @@ export class FilterOp {
     // limit how many items dynamodb iterates over before filtering
     // this is different from the sql-like notion of limit
 
-    let batchLimit = limit
-    if (!isEmpty(filter)) {
-      batchLimit = limit * 2
-      if (batchLimit < 10) batchLimit = 10
-    }
+    let { batchLimit } = this
+    if (!batchLimit) {
+      batchLimit = limit
+      if (!isEmpty(filter)) {
+        batchLimit = limit * 2
+        if (batchLimit < 10) batchLimit = 10
+      }
+    ]
 
     builder.limit(batchLimit)
 
