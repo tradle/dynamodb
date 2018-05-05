@@ -442,6 +442,9 @@ export class Table extends EventEmitter {
     debug(...args)
   }
 
+  // may go away
+  public log = this._debug
+
   private _initTable = () => {
     const table = dynogels.define(this.name, _.omit(this.tableDefinition, ['defaultReadOptions', 'primaryKeys']))
     this.table = promisify(table, {

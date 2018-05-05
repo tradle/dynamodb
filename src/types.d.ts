@@ -20,6 +20,7 @@ export type PropsDeriverInput = {
   table: Table
   item: any
   isRead: boolean
+  noConstants?: boolean
 }
 
 export type PropsDeriver = (opts: PropsDeriverInput) => any

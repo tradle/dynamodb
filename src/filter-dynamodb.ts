@@ -10,7 +10,8 @@ import {
   doesIndexProjectProperty,
   getModelProperties,
   getTemplateStringVariables,
-  getDecisionProps
+  getDecisionProps,
+  deriveProps
 } from './utils'
 
 import OPERATORS = require('./operators')
@@ -522,9 +523,42 @@ export default function (opts) {
 
 export const expandFilter = (table: Table, filter: any) => {
   const expandedFilter = _.cloneDeep(filter)
-  if (expandedFilter.EQ) {
-    table.addDerivedProperties(expandedFilter.EQ, true)
+  if (!filter.EQ) return expandedFilter
+
+  const addProps = (target, noConstants?) => _.extend(target, deriveProps({
+    table,
+    item: target,
+    isRead: true,
+    noConstants
+  }))
+
+  addProps(expandedFilter.EQ)
+  const { EQ } = expandedFilter
+  const type = EQ[TYPE]
+  let dangerous
+
+  for (let op in filter) {
+    if (op === 'EQ') continue
+
+    let opInfo = OPERATORS[op]
+    if (!(opInfo.scalar || opInfo.type === 'any')) continue
+
+    let props = expandedFilter[op]
+    let delType = !props[TYPE]
+    if (delType) props[TYPE] = type
+
+    let copy = _.clone(props)
+    addProps(copy, true)
+    let keep = Object.keys(copy).filter(p => !(p in props) && !(p in EQ))
+    if (keep.length) {
+      _.extend(props, _.pick(copy, keep))
+      dangerous = true
+    }
+
+    if (delType) delete props[TYPE]
   }
+
+  // console.warn('performed dangerous filter expansion', _.omit(expandedFilter, 'EQ'))
 
   return expandedFilter
 }

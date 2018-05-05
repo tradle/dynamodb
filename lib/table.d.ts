@@ -61,6 +61,7 @@ export declare class Table extends EventEmitter {
     create: () => Promise<void>;
     destroy: () => Promise<void>;
     private _debug;
+    log: (...args: any[]) => void;
     private _initTable;
     deriveProps: (item: any, isRead?: boolean) => any;
     toDBFormat: (resource: any) => any;

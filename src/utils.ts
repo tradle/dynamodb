@@ -675,8 +675,10 @@ export const getTemplateStringVariables = (str: string) => {
 
 export const getTemplateStringValues = getTemplateStringVariables
 
-export const canRenderTemplate = (template, item) => {
+export const canRenderTemplate = (template:string, item:any, noConstants?:boolean) => {
   const paths = getTemplateStringVariables(template)
+  if (!paths.length && noConstants) return false
+
   return paths.every(path => typeof _.get(item, path) !== 'undefined')
 }
 
@@ -690,6 +692,10 @@ export const renderTemplate = (str, data) => {
   return render(data)
 }
 
+/**
+ * This is done to be able to parse the template values out
+ * and match them to property names in post-query/scan processing
+ */
 export const encodeTemplateValues = data => traverse(data).map(function (val) {
   if (this.circular) throw new Error('unexpected circular reference')
 
@@ -843,7 +849,8 @@ const decodeHashKeyTemplate = (value: string) => {
 export const deriveProps: PropsDeriver = ({
   table,
   item,
-  isRead
+  isRead,
+  noConstants
 }) => {
   if (!table.derivedProps.length) {
     debugger
@@ -884,7 +891,7 @@ export const deriveProps: PropsDeriver = ({
     })
     .flatten()
     // only render the keys for which we have all the variables
-    .filter(({ template }) => canRenderTemplate(template, item))
+    .filter(({ template }) => canRenderTemplate(template, item, noConstants))
     .value()
 
   return renderable.reduce((inputs, { property, template, sort }) => {
