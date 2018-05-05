@@ -521,6 +521,15 @@ export default function (opts) {
   return new FilterOp(opts).exec()
 }
 
+const expandableOperators = [
+  'NEQ',
+  'NULL',
+  'LT',
+  'LTE',
+  'GT',
+  'GTE',
+]
+
 export const expandFilter = (table: Table, filter: any) => {
   const expandedFilter = _.cloneDeep(filter)
   if (!filter.EQ) return expandedFilter
@@ -537,26 +546,23 @@ export const expandFilter = (table: Table, filter: any) => {
   const type = EQ[TYPE]
   let dangerous
 
-  for (let op in filter) {
-    if (op === 'EQ') continue
-
-    let opInfo = OPERATORS[op]
-    if (!(opInfo.scalar || opInfo.type === 'any')) continue
-
-    let props = expandedFilter[op]
-    let delType = !props[TYPE]
+  _.intersection(Object.keys(filter), expandableOperators).forEach(op => {
+    const opInfo = OPERATORS[op]
+    const props = expandedFilter[op]
+    const delType = !props[TYPE]
     if (delType) props[TYPE] = type
 
-    let copy = _.clone(props)
+    const copy = _.clone(props)
     addProps(copy, true)
-    let keep = Object.keys(copy).filter(p => !(p in props) && !(p in EQ))
+
+    const keep = Object.keys(copy).filter(p => !(p in props) && !(p in EQ))
     if (keep.length) {
       _.extend(props, _.pick(copy, keep))
       dangerous = true
     }
 
     if (delType) delete props[TYPE]
-  }
+  })
 
   // console.warn('performed dangerous filter expansion', _.omit(expandedFilter, 'EQ'))
 
