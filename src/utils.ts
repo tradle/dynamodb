@@ -1,10 +1,21 @@
-import crypto = require('crypto')
-import _ = require('lodash')
-import bindAll = require('bindall')
-import promisify = require('pify')
-import traverse = require('traverse')
-import levenshtein = require('fast-levenshtein')
-import AWS = require('aws-sdk')
+import crypto from 'crypto'
+import getPropByPath from 'lodash/get'
+import setPropAtPath from 'lodash/set'
+import extend from 'lodash/extend'
+import memoize from 'lodash/memoize'
+import pick from 'lodash/pick'
+import clone from 'lodash/clone'
+import flatMap from 'lodash/flatMap'
+import flatten from 'lodash/flatten'
+import transform from 'lodash/transform'
+import identityFn from 'lodash/identity'
+import zipObject from 'lodash/zipObject'
+import compileTemplate from 'lodash/template'
+import bindAll from 'bindall'
+import promisify from 'pify'
+import traverse from 'traverse'
+import levenshtein from 'fast-levenshtein'
+import AWS from 'aws-sdk'
 import Joi from 'joi'
 import sort from 'array-sort'
 import {
@@ -14,7 +25,7 @@ import {
   ConditionExpression,
   ExpressionAttributes
 } from '@aws/dynamodb-expressions'
-import toJoi = require('@tradle/schema-joi')
+import toJoi from '@tradle/schema-joi'
 import { TYPE } from '@tradle/constants'
 import validateModels from '@tradle/validate-model'
 import validateResource from '@tradle/validate-resource'
@@ -32,7 +43,7 @@ import {
   prefixString
 } from './prefix'
 
-import OPERATORS = require('./operators')
+import OPERATORS from './operators'
 import {
   Model,
   Models,
@@ -102,8 +113,8 @@ export const sortResults = ({ results, orderBy, defaultOrderBy }: {
 }
 
 export const compare = (a, b, propertyName) => {
-  const aVal = _.get(a, propertyName)
-  const bVal = _.get(b, propertyName)
+  const aVal = getPropByPath(a, propertyName)
+  const bVal = getPropByPath(b, propertyName)
   if (aVal < bVal) return -1
   if (aVal > bVal) return 1
 
@@ -140,9 +151,9 @@ export const resultsToJson = (items) => {
 }
 
 export const getUsedProperties = (filter) => {
-  const flat = flatten(filter)
+  const flat = flattenFilter(filter)
   const props = flat.reduce((all, more) => {
-    _.extend(all, more)
+    extend(all, more)
     return all
   }, {})
 
@@ -155,7 +166,7 @@ export const getUsedProperties = (filter) => {
  * has no semantic meaning, this is just to be able to check
  * which props are being filtered against
  */
-export const flatten = (filter) => {
+export const flattenFilter = (filter) => {
   const flat = []
   const batch = [filter]
   let len = batch.length
@@ -192,7 +203,7 @@ export const flatten = (filter) => {
 const OriginalBaseObjectModel = require('@tradle/models').models['tradle.Object']
 const ObjectModelKeys = Object.keys(OriginalBaseObjectModel.properties)
 
-export const getModelProperties = _.memoize(model => {
+export const getModelProperties = memoize(model => {
   return uniqueStrict(Object.keys(model.properties).concat(ObjectModelKeys))
 }, model => model.id)
 
@@ -343,7 +354,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
     }
 
     const props = [index.hashKey, index.rangeKey].filter(notNull)
-    const indexed = _.pick(item, props)
+    const indexed = pick(item, props)
     return {
       ...indexed,
       ...primaryKeyValues
@@ -365,7 +376,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
 }
 
 function runWithBackoffOnTableNotExists (fn, opts:any={}) {
-  opts = _.clone(opts)
+  opts = clone(opts)
   opts.shouldTryAgain = err => err.code === 'ResourceNotFoundException'
   return runWithBackoffWhile(fn, opts)
 }
@@ -604,7 +615,7 @@ export const toDynogelIndexDefinition = (cloudformation:AWS.DynamoDB.GlobalSecon
     name: IndexName,
     type: 'global',
     rangeKey: rangeKeyDef && rangeKeyDef.AttributeName,
-    projection: _.pick(Projection, ['ProjectionType', 'NonKeyAttributes'])
+    projection: pick(Projection, ['ProjectionType', 'NonKeyAttributes'])
   }
 }
 
@@ -679,12 +690,12 @@ export const canRenderTemplate = (template:string, item:any, noConstants?:boolea
   const paths = getTemplateStringVariables(template)
   if (!paths.length && noConstants) return false
 
-  return paths.every(path => typeof _.get(item, path) !== 'undefined')
+  return paths.every(path => typeof getPropByPath(item, path) !== 'undefined')
 }
 
 const TEMPLATE_SETTINGS = /{([\s\S]+?)}/g
 export const renderTemplate = (str, data) => {
-  const render = _.template(str, {
+  const render = compileTemplate(str, {
     interpolate: TEMPLATE_SETTINGS
   })
 
@@ -725,7 +736,7 @@ export const normalizeIndexedProperty = (property: any):KeyProps => {
     }
   })
 
-  return _.pick(property, PRIMARY_KEYS_PROPS)
+  return pick(property, PRIMARY_KEYS_PROPS)
 }
 
 export const normalizeIndexedPropertyTemplateSchema = (property:any):IndexedProperty => {
@@ -786,7 +797,7 @@ export const pickNonNull = (obj, props) => [].concat(props).reduce((picked, prop
 //   rangeKey: index.rangeKey || RANGE_KEY_PLACEHOLDER_VALUE
 // })
 
-export const getExpandedProperties = _.memoize(({ models, model }) => ({
+export const getExpandedProperties = memoize(({ models, model }) => ({
   ...model.properties,
   ...OriginalBaseObjectModel.properties,
   ...getNestedProperties({ models, model })
@@ -872,7 +883,7 @@ export const deriveProps: PropsDeriver = ({
 
   const model = table.models[rType]
   const indexes = table.getKeyTemplatesForModel(model)
-  const renderable = _.chain(indexes)
+  const renderable = indexes
     .map((templates, i) => {
       const { hashKey, rangeKey } = table.indexed[i]
       const ret = [{
@@ -889,12 +900,11 @@ export const deriveProps: PropsDeriver = ({
 
       return ret
     })
-    .flatten()
+    .reduce((all, some) => all.concat(some), [])
     // only render the keys for which we have all the variables
     .filter(({ template }) => canRenderTemplate(template, item, noConstants))
-    .value()
 
-  return renderable.reduce((inputs, { property, template, sort }) => {
+  return renderable.reduce((inputs, { property, template }) => {
     const val = renderTemplate(template, item)
     if (val.length) {
       // empty strings not allowed!
@@ -907,8 +917,9 @@ export const deriveProps: PropsDeriver = ({
 
 export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource }) => {
   const { models } = table
-  const templates = _.chain(table.getKeyTemplatesForModel(model))
-    .flatMap(({ hashKey, rangeKey }) => {
+  const templates = flatMap(
+    table.getKeyTemplatesForModel(model),
+    ({ hashKey, rangeKey }) => {
       return [
         {
           ...hashKey,
@@ -919,14 +930,14 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
           type: 'range'
         }
       ]
-    })
-    .filter(_.identity)
-    // .filter(info => /^[{]{2}[^}]+[}]{2}$/.test(info.template))
-    .value()
+    }
+  )
+  .filter(identityFn)
+  // .filter(info => /^[{]{2}[^}]+[}]{2}$/.test(info.template))
 
-  const derived = _.pick(resource, table.derivedProps)
+  const derived = pick(resource, table.derivedProps)
   const properties = getExpandedProperties({ models, model })
-  return _.transform(derived, (parsed, value, prop) => {
+  return transform(derived, (parsed, value, prop) => {
     const info = templates.find(({ key }) => key === prop)
     if (!info) return
 
@@ -939,7 +950,7 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
 
     const propPaths = getTemplateStringVariables(template)
     const propVals = getTemplateStringVariables(propVal).map(decodeURIComponent)
-    const pathToVal = _.zipObject(propPaths, propVals)
+    const pathToVal = zipObject(propPaths, propVals)
     Object.keys(pathToVal).forEach(propPath => {
       const propMeta = properties[propPath]
       if (!propMeta) return
@@ -956,7 +967,7 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
       }
 
       // use _.set as propPath may be a nested prop, e.g. blah._permalink
-      _.set(parsed, propPath, val)
+      setPropAtPath(parsed, propPath, val)
     })
   }, {
     [TYPE]: model.id
@@ -966,7 +977,7 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
 const expandNestedProps = obj => {
   const expanded = {}
   for (let key in obj) {
-    _.set(expanded, key, obj[key])
+    setPropAtPath(expanded, key, obj[key])
   }
 
   return expanded
@@ -975,8 +986,8 @@ const expandNestedProps = obj => {
 export const getTableKeys = (def:IDynogelTableDefinition) => {
   const { hashKey, rangeKey } = def
   return [hashKey, rangeKey]
-    .concat(_.flatten(def.indexes.map(def => [def.hashKey, def.rangeKey])))
-    .filter(_.identity)
+    .concat(flatten(def.indexes.map(def => [def.hashKey, def.rangeKey])))
+    .filter(identityFn)
 }
 
 export const toAttributePath = (path: PropPath) => {

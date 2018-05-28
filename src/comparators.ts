@@ -1,5 +1,5 @@
-import _ = require('lodash')
-import traverse = require('traverse')
+import pick from 'lodash/pick'
+import traverse from 'traverse'
 
 const CREATE_EQUALITY_CHECK = method => {
   const checkStrict = ({ where, key, value }) => {
@@ -70,7 +70,7 @@ const ALL_COMPARATORS = {
   }
 }
 
-const QUERY_COMPARATORS = _.pick(ALL_COMPARATORS, [
+const QUERY_COMPARATORS = pick(ALL_COMPARATORS, [
   'EQ',
   'LT',
   'LTE',

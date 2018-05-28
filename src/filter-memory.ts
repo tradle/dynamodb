@@ -1,8 +1,9 @@
-import _ = require('lodash')
-import validateResource = require('@tradle/validate-resource')
+import isDeepEqual from 'lodash/isEqual'
+import getPropAtPath from 'lodash/get'
+import validateResource from '@tradle/validate-resource'
 import { TYPE } from '@tradle/constants'
 import Errors from '@tradle/errors'
-import OPERATORS = require('./operators')
+import OPERATORS from './operators'
 const { getRef, isDescendantOf } = validateResource.utils
 import {
   debug,
@@ -41,7 +42,7 @@ const negate = (fn) => {
 
 export const isEqual = ({ models, property, condition, value }: IsEqualInput) => {
   if (shouldCompareWithDeepEqual({ models, property })) {
-    return _.isEqual(condition, value)
+    return isDeepEqual(condition, value)
   }
 
   const type = property && property.type
@@ -91,7 +92,7 @@ export const matchesFilter = ({ models, model, object, filter }: MatchesFilterIn
         propertyName,
         property,
         condition: conditions[propertyName],
-        value: _.get(object, propertyName)
+        value: getPropAtPath(object, propertyName)
       })
 
       if (!isMatch) return false
@@ -114,8 +115,8 @@ export const filterResults = ({ models, model, results, filter }: FilterResultsI
 export const comparators = {
   EQ: isEqual,
   NEQ: negate(isEqual),
-  IN: ({ value, condition }) => condition.some(one => _.isEqual(one, value)),
-  NOT_IN: ({ value, condition }) => condition.every(one => !_.isEqual(one, value)),
+  IN: ({ value, condition }) => condition.some(one => isDeepEqual(one, value)),
+  NOT_IN: ({ value, condition }) => condition.every(one => !isDeepEqual(one, value)),
   STARTS_WITH: ({ value, condition }) => value && value.startsWith(condition),
   CONTAINS: ({ value, condition }) => value && value.indexOf(condition) !== -1,
   NOT_CONTAINS: ({ value, condition }) => !value || value.indexOf(condition) === -1,

@@ -1,4 +1,12 @@
-import _ = require('lodash')
+import isEqual from 'lodash/isEqual'
+import pick from 'lodash/pick'
+import clone from 'lodash/clone'
+import intersection from 'lodash/intersection'
+import extend from 'lodash/extend'
+import cloneDeep from 'lodash/cloneDeep'
+import merge from 'lodash/merge'
+import uniq from 'lodash/uniq'
+import getValues from 'lodash/values'
 import Errors from '@tradle/errors'
 import { TYPE } from '@tradle/constants'
 import {
@@ -48,7 +56,7 @@ export class FilterOp {
   constructor (opts:FindOpts) {
     this.opts = opts
     Object.assign(this, opts)
-    this.filter = _.cloneDeep(this.filter)
+    this.filter = cloneDeep(this.filter)
     const {
       table,
       models,
@@ -97,10 +105,10 @@ export class FilterOp {
   }
 
   private _normalizeSelect = (select:string[]):string[] => {
-    const raw = select.concat(_.values(this.queriedPrimaryKeys))
+    const raw = select.concat(getValues(this.queriedPrimaryKeys))
       .concat(this.table.primaryKeyProps)
 
-    return _.uniq(raw)
+    return uniq(raw)
   }
 
   private guessSelect = () => {
@@ -150,7 +158,7 @@ export class FilterOp {
       // we need to do pagination in memory
       const idx = items.map(this.table.toDBFormat).findIndex(item => {
         for (let prop in checkpoint) {
-          if (!_.isEqual(checkpoint[prop], item[prop])) {
+          if (!isEqual(checkpoint[prop], item[prop])) {
             return false
           }
         }
@@ -196,7 +204,7 @@ export class FilterOp {
     // maybe we shouldn't handle select as strictly and let the caller prune
     if (select) {
       // a shame to do this again, already did in _maybeInflate
-      items = items.map(item => _.pick(item, select)).map(resource => _.merge(
+      items = items.map(item => pick(item, select)).map(resource => merge(
         table.parseDerivedProps({
           table,
           model,
@@ -293,7 +301,7 @@ export class FilterOp {
       ...resource,
     }
 
-    resource = _.merge(
+    resource = merge(
       table.parseDerivedProps({
         table,
         model,
@@ -318,7 +326,7 @@ export class FilterOp {
           more = await table.objects.get(resource._link)
         } catch (err) {
           Errors.rethrow(err, 'developer')
-          this._debug('failed to inflate via object storages', _.pick(resource, ['_t', '_link']))
+          this._debug('failed to inflate via object storages', pick(resource, ['_t', '_link']))
         }
       } else {
         more = await table.get(resource)
@@ -364,7 +372,7 @@ export class FilterOp {
     }
 
     // if (select) {
-    //   const atts = _.uniq(
+    //   const atts = uniq(
     //       select.concat([hashKey, rangeKey, this.hashKey, this.rangeKey])
     //     )
     //     .map(key => table.prefixKey({ key, type }))
@@ -479,7 +487,7 @@ export class FilterOp {
 
     // const keySchemas = (this.table.indexes || [])
     //   .concat(this.table.primaryKeys)
-    //   .map(props => _.pick(props, PRIMARY_KEYS_PROPS))
+    //   .map(props => pick(props, PRIMARY_KEYS_PROPS))
 
     const { primaryKeys, indexes } = this.model
     const indexed = [].concat(primaryKeys).concat(indexes)
@@ -531,10 +539,10 @@ const expandableOperators = [
 ]
 
 export const expandFilter = (table: Table, filter: any) => {
-  const expandedFilter = _.cloneDeep(filter)
+  const expandedFilter = cloneDeep(filter)
   if (!filter.EQ) return expandedFilter
 
-  const addProps = (target, noConstants?) => _.extend(target, deriveProps({
+  const addProps = (target, noConstants?) => extend(target, deriveProps({
     table,
     item: target,
     isRead: true,
@@ -546,18 +554,18 @@ export const expandFilter = (table: Table, filter: any) => {
   const type = EQ[TYPE]
   let dangerous
 
-  _.intersection(Object.keys(filter), expandableOperators).forEach(op => {
+  intersection(Object.keys(filter), expandableOperators).forEach(op => {
     const opInfo = OPERATORS[op]
     const props = expandedFilter[op]
     const delType = !props[TYPE]
     if (delType) props[TYPE] = type
 
-    const copy = _.clone(props)
+    const copy = clone(props)
     addProps(copy, true)
 
     const keep = Object.keys(copy).filter(p => !(p in props) && !(p in EQ))
     if (keep.length) {
-      _.extend(props, _.pick(copy, keep))
+      extend(props, pick(copy, keep))
       dangerous = true
     }
 

@@ -1,4 +1,5 @@
-import _ = require('lodash')
+import clone from 'lodash/clone'
+import flatMap from 'lodash/flatMap'
 import { TYPE } from '@tradle/constants'
 import { debug, getTemplateStringVariables, normalizeIndexedPropertyTemplateSchema } from './utils'
 import { minifiedFlag } from './constants'
@@ -32,7 +33,7 @@ export default function minify ({ table, item, maxSize }) {
   }
 
   const { indexes, models } = table
-  let min = _.clone(item)
+  let min = clone(item)
   let diff = {}
 
   const model = models[item[TYPE]]
@@ -130,10 +131,11 @@ function isRequired ({ model, propertyName }) {
   const { required = [] } = model
   if (required.includes(propertyName)) return true
   if (model.primaryKeys) {
-    return _.chain(normalizeIndexedPropertyTemplateSchema(model.primaryKeys))
-      .flatMap(({ template }) => getTemplateStringVariables(template))
-      .includes(propertyName)
-      .value()
+    return flatMap(
+      normalizeIndexedPropertyTemplateSchema(model.primaryKeys),
+      ({ template }) => getTemplateStringVariables(template)
+    )
+    .includes(propertyName)
   }
 }
 

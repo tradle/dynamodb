@@ -1,6 +1,6 @@
-import bindAll = require('bindall');
-import promisify = require('pify');
-import AWS = require('aws-sdk');
+import bindAll from 'bindall';
+import promisify from 'pify';
+import AWS from 'aws-sdk';
 import { AttributePath } from '@aws/dynamodb-expressions';
 import { Table } from './table';
 import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, PropsDeriver, ResolveOrderBy, IndexedProperty, GetIndexesForModel, GetPrimaryKeysForModel, KeyProps, DerivedPropsParser, Filter } from './types';
@@ -32,7 +32,7 @@ export declare const getUsedProperties: (filter: any) => string[];
  * has no semantic meaning, this is just to be able to check
  * which props are being filtered against
  */
-export declare const flatten: (filter: any) => any[];
+export declare const flattenFilter: (filter: any) => any[];
 export declare const getModelProperties: any;
 export declare const getMissingProperties: ({ resource, model, opts }: {
     resource: any;

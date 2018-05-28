@@ -1,5 +1,7 @@
 import { EventEmitter } from 'events'
-import _ = require('lodash')
+import map from 'lodash/map'
+import groupBy from 'lodash/groupBy'
+import flatten from 'lodash/flatten'
 import { TYPE } from '@tradle/constants'
 import createHooks from 'event-hooks'
 import {
@@ -169,13 +171,13 @@ export default class DB extends EventEmitter {
     const byTable = new Map<Table, any[]>()
     // prime cache
     resources.forEach(resource => this.getTableForModel(resource[TYPE]))
-    const byType = _.groupBy(resources, TYPE)
-    const results = await Promise.all(_.map(byType, async (batch, type) => {
+    const byType = groupBy(resources, TYPE)
+    const results = await Promise.all(map(byType, async (batch, type) => {
       const table = await this.getTableForModel(type)
       return table.batchPut(batch, opts)
     }))
 
-    return _.flatten(results)
+    return flatten(results)
   }
 
   public find = async (opts:FindOpts) => {

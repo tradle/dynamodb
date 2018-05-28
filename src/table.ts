@@ -1,5 +1,16 @@
 import { EventEmitter } from 'events'
-import _ from 'lodash'
+import stubTrue from 'lodash/stubTrue'
+import clone from 'lodash/clone'
+import getValues from 'lodash/values'
+import uniq from 'lodash/uniq'
+import flatMap from 'lodash/flatMap'
+import each from 'lodash/each'
+import cloneDeep from 'lodash/cloneDeep'
+import omitBy from 'lodash/omitBy'
+import omit from 'lodash/omit'
+import pick from 'lodash/pick'
+import extend from 'lodash/extend'
+import size from 'lodash/size'
 import dynogels from 'dynogels'
 import { TYPE, SIG } from '@tradle/constants'
 import BaseModels from '@tradle/models'
@@ -158,7 +169,7 @@ export class Table extends EventEmitter {
       getIndexesForModel=utils.getIndexesForModel,
       getPrimaryKeysForModel=utils.getPrimaryKeysForModel,
       parseDerivedProps=utils.parseDerivedProps,
-      shouldMinify=_.stubTrue
+      shouldMinify=stubTrue
     } = this.opts
 
     if (!models) throw new Error('expected "models"')
@@ -171,7 +182,7 @@ export class Table extends EventEmitter {
 
     validateTableName(this.tableDefinition.tableName)
     this.name = this.tableDefinition.tableName
-    this.models = _.clone(models)
+    this.models = clone(models)
     this.objects = objects
     this.modelsStored = modelsStored
     this.readOnly = readOnly
@@ -205,9 +216,9 @@ export class Table extends EventEmitter {
       consistentRead: defaultReadOptions.consistentRead
     }
 
-    this.primaryKeyProps = _.values(this.primaryKeys)
-    this.hashKeyProps = _.uniq(this.indexed.map(i => i.hashKey))
-    this.keyProps = _.uniq(_.flatMap(this.indexed, index => _.values(_.pick(index, PRIMARY_KEYS_PROPS))))
+    this.primaryKeyProps = getValues(this.primaryKeys)
+    this.hashKeyProps = uniq(this.indexed.map(i => i.hashKey))
+    this.keyProps = uniq(flatMap(this.indexed, index => getValues(pick(index, PRIMARY_KEYS_PROPS))))
     if (exclusive) {
       this.storeResourcesForModel({ model })
     }
@@ -223,7 +234,7 @@ export class Table extends EventEmitter {
 
   public getKeyTemplate = (model: Model, key: string) => {
     const keyIdx = this.keyProps.indexOf(key)
-    return _.flatMap(this.getKeyTemplatesForModel(model), ({ hashKey, rangeKey }) => {
+    return flatMap(this.getKeyTemplatesForModel(model), ({ hashKey, rangeKey }) => {
       return rangeKey ? [hashKey, rangeKey] : hashKey
     })[keyIdx]
   }
@@ -261,7 +272,7 @@ export class Table extends EventEmitter {
 
   public hook = (method, handler) => this.hooks.hook(method, handler)
 
-  public storeResourcesForModels = (models: Models) => _.each(models, model => this.storeResourcesForModel({ model }))
+  public storeResourcesForModels = (models: Models) => each(models, model => this.storeResourcesForModel({ model }))
 
   public storeResourcesForModel = ({ model }: {
     model: Model
@@ -292,7 +303,7 @@ export class Table extends EventEmitter {
 
     let result
     if (this._hasAllPrimaryKeys(keysObj)) {
-      const keys = _.values(keysObj)
+      const keys = getValues(keysObj)
       result = await this.table.get(...keys, {
         ...this.opts.defaultReadOptions,
         ...opts
@@ -328,7 +339,7 @@ export class Table extends EventEmitter {
     this._ensureWritable()
 
     query = this.toDBFormat(query)
-    const keys = _.values(this.getPrimaryKeys(query))
+    const keys = getValues(this.getPrimaryKeys(query))
     const result = await this.table.destroy(...keys, opts)
     return result && this._exportResource(result)
   }
@@ -377,7 +388,7 @@ export class Table extends EventEmitter {
   public find = async (opts:FindOpts):Promise<any> => {
     opts = {
       ...this.findOpts,
-      ..._.cloneDeep(opts),
+      ...cloneDeep(opts),
       table: this
     }
 
@@ -446,7 +457,7 @@ export class Table extends EventEmitter {
   public log = this._debug
 
   private _initTable = () => {
-    const table = dynogels.define(this.name, _.omit(this.tableDefinition, ['defaultReadOptions', 'primaryKeys']))
+    const table = dynogels.define(this.name, omit(this.tableDefinition, ['defaultReadOptions', 'primaryKeys']))
     this.table = promisify(table, {
       include: [
         'createTable',
@@ -462,7 +473,7 @@ export class Table extends EventEmitter {
 
   public deriveProps = (item, isRead=false) => {
     const derived = this._deriveProps({ table: this, item, isRead })
-    return _.omitBy(derived, (value, prop) => prop in item || value == null)
+    return omitBy(derived, (value, prop) => prop in item || value == null)
   }
 
   public toDBFormat = resource => this.withDerivedProperties(resource)
@@ -531,7 +542,7 @@ export class Table extends EventEmitter {
       validateDiff(diff)
       options = {
         ...utils.createUpdateOptionsFromDiff(diff),
-        ..._.omit(options, ['diff'])
+        ...omit(options, ['diff'])
       }
 
       resource = this.getPrimaryKeys(resource)
@@ -607,11 +618,11 @@ export class Table extends EventEmitter {
 
   public getPrimaryKeys = resource => this.getKeys(resource, this.primaryKeys)
   public getKeys = (resource, schema:KeyProps) => {
-    return _.pick(resource, getKeyProps(schema))
+    return pick(resource, getKeyProps(schema))
   }
 
   // private getPrimaryKeys = (resource) => {
-  //   const have = _.pick(resource, this.primaryKeyProps)
+  //   const have = pick(resource, this.primaryKeyProps)
   //   if (this.hashKey === typeAndPermalinkProperty && !have[typeAndPermalinkProperty]) {
   //     have[typeAndPermalinkProperty] = this.calcTypeAndPermalinkProperty(resource)
   //   }
@@ -629,13 +640,13 @@ export class Table extends EventEmitter {
   //   return prefixString(resource._permalink, resource[TYPE])
   // }
 
-  public addDerivedProperties = (resource, forRead) => _.extend(
+  public addDerivedProperties = (resource, forRead) => extend(
     resource,
     this.deriveProps(resource, forRead)
   )
 
-  public withDerivedProperties = resource => _.extend({}, resource, this.deriveProps(resource))
-  public omitDerivedProperties = resource => _.omit(resource, this.derivedProps)
+  public withDerivedProperties = resource => extend({}, resource, this.deriveProps(resource))
+  public omitDerivedProperties = resource => omit(resource, this.derivedProps)
 
   public resolveOrderBy = (opts: ResolveOrderByInputLite) => {
     return this._resolveOrderBy({ table: this, ...opts }) || opts.property
@@ -656,7 +667,7 @@ export class Table extends EventEmitter {
   private _hasAllPrimaryKeys = obj => this._hasAllKeys(obj, this.primaryKeys)
 
   private _hasAllKeys = (obj, schema:KeyProps) => {
-    return _.size(this.getKeys(obj, schema)) === _.size(getKeyProps(schema))
+    return size(this.getKeys(obj, schema)) === size(getKeyProps(schema))
   }
 
   private _minify = (item: any) => {
@@ -689,7 +700,7 @@ export class Table extends EventEmitter {
 
 export const createTable = (opts:ITableOpts) => new Table(opts)
 
-const getKeyProps = (schema: KeyProps) => _.values(pickNonNull(schema, PRIMARY_KEYS_PROPS))
+const getKeyProps = (schema: KeyProps) => getValues(pickNonNull(schema, PRIMARY_KEYS_PROPS))
 
 const DIFF_OPS = ['add', 'remove', 'replace']
 const validateDiff = diff => {

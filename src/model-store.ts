@@ -1,6 +1,6 @@
-import _ = require('lodash')
+import omit from 'lodash/omit'
 import { EventEmitter } from 'events'
-import mergeModels = require('@tradle/merge-models')
+import mergeModels from '@tradle/merge-models'
 import {
   Model,
   Models
@@ -48,7 +48,7 @@ export class ModelStore extends EventEmitter {
   }
 
   public removeModels = (models:Models) => {
-    this.models = _.omit(this.models, Object.keys(models))
+    this.models = omit(this.models, Object.keys(models))
   }
 }
 
