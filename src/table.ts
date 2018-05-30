@@ -362,6 +362,7 @@ export class Table extends EventEmitter {
 
   public put = async (resource, opts?):Promise<void> => {
     this._debug(`put() ${resource[TYPE]}`)
+    this._validateResource(resource)
     return await this._write('create', resource, opts)
   }
 
