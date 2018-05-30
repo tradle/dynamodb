@@ -1,6 +1,7 @@
 import _ = require('lodash')
 import Errors from '@tradle/errors'
 import { TYPE } from '@tradle/constants'
+import validateModel from '@tradle/validate-model'
 import {
   toObject,
   debug,
@@ -20,6 +21,8 @@ import { filterResults } from './filter-memory'
 import { defaultLimit, minifiedFlag, PRIMARY_KEYS_PROPS } from './constants'
 import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan } from './types'
 import { Table } from './table'
+
+const { isComplexProperty } = validateModel.utils
 
 export class FilterOp {
   public opts:FindOpts
@@ -308,7 +311,18 @@ export class FilterOp {
     if (cut.length) {
       needsInflate = decisionProps.some(prop => cut.includes(prop))
     } else if (canInflateFromDB) {
-      needsInflate = decisionProps.some(prop => !(prop in resource))
+      needsInflate = decisionProps.some(name => {
+        if (!(name in resource)) return true
+
+        // TODO:
+        // this can cause additional fetching, when it's not needed
+        //
+        // if "select" specifies paths vs top-level props
+        // e.g. ["a.a1", "a.a2"] vs ["a"]
+        // then this sacrifice won't be necessary
+        const property = model.properties[name]
+        return property && isComplexProperty(property)
+      })
     }
 
     if (needsInflate) {
