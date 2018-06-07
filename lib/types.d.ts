@@ -94,6 +94,7 @@ export interface IDBOpts {
   modelStore: ModelStore
   defineTable: (name:string) => Table
   chooseTable?: TableChooser
+  logger?: ILogger
 }
 
 export interface ITableDefinition extends IDynogelTableDefinition {
@@ -131,6 +132,7 @@ export interface ITableOpts {
   getIndexesForModel?: GetIndexesForModel
   getPrimaryKeysForModel?: GetPrimaryKeysForModel
   shouldMinify?: ShouldMinify
+  logger?: ILogger
 }
 
 export type KeyProps = {
@@ -265,3 +267,12 @@ export type DiffPart = {
 }
 
 export type Diff = DiffPart[]
+
+export interface ILogger {
+  log: Function
+  info: Function
+  warn: Function
+  error: Function
+  debug: Function
+  silly: Function
+}

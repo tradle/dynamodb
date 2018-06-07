@@ -2,7 +2,7 @@
 import { EventEmitter } from 'events';
 import { Table } from './table';
 import { ModelStore } from './model-store';
-import { IDBOpts, Model, Models, FindOpts } from './types';
+import { IDBOpts, Model, Models, FindOpts, ILogger } from './types';
 export default class DB extends EventEmitter {
     static getSafeTableName: (model: any) => string;
     modelStore: ModelStore;
@@ -15,11 +15,12 @@ export default class DB extends EventEmitter {
     exclusive: {
         [key: string]: Table;
     };
+    logger: ILogger;
     private tableTableNames;
     private _choose;
     private _instantiateTable;
     private hooks;
-    constructor({tableNames, defineTable, chooseTable, modelStore}: IDBOpts);
+    constructor({tableNames, defineTable, chooseTable, modelStore, logger}: IDBOpts);
     readonly models: Models;
     setExclusive: ({ model, table }: {
         model?: any;

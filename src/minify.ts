@@ -1,6 +1,6 @@
 import _ = require('lodash')
 import { TYPE } from '@tradle/constants'
-import { debug, getTemplateStringVariables, normalizeIndexedPropertyTemplateSchema } from './utils'
+import { getTemplateStringVariables, normalizeIndexedPropertyTemplateSchema } from './utils'
 import { minifiedFlag } from './constants'
 
 type MinifyPref = {
@@ -60,7 +60,7 @@ export default function minify ({ table, item, maxSize }) {
 
       const property = model.properties[propertyName]
       if (!property) {
-        debug(`property "${propertyName}" not found in model "${model.id}"`)
+        table.logger.debug(`property "${propertyName}" not found in model "${model.id}"`)
         continue
       }
 
@@ -92,7 +92,7 @@ export default function minify ({ table, item, maxSize }) {
 
   if (min[minifiedFlag] && min[minifiedFlag].length) {
     const cut = min[minifiedFlag]
-    debug(`minified ${item[TYPE]} per max item size (${maxSize}). Removed: ${cut.join(', ')}`)
+    table.logger.debug(`minified ${item[TYPE]} per max item size (${maxSize}). Removed: ${cut.join(', ')}`)
   }
 
   return { min, diff }

@@ -4,7 +4,6 @@ import AWS = require('aws-sdk');
 import { AttributePath } from '@aws/dynamodb-expressions';
 import { Table } from './table';
 import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, PropsDeriver, ResolveOrderBy, IndexedProperty, GetIndexesForModel, GetPrimaryKeysForModel, KeyProps, DerivedPropsParser, Filter } from './types';
-declare const debug: any;
 export declare const levenshteinDistance: (a: string, b: string) => any;
 export declare const cleanName: (str: any) => any;
 export declare const getTableName: ({ model, prefix, suffix }: {
@@ -17,7 +16,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 1 | -1 | 0;
+export declare const compare: (a: any, b: any, propertyName: any) => 1 | 0 | -1;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
@@ -123,4 +122,4 @@ export declare const getDecisionProps: ({ filter, select }: {
     filter?: Filter;
     select?: string[];
 }) => any[];
-export { promisify, debug, bindAll, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType };
+export { promisify, bindAll, runWithBackoffWhile, runWithBackoffOnTableNotExists, waitTillActive, minBy, sha256, wait, defaultBackoffFunction, validateTableName, getFilterType };

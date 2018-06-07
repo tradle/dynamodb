@@ -33,11 +33,11 @@ import {
   GetIndexesForModel,
   GetPrimaryKeysForModel,
   ShouldMinify,
+  ILogger,
 } from './types'
 
 import * as utils from './utils'
 const {
-  debug,
   wait,
   defaultBackoffFunction,
   sha256,
@@ -119,6 +119,7 @@ export class Table extends EventEmitter {
   public indexed:IDynogelIndex[]
   public exclusive:boolean
   public table:any
+  public logger: ILogger
   private opts:ITableOpts
   private modelsStored:Models
   private _prefix:{[key:string]: string}
@@ -158,13 +159,16 @@ export class Table extends EventEmitter {
       getIndexesForModel=utils.getIndexesForModel,
       getPrimaryKeysForModel=utils.getPrimaryKeysForModel,
       parseDerivedProps=utils.parseDerivedProps,
-      shouldMinify=_.stubTrue
+      shouldMinify=_.stubTrue,
+      logger=defaults.logger,
     } = this.opts
 
     if (!models) throw new Error('expected "models"')
     if (exclusive && !model) {
       throw new Error('expected "model" when "exclusive" is true')
     }
+
+    this.logger = logger
 
     // @ts-ignore
     this.tableDefinition = tableDefinition.TableName ? toDynogelTableDefinition(tableDefinition) : tableDefinition
@@ -214,7 +218,7 @@ export class Table extends EventEmitter {
 
     this._initTable()
     this.on('def:update', () => this.table = null)
-    this._debug('initialized')
+    this.logger.silly('initialized')
     this.hooks = createHooks()
     HOOKABLE.forEach(method => {
       this[method] = hookUp(this[method].bind(this), method)
@@ -230,7 +234,6 @@ export class Table extends EventEmitter {
 
   public getKeyTemplatesForModel = (model: Model) => {
     if (!model) {
-      debugger
       throw new Error('expected "model"')
     }
 
@@ -276,7 +279,7 @@ export class Table extends EventEmitter {
     }
 
     if (!this.modelsStored[model.id]) {
-      this._debug(`will store resources of model ${model.id}`)
+      this.logger.silly(`will store resources of model ${model.id}`)
     }
 
     this.modelsStored[model.id] = model
@@ -286,7 +289,7 @@ export class Table extends EventEmitter {
   }
 
   public get = async (query, opts={}):Promise<any> => {
-    this._debug(`get() ${JSON.stringify(query)}`)
+    this.logger.silly(`get() ${JSON.stringify(query)}`)
     const expandedQuery = this.toDBFormat(query)
     const keysObj = this.getPrimaryKeys(expandedQuery)
 
@@ -354,20 +357,20 @@ export class Table extends EventEmitter {
       batch = mins.slice(0, batchWriteLimit)
       mins = mins.slice(batchWriteLimit)
       await this._batchPut(batch, backoffOpts)
-      this._debug(`batchPut ${batch.length} items successfully`)
+      this.logger.silly(`batchPut ${batch.length} items successfully`)
     }
 
     return resources
   }
 
   public put = async (resource, opts?):Promise<void> => {
-    this._debug(`put() ${resource[TYPE]}`)
+    this.logger.silly(`put() ${resource[TYPE]}`)
     this._validateResource(resource)
     return await this._write('create', resource, opts)
   }
 
   public update = async (resource, opts?):Promise<any|void> => {
-    this._debug(`update() ${resource[TYPE]}`)
+    this.logger.silly(`update() ${resource[TYPE]}`)
     return await this._write('update', resource, opts)
   }
 
@@ -385,9 +388,9 @@ export class Table extends EventEmitter {
     // ensure type is set on filter
     getFilterType(opts)
 
-    this._debug(`find() ${opts.filter.EQ[TYPE]}`)
+    this.logger.silly(`find() ${opts.filter.EQ[TYPE]}`)
     const results = await filterDynamoDB(opts)
-    this._debug(`find returned ${results.items.length} results`)
+    this.logger.silly(`find returned ${results.items.length} results`)
     results.items = results.items.map(resource => this._exportResource(resource))
     return results
   }
@@ -417,34 +420,26 @@ export class Table extends EventEmitter {
   }
 
   public create = async ():Promise<void> => {
-    this._debug('create() table')
+    this.logger.info('creating table')
     try {
       await this.table.createTable()
     } catch (err) {
       Errors.ignore(err, { code: 'ResourceInUseException' })
     }
 
-    this._debug('created table')
+    this.logger.silly('created table')
   }
 
   public destroy = async ():Promise<void> => {
-    this._debug('destroy() table')
+    this.logger.info('destroying table')
     try {
       await this.table.deleteTable()
     } catch (err) {
       Errors.ignore(err, { code: 'ResourceNotFoundException' })
     }
 
-    this._debug('destroyed table')
+    this.logger.silly('destroyed table')
   }
-
-  private _debug = (...args):void => {
-    args.unshift(this.name)
-    debug(...args)
-  }
-
-  // may go away
-  public log = this._debug
 
   private _initTable = () => {
     const table = dynogels.define(this.name, _.omit(this.tableDefinition, ['defaultReadOptions', 'primaryKeys']))
@@ -548,7 +543,7 @@ export class Table extends EventEmitter {
     }
 
     const primaryKeys = this.getPrimaryKeys(resource)
-    this._debug(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
+    this.logger.silly(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
     return result && this._exportResource(result)
   }
 
@@ -567,7 +562,7 @@ export class Table extends EventEmitter {
   }
 
   private _batchPut = async (resources:any[], backoffOpts:BackoffOptions) => {
-    this._debug(`batchPut() ${resources.length} items`)
+    this.logger.silly(`batchPut() ${resources.length} items`)
 
     const params:AWS.DynamoDB.BatchWriteItemInput = {
       RequestItems: {
@@ -589,12 +584,12 @@ export class Table extends EventEmitter {
     let time = 0
     let failed
     while (tries < maxTries) {
-      this._debug('attempting batchWrite')
+      this.logger.silly('attempting batchWrite')
       let result = await docClient.batchWrite(params).promise()
       failed = result.UnprocessedItems
       if (!(failed && Object.keys(failed).length)) return
 
-      this._debug(`batchPut partially failed, retrying`)
+      this.logger.debug(`batchPut partially failed, retrying`)
       params.RequestItems = failed
       await wait(backoff(tries++))
     }

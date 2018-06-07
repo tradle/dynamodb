@@ -52,10 +52,10 @@ import {
   KeyProps,
   DerivedPropsParser,
   PropPath,
-  Filter
+  Filter,
+  ILogger
 } from './types'
 
-const debug = require('debug')(require('../package.json').name)
 const { getNestedProperties } = validateModels.utils
 const { marshall, unmarshall } = AWS.DynamoDB.Converter
 const fixUnmarshallItem = item => traverse(item).map(function (value) {
@@ -88,10 +88,7 @@ export const sortResults = ({ results, orderBy, defaultOrderBy }: {
   // make sure both are initialized
   orderBy = orderBy || defaultOrderBy
   defaultOrderBy = defaultOrderBy || orderBy
-  if (!orderBy) {
-    debugger
-    return results
-  }
+  if (!orderBy) return results
 
   const { property, desc } = orderBy
   if (property === defaultOrderBy.property) {
@@ -421,7 +418,7 @@ const waitTillActive = async (table) => {
         throw new Error(`table "${tableName}" is being deleted`)
       default:
         const message = `table "${tableName}" has unknown TableStatus "${TableStatus}"`
-        debug(table.tableName, message)
+        table.logger.debug(table.tableName, message)
         throw new Error(message)
     }
   }, {
@@ -664,7 +661,6 @@ export const hookUp = (fn, event) => async function (...args) {
 }
 
 export const getTemplateStringVariables = (str: string) => {
-  if (!str) debugger
   const match = str.match(/\{([^}]+)\}/g)
   if (match) {
     return match.map(part => part.slice(1, part.length - 1))
@@ -804,7 +800,6 @@ export const getPrimaryKeysForModel: GetPrimaryKeysForModel = ({ table, model }:
   table: Table
   model: Model
 }) => {
-  if (!model) debugger
   return normalizeIndexedPropertyTemplateSchema(model.primaryKeys || defaults.primaryKeys)
 }
 
@@ -853,7 +848,6 @@ export const deriveProps: PropsDeriver = ({
   noConstants
 }) => {
   if (!table.derivedProps.length) {
-    debugger
     return {}
   }
 
@@ -1020,7 +1014,6 @@ export const getDecisionProps = ({ filter, select }: {
 
 export {
   promisify,
-  debug,
   bindAll,
   // getIndexes,
   runWithBackoffWhile,

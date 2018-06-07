@@ -25,7 +25,6 @@ import {
 
 import * as utils from '../utils'
 const {
-  debug,
   wait,
   runWithBackoffOnTableNotExists,
   getTableDefinitionForModel,
@@ -45,9 +44,10 @@ const sortResults = opts => utils.sortResults({
   ...opts
 })
 
+const { logger } = defaults
 dynogels.log = {
-  info: debug,
-  warn: debug,
+  info: logger.debug,
+  warn: logger.debug,
   level: 'info'
 }
 
@@ -274,6 +274,7 @@ test('minify (big values)', function (t) {
 
   // fake table
   const table = {
+    logger,
     models,
     indexes: defaultIndexes
   }
@@ -324,6 +325,7 @@ test('minify (retain resource values)', function (t) {
 
   // fake table
   const table = {
+    logger,
     models: customModels,
     indexes: defaultIndexes
   }
@@ -368,6 +370,7 @@ test('minify (optional props)', function (t) {
 
   // fake table
   const table = {
+    logger,
     models: customModels,
     indexes: defaultIndexes
   }

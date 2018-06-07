@@ -15,7 +15,8 @@ import {
 
 import { Table } from './table'
 import { ModelStore } from './model-store'
-import { IDBOpts, ITableOpts, IDynogelIndex, Model, Models, TableChooser, FindOpts } from './types'
+import { IDBOpts, ITableOpts, IDynogelIndex, Model, Models, TableChooser, FindOpts, ILogger } from './types'
+import * as defaults from './defaults'
 
 const HOOKABLE = [
   'put',
@@ -48,6 +49,7 @@ export default class DB extends EventEmitter {
   // tables by type (model.id)
   public tables:{ [key:string]: Table }
   public exclusive: { [key:string]: Table }
+  public logger: ILogger
   private tableTableNames: string[]
   private _choose:TableChooser
   private _instantiateTable:(name:string) => Table
@@ -56,9 +58,11 @@ export default class DB extends EventEmitter {
     tableNames,
     defineTable,
     chooseTable=defaultTableChooser,
-    modelStore
+    modelStore,
+    logger=defaults.logger
   }: IDBOpts) {
     super()
+    this.logger = logger
 
     if (!(modelStore &&
       Array.isArray(tableNames) &&

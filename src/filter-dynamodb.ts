@@ -4,7 +4,6 @@ import { TYPE } from '@tradle/constants'
 import validateModel from '@tradle/validate-model'
 import {
   toObject,
-  debug,
   sortResults,
   getQueryInfo,
   promisify,
@@ -94,9 +93,8 @@ export class FilterOp {
     })
   }
 
-  private _debug = (...args) => {
-    args.unshift(`search:${this.opType}`)
-    debug(...args)
+  private _debug = (message, ...rest) => {
+    this.table.logger.debug(`search:${this.opType}: ${message}`, ...rest)
   }
 
   private _normalizeSelect = (select:string[]):string[] => {

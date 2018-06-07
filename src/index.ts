@@ -3,7 +3,6 @@ import DB from './db'
 import * as utils from './utils'
 import constants from './constants'
 import * as Errors from './errors'
-import createResolvers from './resolvers'
 import { ModelStore, createModelStore } from './model-store'
 // import * as hooks from './hooks'
 import * as defaults from './defaults'
@@ -19,7 +18,6 @@ export {
   utils,
   constants,
   Errors,
-  createResolvers,
   // hooks,
   defaults,
   find,

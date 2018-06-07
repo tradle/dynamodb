@@ -5,7 +5,6 @@ import Errors from '@tradle/errors'
 import OPERATORS = require('./operators')
 const { getRef, isDescendantOf } = validateResource.utils
 import {
-  debug,
   fromResourceStub
 } from './utils'
 
@@ -15,6 +14,8 @@ import {
   MatchesFilterInput,
   IsEqualInput
 } from './types'
+
+import { logger } from './defaults'
 
 // function matchesProps ({ model, object, values }) {
 //   return Object.keys(values).every(propertyName => {
@@ -46,11 +47,10 @@ export const isEqual = ({ models, property, condition, value }: IsEqualInput) =>
 
   const type = property && property.type
   if (type === 'array') {
-    debug(`not comparing array valued search property`)
+    logger.debug(`not comparing array valued search property`)
     return false
   }
 
-  debugger
   return condition._link === value
 }
 
@@ -80,7 +80,7 @@ export const matchesFilter = ({ models, model, object, filter }: MatchesFilterIn
     let conditions = filter[op]
     for (let propertyName in conditions) {
       if (propertyName in OPERATORS) {
-        debug('nested operators not support (yet)')
+        logger.debug('nested operators not support (yet)')
         continue
       }
 

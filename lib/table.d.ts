@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
-import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser } from './types';
+import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser, ILogger } from './types';
 export declare class Table extends EventEmitter {
     name: string;
     models: Models;
@@ -16,6 +16,7 @@ export declare class Table extends EventEmitter {
     indexed: IDynogelIndex[];
     exclusive: boolean;
     table: any;
+    logger: ILogger;
     private opts;
     private modelsStored;
     private _prefix;
@@ -60,8 +61,6 @@ export declare class Table extends EventEmitter {
     getPrefix: (type: any) => string;
     create: () => Promise<void>;
     destroy: () => Promise<void>;
-    private _debug;
-    log: (...args: any[]) => void;
     private _initTable;
     deriveProps: (item: any, isRead?: boolean) => any;
     toDBFormat: (resource: any) => any;
