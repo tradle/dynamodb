@@ -317,6 +317,9 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
 
     if (orderBy.property === preferred.rangeKey) {
       sortedByDB = true
+    } else {
+      sortedByDB = hasAllKeyProps({ def: index, item: EQ })
+      debugger
     }
   } else {
     orderBy = {}
@@ -1028,4 +1031,18 @@ export {
   validateTableName,
   getFilterType,
   // cachify
+}
+
+const hasAllKeyProps = ({ def, item }: {
+  def: IDynamoDBKey
+  item: any
+}) => {
+  const keyProps = [def.hashKey]
+  if (def.rangeKey) keyProps.push(def.rangeKey)
+
+  if (keyProps.every(keyProp => item[keyProp])) {
+    return true
+  }
+
+  return false
 }
