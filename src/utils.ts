@@ -318,8 +318,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
     if (orderBy.property === preferred.rangeKey) {
       sortedByDB = true
     } else {
-      sortedByDB = hasAllKeyProps({ def: index, item: EQ })
-      debugger
+      sortedByDB = hasAllKeyProps({ def: index || table, item: EQ })
     }
   } else {
     orderBy = {}
