@@ -66,6 +66,7 @@ import {
 
 import BaseObjectModel from './object-model'
 import { PRIMARY_KEYS_PROPS } from './constants'
+import { FilterOp } from './filter-dynamodb'
 
 // TODO: add this prop to tradle.Object
 
@@ -389,7 +390,9 @@ export class Table extends EventEmitter {
     getFilterType(opts)
 
     this.logger.silly(`find() ${opts.filter.EQ[TYPE]}`)
-    const results = await filterDynamoDB(opts)
+    const op = new FilterOp(opts)
+    await this.hooks.fire('pre:find:validate', op)
+    const results = await op.exec()
     this.logger.silly(`find returned ${results.items.length} results`)
     results.items = results.items.map(resource => this._exportResource(resource))
     return results
