@@ -44,6 +44,7 @@ import {
   FindOpts,
   PropsDeriver,
   ResolveOrderBy,
+  ResolvedOrderBy,
   IndexedProperty,
   GetIndexesForModel,
   GetPrimaryKeysForModel,
@@ -301,15 +302,19 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
     queryProp = preferred.property
     index = preferred.index
     defaultOrderBy = { property: preferred.rangeKey }
+    let resolvedOrderBy: ResolvedOrderBy
     if (orderBy) {
+      resolvedOrderBy = table.resolveOrderBy({
+        type,
+        hashKey: queryProp,
+        property: orderBy.property,
+        item: EQ
+      })
+
       defaultOrderBy.desc = orderBy.desc
       orderBy = {
         ...orderBy,
-        property: table.resolveOrderBy({
-          type,
-          hashKey: queryProp,
-          property: orderBy.property
-        })
+        property: resolvedOrderBy.property
       }
     } else {
       orderBy = defaultOrderBy
@@ -317,6 +322,10 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
 
     if (orderBy.property === preferred.rangeKey) {
       sortedByDB = true
+      if (resolvedOrderBy && !resolvedOrderBy.full) {
+        // TODO: set STARTS_WITH for rangeKey
+        // filter.STARTS_WITH[orderBy.property] = ...
+      }
     } else {
       sortedByDB = hasAllKeyProps({ def: index || table, item: EQ })
     }
@@ -675,10 +684,20 @@ export const getTemplateStringValues = getTemplateStringVariables
 
 export const canRenderTemplate = (template:string, item:any, noConstants?:boolean) => {
   const paths = getTemplateStringVariables(template)
-  if (!paths.length && noConstants) return false
+  const ret = { full: false, prefix: false }
+  if (!paths.length && noConstants) {
+    return ret
+  }
 
-  return paths.every(path => typeof _.get(item, path) !== 'undefined')
+  ret.full = paths.every(path => typeof _.get(item, path) !== 'undefined')
+  ret.prefix = !paths.length || typeof _.get(item, paths[0]) !== 'undefined'
+  return ret
 }
+
+// export const canRenderTemplatePrefix = (template: string, item: any) => {
+//   const paths = getTemplateStringVariables(template)
+//   return !paths.length || typeof _.get(item, paths[0]) !== 'undefined'
+// }
 
 const TEMPLATE_SETTINGS = /{([\s\S]+?)}/g
 export const renderTemplate = (str, data) => {
@@ -798,10 +817,7 @@ export const getIndexesForModel:GetIndexesForModel = ({ table, model }: {
   return (model.indexes || defaults.indexes).map(index => normalizeIndexedPropertyTemplateSchema(index))
 }
 
-export const getPrimaryKeysForModel: GetPrimaryKeysForModel = ({ table, model }: {
-  table: Table
-  model: Model
-}) => {
+export const getPrimaryKeysForModel: GetPrimaryKeysForModel = ({ table, model }) => {
   return normalizeIndexedPropertyTemplateSchema(model.primaryKeys || defaults.primaryKeys)
 }
 
@@ -809,12 +825,8 @@ export const resolveOrderBy: ResolveOrderBy = ({
   table,
   type,
   hashKey,
-  property
-}: {
-  table: Table
-  type: string
-  hashKey: string
-  property: string
+  property,
+  item={}
 }) => {
   const model = table.models[type]
   if (!model) return
@@ -824,9 +836,16 @@ export const resolveOrderBy: ResolveOrderBy = ({
   const indexedProp = indexes[table.indexed.indexOf(index)]
   if (!(indexedProp && indexedProp.rangeKey)) return
 
-  const rangeKeyDerivesFromProp = canRenderTemplate(indexedProp.rangeKey.template, { [property]: 'placeholder' })
-  if (rangeKeyDerivesFromProp) {
-    return index.rangeKey
+  const rangeKeyDerivesFromProp = canRenderTemplate(indexedProp.rangeKey.template, {
+    [property]: 'placeholder',
+    ...item
+  })
+
+  if (rangeKeyDerivesFromProp.full || rangeKeyDerivesFromProp.prefix) {
+    return {
+      property: index.rangeKey,
+      ...rangeKeyDerivesFromProp
+    }
   }
 }
 
@@ -887,7 +906,7 @@ export const deriveProps: PropsDeriver = ({
     })
     .flatten()
     // only render the keys for which we have all the variables
-    .filter(({ template }) => canRenderTemplate(template, item, noConstants))
+    .filter(({ template }) => canRenderTemplate(template, item, noConstants).full)
     .value()
 
   return renderable.reduce((inputs, { property, template, sort }) => {

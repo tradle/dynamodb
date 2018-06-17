@@ -16,7 +16,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 1 | -1 | 0;
+export declare const compare: (a: any, b: any, propertyName: any) => 1 | 0 | -1;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
@@ -92,7 +92,10 @@ export declare const uniqueStrict: (arr: any) => any[];
 export declare const hookUp: (fn: any, event: any) => (...args: any[]) => Promise<any>;
 export declare const getTemplateStringVariables: (str: string) => string[];
 export declare const getTemplateStringValues: (str: string) => string[];
-export declare const canRenderTemplate: (template: string, item: any, noConstants?: boolean) => boolean;
+export declare const canRenderTemplate: (template: string, item: any, noConstants?: boolean) => {
+    full: boolean;
+    prefix: boolean;
+};
 export declare const renderTemplate: (str: any, data: any) => any;
 /**
  * This is done to be able to parse the template values out

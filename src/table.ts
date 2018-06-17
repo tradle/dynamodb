@@ -102,6 +102,7 @@ type ResolveOrderByInputLite = {
   type: string
   hashKey: string
   property: string
+  item?: any
   table?: Table
 }
 
@@ -143,6 +144,9 @@ export class Table extends EventEmitter {
 
   constructor (opts:ITableOpts) {
     super()
+
+    const table = this
+
     this.opts = { ...defaultOpts, ...opts }
     const {
       models,
@@ -204,7 +208,8 @@ export class Table extends EventEmitter {
     this._getPrimaryKeysForModel = getPrimaryKeysForModel
     this._shouldMinify = shouldMinify
     this.findOpts = {
-      models,
+      // may change dynamically
+      get models() { return table.models },
       allowScan,
       primaryKeys: this.primaryKeys,
       consistentRead: defaultReadOptions.consistentRead
@@ -551,8 +556,7 @@ export class Table extends EventEmitter {
   }
 
   private _validateResource = (resource) => {
-    const { models } = this.opts
-    const { modelsStored } = this
+    const { models, modelsStored } = this
     const type = resource[TYPE]
     const model = models[type]
     if (!model) {
@@ -637,7 +641,7 @@ export class Table extends EventEmitter {
   public omitDerivedProperties = resource => _.omit(resource, this.derivedProps)
 
   public resolveOrderBy = (opts: ResolveOrderByInputLite) => {
-    return this._resolveOrderBy({ table: this, ...opts }) || opts.property
+    return this._resolveOrderBy({ table: this, ...opts }) || { property: opts.property }
   }
 
   private _ensureWritable = () => {

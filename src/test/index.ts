@@ -1119,6 +1119,63 @@ let only
     t.end()
   }))
 
+  testNamed.skip('compound indexes', loudAsync(async (t) => {
+    await reload(indexes)
+    const COMPOUNDER = 'mynamespace.MultiAuthored' + Date.now()
+    const model = {
+      type: 'tradle.Model',
+      id: COMPOUNDER,
+      title: 'Multi Authored',
+      properties: {
+        org: {
+          type: 'string'
+        },
+        orgOrAuthor: {
+          type: 'string'
+        }
+      },
+      indexes: [
+        {
+          hashKey: 'orgOrAuthor',
+          rangeKey: ['_t', '_time', '_author']
+        }
+      ]
+    }
+
+    db.modelStore.addModel(model)
+
+    const updatedModels = db.models
+    const resource = buildResource({
+        models: updatedModels,
+        model
+      })
+      .set({
+        org: 'Coca Cola',
+        _link: 'abc',
+        _permalink: 'abc',
+        _author: 'Bob',
+        _time: Date.now(),
+        orgOrAuthor: 'Coca Cola'
+      })
+      .toJSON()
+
+    await db.put(resource)
+    const searchResult = await db.find({
+      filter: {
+        EQ: {
+          [TYPE]: COMPOUNDER,
+          orgOrAuthor: resource.org
+        }
+      },
+      orderBy: {
+        property: '_time'
+      }
+    })
+
+    t.same(searchResult.items, [resource])
+    t.end()
+  }))
+
   testNamed('cleanup', async (t) => {
     await cleanup(indexes)
     t.end()

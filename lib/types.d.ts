@@ -38,9 +38,16 @@ export type ResolveOrderByInput = {
   type: string
   hashKey: string
   property: string
+  item?: any
 }
 
-export type ResolveOrderBy = (opts: ResolveOrderByInput) => string
+export type ResolvedOrderBy = {
+  property: string
+  full?: boolean
+  prefix?: boolean
+}
+
+export type ResolveOrderBy = (opts: ResolveOrderByInput) => ResolvedOrderBy
 
 // export interface IKeysDeriver {
 //   [hashKey]: PropertyDeriver
@@ -102,8 +109,13 @@ export interface ITableDefinition extends IDynogelTableDefinition {
   primaryKeys?: KeyProps
 }
 
-export type GetIndexesForModel = ({ table: Table, model: Model }) => IndexedProperty[]
-export type GetPrimaryKeysForModel = ({ table: Table, model: Model }) => IndexedProperty
+type TableAndModel = {
+  table: Table
+  model: Model
+}
+
+export type GetIndexesForModel = (opts: TableAndModel) => IndexedProperty[]
+export type GetPrimaryKeysForModel = (opts: TableAndModel) => IndexedProperty
 
 type _AllowScan = (op:FilterOp) => boolean
 export type AllowScan = boolean | _AllowScan
