@@ -277,6 +277,9 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
 }) => {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
+
+  filter = _.cloneDeep(filter)
+
   const usedProps = getUsedProperties(filter)
   const { indexes, primaryKeys, primaryKeyProps, hashKeyProps } = table
   const { hashKey, rangeKey } = primaryKeys
@@ -295,6 +298,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
   let sortedByDB
   let index
   let defaultOrderBy
+
   if (opType === 'query') {
     // supported key condition operators:
     // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
@@ -322,12 +326,20 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
 
     if (orderBy.property === preferred.rangeKey) {
       sortedByDB = true
-      if (resolvedOrderBy && !resolvedOrderBy.full) {
-        // TODO: set STARTS_WITH for rangeKey
-        // filter.STARTS_WITH[orderBy.property] = ...
-      }
     } else {
       sortedByDB = hasAllKeyProps({ def: index || table, item: EQ })
+    }
+
+    if (resolvedOrderBy && !resolvedOrderBy.full && resolvedOrderBy.prefix) {
+      if (!filter.STARTS_WITH) {
+        filter.STARTS_WITH = {}
+      }
+
+      const iRangeKey = index.rangeKey
+      const { STARTS_WITH } = filter
+      if (iRangeKey && !STARTS_WITH[iRangeKey]) {
+        STARTS_WITH[iRangeKey] = renderTemplate(resolvedOrderBy.prefix, EQ)
+      }
     }
   } else {
     orderBy = {}
@@ -335,6 +347,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
       orderBy.property = rangeKey
     }
   }
+
 
   const itemToPosition = function itemToPosition (item) {
     item = {
@@ -368,7 +381,8 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
     filterProps: usedProps,
     sortedByDB,
     orderBy,
-    defaultOrderBy
+    defaultOrderBy,
+    expandedFilter: filter,
   }
 }
 
@@ -622,7 +636,10 @@ export const doesIndexProjectProperty = ({ table, index, property }: {
   property:string
 }) => {
   const { ProjectionType, NonKeyAttributes } = index.projection
-  if (ProjectionType === 'ALL') {
+  if (ProjectionType === 'ALL' ||
+    index.hashKey === property ||
+    index.rangeKey === property ||
+    table.primaryKeyProps.includes(property)) {
     return true
   }
 
@@ -630,7 +647,7 @@ export const doesIndexProjectProperty = ({ table, index, property }: {
     return NonKeyAttributes.includes(property)
   }
 
-  return index.rangeKey === property || table.primaryKeyProps.includes(property)
+  return false
 }
 
 export const uniqueStrict = arr => {
@@ -682,31 +699,41 @@ export const getTemplateStringVariables = (str: string) => {
 
 export const getTemplateStringValues = getTemplateStringVariables
 
-export const canRenderTemplate = (template:string, item:any, noConstants?:boolean) => {
+export const checkRenderable = (template:string, item:any, noConstants?:boolean) => {
   const paths = getTemplateStringVariables(template)
-  const ret = { full: false, prefix: false }
+  const ret = { full: false, prefix: '' }
   if (!paths.length && noConstants) {
     return ret
   }
 
-  ret.full = paths.every(path => typeof _.get(item, path) !== 'undefined')
-  ret.prefix = !paths.length || typeof _.get(item, paths[0]) !== 'undefined'
+  const unrenderablePathIdx = paths.findIndex(path => typeof _.get(item, path) === 'undefined')
+  ret.full = unrenderablePathIdx === -1
+  if (ret.full) {
+    ret.prefix = template
+  } else {
+    const idx = template.indexOf('{' + paths[unrenderablePathIdx] + '}')
+    ret.prefix = ret.full ? template : template.slice(0, idx)
+  }
+
   return ret
 }
 
-// export const canRenderTemplatePrefix = (template: string, item: any) => {
-//   const paths = getTemplateStringVariables(template)
-//   return !paths.length || typeof _.get(item, paths[0]) !== 'undefined'
-// }
-
 const TEMPLATE_SETTINGS = /{([\s\S]+?)}/g
-export const renderTemplate = (str, data) => {
+export const renderTemplate = (str: string, data: any) => {
   const render = _.template(str, {
     interpolate: TEMPLATE_SETTINGS
   })
 
   data = encodeTemplateValues(data)
   return render(data)
+}
+
+export const renderTemplatePrefix = (str: string, data: any) => {
+  const vars = getTemplateStringVariables(str).slice()
+  const renderable = []
+  while (vars.length && typeof _.get(data, vars[0])) {
+
+  }
 }
 
 /**
@@ -836,7 +863,7 @@ export const resolveOrderBy: ResolveOrderBy = ({
   const indexedProp = indexes[table.indexed.indexOf(index)]
   if (!(indexedProp && indexedProp.rangeKey)) return
 
-  const rangeKeyDerivesFromProp = canRenderTemplate(indexedProp.rangeKey.template, {
+  const rangeKeyDerivesFromProp = checkRenderable(indexedProp.rangeKey.template, {
     [property]: 'placeholder',
     ...item
   })
@@ -844,7 +871,7 @@ export const resolveOrderBy: ResolveOrderBy = ({
   if (rangeKeyDerivesFromProp.full || rangeKeyDerivesFromProp.prefix) {
     return {
       property: index.rangeKey,
-      ...rangeKeyDerivesFromProp
+      ...checkRenderable(indexedProp.rangeKey.template, item)
     }
   }
 }
@@ -906,7 +933,7 @@ export const deriveProps: PropsDeriver = ({
     })
     .flatten()
     // only render the keys for which we have all the variables
-    .filter(({ template }) => canRenderTemplate(template, item, noConstants).full)
+    .filter(({ template }) => checkRenderable(template, item, noConstants).full)
     .value()
 
   return renderable.reduce((inputs, { property, template, sort }) => {

@@ -82,7 +82,7 @@ export declare class Table extends EventEmitter {
     }) => {
         property: string;
         full?: boolean;
-        prefix?: boolean;
+        prefix?: string;
     };
     private _ensureWritable;
     private _ensureHasPrimaryKeys;

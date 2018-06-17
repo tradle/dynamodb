@@ -533,7 +533,7 @@ export default function (opts) {
   return new FilterOp(opts).exec()
 }
 
-const expandableOperators = [
+const EXPANDABLE_OPERATORS = [
   'NEQ',
   'NULL',
   'LT',
@@ -554,11 +554,12 @@ export const expandFilter = (table: Table, filter: any) => {
   }))
 
   addProps(expandedFilter.EQ)
+
   const { EQ } = expandedFilter
   const type = EQ[TYPE]
   let dangerous
 
-  _.intersection(Object.keys(filter), expandableOperators).forEach(op => {
+  _.intersection(Object.keys(filter), EXPANDABLE_OPERATORS).forEach(op => {
     const opInfo = OPERATORS[op]
     const props = expandedFilter[op]
     const delType = !props[TYPE]
@@ -577,6 +578,5 @@ export const expandFilter = (table: Table, filter: any) => {
   })
 
   // console.warn('performed dangerous filter expansion', _.omit(expandedFilter, 'EQ'))
-
   return expandedFilter
 }

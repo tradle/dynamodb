@@ -1119,7 +1119,7 @@ let only
     t.end()
   }))
 
-  testNamed.skip('compound indexes', loudAsync(async (t) => {
+  testNamed('compound indexes', loudAsync(async (t) => {
     await reload(indexes)
     const COMPOUNDER = 'mynamespace.MultiAuthored' + Date.now()
     const model = {
@@ -1159,7 +1159,11 @@ let only
       })
       .toJSON()
 
-    await db.put(resource)
+    await Promise.all([
+      db.put(resource),
+      objects.put(resource)
+    ])
+
     const searchResult = await db.find({
       filter: {
         EQ: {

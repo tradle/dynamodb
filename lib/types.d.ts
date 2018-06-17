@@ -44,7 +44,7 @@ export type ResolveOrderByInput = {
 export type ResolvedOrderBy = {
   property: string
   full?: boolean
-  prefix?: boolean
+  prefix?: string
 }
 
 export type ResolveOrderBy = (opts: ResolveOrderByInput) => ResolvedOrderBy
