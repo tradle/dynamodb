@@ -277,6 +277,9 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
 }) => {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
+
+  filter = _.cloneDeep(filter)
+
   const usedProps = getUsedProperties(filter)
   const { indexes, primaryKeys, primaryKeyProps, hashKeyProps } = table
   const { hashKey, rangeKey } = primaryKeys
@@ -303,6 +306,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
     index = preferred.index
     defaultOrderBy = { property: preferred.rangeKey }
     let resolvedOrderBy: ResolvedOrderBy
+    const originalOrderBy = orderBy || defaultOrderBy
     if (orderBy) {
       resolvedOrderBy = table.resolveOrderBy({
         type,
@@ -322,12 +326,23 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
 
     if (orderBy.property === preferred.rangeKey) {
       sortedByDB = true
-      if (resolvedOrderBy && !resolvedOrderBy.full) {
-        // TODO: set STARTS_WITH for rangeKey
-        // filter.STARTS_WITH[orderBy.property] = ...
-      }
     } else {
       sortedByDB = hasAllKeyProps({ def: index || table, item: EQ })
+    }
+
+    if (resolvedOrderBy &&
+      !resolvedOrderBy.full &&
+      resolvedOrderBy.prefix &&
+      resolvedOrderBy.canOrderBy.includes(originalOrderBy.property)) {
+      if (!filter.STARTS_WITH) {
+        filter.STARTS_WITH = {}
+      }
+
+      const iRangeKey = index.rangeKey
+      const { STARTS_WITH } = filter
+      if (iRangeKey && !STARTS_WITH[iRangeKey]) {
+        STARTS_WITH[iRangeKey] = renderTemplate(resolvedOrderBy.prefix, EQ)
+      }
     }
   } else {
     orderBy = {}
@@ -335,6 +350,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
       orderBy.property = rangeKey
     }
   }
+
 
   const itemToPosition = function itemToPosition (item) {
     item = {
@@ -368,7 +384,8 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
     filterProps: usedProps,
     sortedByDB,
     orderBy,
-    defaultOrderBy
+    defaultOrderBy,
+    expandedFilter: filter,
   }
 }
 
@@ -622,7 +639,10 @@ export const doesIndexProjectProperty = ({ table, index, property }: {
   property:string
 }) => {
   const { ProjectionType, NonKeyAttributes } = index.projection
-  if (ProjectionType === 'ALL') {
+  if (ProjectionType === 'ALL' ||
+    index.hashKey === property ||
+    index.rangeKey === property ||
+    table.primaryKeyProps.includes(property)) {
     return true
   }
 
@@ -630,7 +650,7 @@ export const doesIndexProjectProperty = ({ table, index, property }: {
     return NonKeyAttributes.includes(property)
   }
 
-  return index.rangeKey === property || table.primaryKeyProps.includes(property)
+  return false
 }
 
 export const uniqueStrict = arr => {
@@ -671,7 +691,7 @@ export const hookUp = (fn, event) => async function (...args) {
   return result
 }
 
-export const getTemplateStringVariables = (str: string) => {
+export const getVariablesInTemplate = (str: string) => {
   const match = str.match(/\{([^}]+)\}/g)
   if (match) {
     return match.map(part => part.slice(1, part.length - 1))
@@ -680,27 +700,41 @@ export const getTemplateStringVariables = (str: string) => {
   return []
 }
 
-export const getTemplateStringValues = getTemplateStringVariables
+export const getTemplateStringValues = getVariablesInTemplate
 
-export const canRenderTemplate = (template:string, item:any, noConstants?:boolean) => {
-  const paths = getTemplateStringVariables(template)
-  const ret = { full: false, prefix: false }
-  if (!paths.length && noConstants) {
+export const checkRenderable = (template:string, item:any, noConstants?:boolean) => {
+  const vars = getVariablesInTemplate(template)
+  const ret = {
+    full: false,
+    prefix: '',
+    vars,
+    // firstUnrenderableVar: null,
+    renderablePrefixVars: vars.slice(),
+  }
+
+  if (!vars.length && noConstants) {
     return ret
   }
 
-  ret.full = paths.every(path => typeof _.get(item, path) !== 'undefined')
-  ret.prefix = !paths.length || typeof _.get(item, paths[0]) !== 'undefined'
+  const unrenderablePathIdx = vars.findIndex(path => typeof _.get(item, path) === 'undefined')
+  ret.full = unrenderablePathIdx === -1
+  if (ret.full) {
+    ret.prefix = template
+  } else {
+    const idx = template.indexOf('{' + vars[unrenderablePathIdx] + '}')
+    if (idx === -1) {
+      ret.renderablePrefixVars = []
+    } else {
+      ret.prefix = template.slice(0, idx)
+      ret.renderablePrefixVars = vars.slice(0, unrenderablePathIdx)
+    }
+  }
+
   return ret
 }
 
-// export const canRenderTemplatePrefix = (template: string, item: any) => {
-//   const paths = getTemplateStringVariables(template)
-//   return !paths.length || typeof _.get(item, paths[0]) !== 'undefined'
-// }
-
 const TEMPLATE_SETTINGS = /{([\s\S]+?)}/g
-export const renderTemplate = (str, data) => {
+export const renderTemplate = (str: string, data: any) => {
   const render = _.template(str, {
     interpolate: TEMPLATE_SETTINGS
   })
@@ -774,7 +808,7 @@ export const normalizeIndexedPropertyTemplateSchema = (property:any):IndexedProp
 
 export const getKeyTemplateString = (val:string|string[]) => {
   if (typeof val === 'string') {
-    if (getTemplateStringVariables(val).length) {
+    if (getVariablesInTemplate(val).length) {
       return val
     }
 
@@ -829,23 +863,46 @@ export const resolveOrderBy: ResolveOrderBy = ({
   item={}
 }) => {
   const model = table.models[type]
-  if (!model) return
+  const ret = {
+    property,
+    full: false,
+    prefix: '',
+    vars: [],
+    renderablePrefixVars: [],
+    canOrderBy: [],
+  }
+
+  if (!model) return ret
 
   const index = table.indexed.find(index => index.hashKey === hashKey)
   const indexes = table.getKeyTemplatesForModel(model)
   const indexedProp = indexes[table.indexed.indexOf(index)]
   if (!(indexedProp && indexedProp.rangeKey)) return
 
-  const rangeKeyDerivesFromProp = canRenderTemplate(indexedProp.rangeKey.template, {
+  const rangeKeyDerivesFromProp = checkRenderable(indexedProp.rangeKey.template, {
     [property]: 'placeholder',
     ...item
   })
 
-  if (rangeKeyDerivesFromProp.full || rangeKeyDerivesFromProp.prefix) {
-    return {
-      property: index.rangeKey,
-      ...rangeKeyDerivesFromProp
-    }
+  if (!(rangeKeyDerivesFromProp.full || rangeKeyDerivesFromProp.prefix)) {
+    return ret
+  }
+
+  const renderInfo = checkRenderable(indexedProp.rangeKey.template, item)
+  let canOrderBy
+  if (renderInfo.full) {
+    canOrderBy = renderInfo.vars.slice()
+  } else {
+    // can order by first unrenderable var
+    // e.g. if template is {_t}{_author}{_time}
+    // and we have values for _t, and _author, we can orderBy _time
+    canOrderBy = renderInfo.vars.slice(0, renderInfo.renderablePrefixVars.length + 1)
+  }
+
+  return {
+    property: index.rangeKey,
+    canOrderBy,
+    ...renderInfo
   }
 }
 
@@ -906,7 +963,7 @@ export const deriveProps: PropsDeriver = ({
     })
     .flatten()
     // only render the keys for which we have all the variables
-    .filter(({ template }) => canRenderTemplate(template, item, noConstants).full)
+    .filter(({ template }) => checkRenderable(template, item, noConstants).full)
     .value()
 
   return renderable.reduce((inputs, { property, template, sort }) => {
@@ -952,8 +1009,8 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
       if (typeof propVal === 'undefined') return
     }
 
-    const propPaths = getTemplateStringVariables(template)
-    const propVals = getTemplateStringVariables(propVal).map(decodeURIComponent)
+    const propPaths = getVariablesInTemplate(template)
+    const propVals = getVariablesInTemplate(propVal).map(decodeURIComponent)
     const pathToVal = _.zipObject(propPaths, propVals)
     Object.keys(pathToVal).forEach(propPath => {
       const propMeta = properties[propPath]

@@ -62,7 +62,11 @@ export declare class Table extends EventEmitter {
     create: () => Promise<void>;
     destroy: () => Promise<void>;
     private _initTable;
-    deriveProps: (item: any, isRead?: boolean) => any;
+    deriveProps: (opts: {
+        item: any;
+        isRead?: boolean;
+        noConstants?: boolean;
+    }) => any;
     toDBFormat: (resource: any) => any;
     fromDBFormat: (items: any) => any;
     private _write;
@@ -70,9 +74,9 @@ export declare class Table extends EventEmitter {
     private _batchPut;
     getPrimaryKeys: (resource: any) => any;
     getKeys: (resource: any, schema: KeyProps) => any;
-    addDerivedProperties: (resource: any, forRead: any) => any;
-    withDerivedProperties: (resource: any) => any;
-    omitDerivedProperties: (resource: any) => any;
+    addDerivedProperties: (item: any, isRead: any) => any;
+    withDerivedProperties: (item: any) => any;
+    omitDerivedProperties: (item: any) => any;
     resolveOrderBy: (opts: {
         type: string;
         hashKey: string;
@@ -81,8 +85,11 @@ export declare class Table extends EventEmitter {
         table?: Table;
     }) => {
         property: string;
-        full?: boolean;
-        prefix?: boolean;
+        vars: string[];
+        full: boolean;
+        prefix: string;
+        renderablePrefixVars: string[];
+        canOrderBy: string[];
     };
     private _ensureWritable;
     private _ensureHasPrimaryKeys;

@@ -43,8 +43,12 @@ export type ResolveOrderByInput = {
 
 export type ResolvedOrderBy = {
   property: string
-  full?: boolean
-  prefix?: boolean
+  vars: string[]
+  full: boolean
+  prefix: string
+  renderablePrefixVars: string[]
+  // firstUnrenderableVar: string
+  canOrderBy: string[]
 }
 
 export type ResolveOrderBy = (opts: ResolveOrderByInput) => ResolvedOrderBy

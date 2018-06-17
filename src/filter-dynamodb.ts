@@ -9,7 +9,7 @@ import {
   promisify,
   doesIndexProjectProperty,
   getModelProperties,
-  getTemplateStringVariables,
+  getVariablesInTemplate,
   getDecisionProps,
   deriveProps
 } from './utils'
@@ -533,7 +533,7 @@ export default function (opts) {
   return new FilterOp(opts).exec()
 }
 
-const expandableOperators = [
+const EXPANDABLE_OPERATORS = [
   'NEQ',
   'NULL',
   'LT',
@@ -546,19 +546,19 @@ export const expandFilter = (table: Table, filter: any) => {
   const expandedFilter = _.cloneDeep(filter)
   if (!filter.EQ) return expandedFilter
 
-  const addProps = (target, noConstants?) => _.extend(target, deriveProps({
-    table,
+  const addProps = (target, noConstants?) => _.extend(target, table.deriveProps({
     item: target,
     isRead: true,
     noConstants
   }))
 
   addProps(expandedFilter.EQ)
+
   const { EQ } = expandedFilter
   const type = EQ[TYPE]
   let dangerous
 
-  _.intersection(Object.keys(filter), expandableOperators).forEach(op => {
+  _.intersection(Object.keys(filter), EXPANDABLE_OPERATORS).forEach(op => {
     const opInfo = OPERATORS[op]
     const props = expandedFilter[op]
     const delType = !props[TYPE]
@@ -577,6 +577,5 @@ export const expandFilter = (table: Table, filter: any) => {
   })
 
   // console.warn('performed dangerous filter expansion', _.omit(expandedFilter, 'EQ'))
-
   return expandedFilter
 }

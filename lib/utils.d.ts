@@ -66,6 +66,7 @@ export declare const getQueryInfo: ({ table, filter, orderBy, type }: {
     sortedByDB: any;
     orderBy: any;
     defaultOrderBy: any;
+    expandedFilter: any;
 };
 declare function runWithBackoffOnTableNotExists(fn: any, opts?: any): Promise<any>;
 declare const runWithBackoffWhile: (fn: any, opts: any) => Promise<any>;
@@ -90,13 +91,15 @@ export declare const doesIndexProjectProperty: ({ table, index, property }: {
 }) => boolean;
 export declare const uniqueStrict: (arr: any) => any[];
 export declare const hookUp: (fn: any, event: any) => (...args: any[]) => Promise<any>;
-export declare const getTemplateStringVariables: (str: string) => string[];
+export declare const getVariablesInTemplate: (str: string) => string[];
 export declare const getTemplateStringValues: (str: string) => string[];
-export declare const canRenderTemplate: (template: string, item: any, noConstants?: boolean) => {
+export declare const checkRenderable: (template: string, item: any, noConstants?: boolean) => {
     full: boolean;
-    prefix: boolean;
+    prefix: string;
+    vars: string[];
+    renderablePrefixVars: string[];
 };
-export declare const renderTemplate: (str: any, data: any) => any;
+export declare const renderTemplate: (str: string, data: any) => any;
 /**
  * This is done to be able to parse the template values out
  * and match them to property names in post-query/scan processing

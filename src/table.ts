@@ -29,6 +29,7 @@ import {
   ResolveOrderBy,
   ResolveOrderByInput,
   PropsDeriver,
+  PropsDeriverInput,
   DerivedPropsParser,
   GetIndexesForModel,
   GetPrimaryKeysForModel,
@@ -58,19 +59,9 @@ import minify from './minify'
 import { NotFound, InvalidInput } from './errors'
 import filterDynamoDB from './filter-dynamodb'
 import OPERATORS = require('./operators')
-import {
-  // prefixKeys,
-  // unprefixKeys,
-  // prefixString,
-} from './prefix'
-
-import BaseObjectModel from './object-model'
 import { PRIMARY_KEYS_PROPS } from './constants'
 import { FilterOp } from './filter-dynamodb'
 
-// TODO: add this prop to tradle.Object
-
-const DONT_PREFIX = Object.keys(BaseObjectModel.properties)
 const defaultOpts = {
   maxItemSize: Infinity,
   allowScan: true,
@@ -464,8 +455,13 @@ export class Table extends EventEmitter {
     })
   }
 
-  public deriveProps = (item, isRead=false) => {
-    const derived = this._deriveProps({ table: this, item, isRead })
+  public deriveProps = (opts: {
+    item: any
+    isRead?: boolean
+    noConstants?: boolean
+  }) => {
+    const { item } = opts
+    const derived = this._deriveProps({ table: this, isRead: false, ...opts })
     return _.omitBy(derived, (value, prop) => prop in item || value == null)
   }
 
@@ -632,16 +628,16 @@ export class Table extends EventEmitter {
   //   return prefixString(resource._permalink, resource[TYPE])
   // }
 
-  public addDerivedProperties = (resource, forRead) => _.extend(
-    resource,
-    this.deriveProps(resource, forRead)
+  public addDerivedProperties = (item, isRead) => _.extend(
+    item,
+    this.deriveProps({ item, isRead })
   )
 
-  public withDerivedProperties = resource => _.extend({}, resource, this.deriveProps(resource))
-  public omitDerivedProperties = resource => _.omit(resource, this.derivedProps)
+  public withDerivedProperties = item => _.extend({}, item, this.deriveProps({ item }))
+  public omitDerivedProperties = item => _.omit(item, this.derivedProps)
 
   public resolveOrderBy = (opts: ResolveOrderByInputLite) => {
-    return this._resolveOrderBy({ table: this, ...opts }) || { property: opts.property }
+    return this._resolveOrderBy({ table: this, ...opts })
   }
 
   private _ensureWritable = () => {
