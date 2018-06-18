@@ -688,7 +688,7 @@ export const hookUp = (fn, event) => async function (...args) {
   return result
 }
 
-export const getTemplateStringVariables = (str: string) => {
+export const getVariablesInTemplate = (str: string) => {
   const match = str.match(/\{([^}]+)\}/g)
   if (match) {
     return match.map(part => part.slice(1, part.length - 1))
@@ -697,10 +697,10 @@ export const getTemplateStringVariables = (str: string) => {
   return []
 }
 
-export const getTemplateStringValues = getTemplateStringVariables
+export const getTemplateStringValues = getVariablesInTemplate
 
 export const checkRenderable = (template:string, item:any, noConstants?:boolean) => {
-  const paths = getTemplateStringVariables(template)
+  const paths = getVariablesInTemplate(template)
   const ret = { full: false, prefix: '' }
   if (!paths.length && noConstants) {
     return ret
@@ -729,7 +729,7 @@ export const renderTemplate = (str: string, data: any) => {
 }
 
 export const renderTemplatePrefix = (str: string, data: any) => {
-  const vars = getTemplateStringVariables(str).slice()
+  const vars = getVariablesInTemplate(str).slice()
   const renderable = []
   while (vars.length && typeof _.get(data, vars[0])) {
 
@@ -801,7 +801,7 @@ export const normalizeIndexedPropertyTemplateSchema = (property:any):IndexedProp
 
 export const getKeyTemplateString = (val:string|string[]) => {
   if (typeof val === 'string') {
-    if (getTemplateStringVariables(val).length) {
+    if (getVariablesInTemplate(val).length) {
       return val
     }
 
@@ -979,8 +979,8 @@ export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource })
       if (typeof propVal === 'undefined') return
     }
 
-    const propPaths = getTemplateStringVariables(template)
-    const propVals = getTemplateStringVariables(propVal).map(decodeURIComponent)
+    const propPaths = getVariablesInTemplate(template)
+    const propVals = getVariablesInTemplate(propVal).map(decodeURIComponent)
     const pathToVal = _.zipObject(propPaths, propVals)
     Object.keys(pathToVal).forEach(propPath => {
       const propMeta = properties[propPath]

@@ -30,7 +30,7 @@ const {
   getTableDefinitionForModel,
   getQueryInfo,
   toDynogelTableDefinition,
-  getTemplateStringVariables,
+  getVariablesInTemplate,
   normalizeIndexedPropertyTemplateSchema
 } = utils
 
@@ -169,7 +169,7 @@ test('key templates', t => {
     { hashKey: { template: '{a}{b}' }, rangeKey: { template: '{a}{b}{c}' } },
   ])
 
-  t.same(getTemplateStringVariables('{a}lala{b}'), ['a', 'b'])
+  t.same(getVariablesInTemplate('{a}lala{b}'), ['a', 'b'])
 
   const model = {
     type: 'tradle.Model',

@@ -9,7 +9,7 @@ import {
   promisify,
   doesIndexProjectProperty,
   getModelProperties,
-  getTemplateStringVariables,
+  getVariablesInTemplate,
   getDecisionProps,
   deriveProps
 } from './utils'

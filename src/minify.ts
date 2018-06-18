@@ -1,6 +1,6 @@
 import _ = require('lodash')
 import { TYPE } from '@tradle/constants'
-import { getTemplateStringVariables, normalizeIndexedPropertyTemplateSchema } from './utils'
+import { getVariablesInTemplate, normalizeIndexedPropertyTemplateSchema } from './utils'
 import { minifiedFlag } from './constants'
 
 type MinifyPref = {
@@ -130,10 +130,9 @@ function isRequired ({ model, propertyName }) {
   const { required = [] } = model
   if (required.includes(propertyName)) return true
   if (model.primaryKeys) {
-    return _.chain(normalizeIndexedPropertyTemplateSchema(model.primaryKeys))
-      .flatMap(({ template }) => getTemplateStringVariables(template))
+    const schema = normalizeIndexedPropertyTemplateSchema(model.primaryKeys)
+    return _.flatMap(_.values(schema), ({ template }) => getVariablesInTemplate(template))
       .includes(propertyName)
-      .value()
   }
 }
 
