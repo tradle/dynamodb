@@ -58,19 +58,9 @@ import minify from './minify'
 import { NotFound, InvalidInput } from './errors'
 import filterDynamoDB from './filter-dynamodb'
 import OPERATORS = require('./operators')
-import {
-  // prefixKeys,
-  // unprefixKeys,
-  // prefixString,
-} from './prefix'
-
-import BaseObjectModel from './object-model'
 import { PRIMARY_KEYS_PROPS } from './constants'
 import { FilterOp } from './filter-dynamodb'
 
-// TODO: add this prop to tradle.Object
-
-const DONT_PREFIX = Object.keys(BaseObjectModel.properties)
 const defaultOpts = {
   maxItemSize: Infinity,
   allowScan: true,

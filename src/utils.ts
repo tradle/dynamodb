@@ -728,14 +728,6 @@ export const renderTemplate = (str: string, data: any) => {
   return render(data)
 }
 
-export const renderTemplatePrefix = (str: string, data: any) => {
-  const vars = getVariablesInTemplate(str).slice()
-  const renderable = []
-  while (vars.length && typeof _.get(data, vars[0])) {
-
-  }
-}
-
 /**
  * This is done to be able to parse the template values out
  * and match them to property names in post-query/scan processing
