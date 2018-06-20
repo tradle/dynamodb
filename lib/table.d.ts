@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
-import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser, ILogger } from './types';
+import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser, ILogger, SearchResult } from './types';
 export declare class Table extends EventEmitter {
     name: string;
     models: Models;
@@ -55,9 +55,9 @@ export declare class Table extends EventEmitter {
     put: (resource: any, opts?: any) => Promise<void>;
     update: (resource: any, opts?: any) => Promise<any>;
     merge: (resource: any, opts: any) => Promise<any>;
-    find: (opts: FindOpts) => Promise<any>;
-    findOne: (opts: any) => Promise<any>;
-    search: (opts: any) => Promise<any>;
+    find: (opts: FindOpts) => Promise<SearchResult>;
+    findOne: (opts: FindOpts) => Promise<any>;
+    search: (opts: FindOpts) => Promise<SearchResult>;
     getPrefix: (type: any) => string;
     create: () => Promise<void>;
     destroy: () => Promise<void>;

@@ -35,6 +35,7 @@ import {
   GetPrimaryKeysForModel,
   ShouldMinify,
   ILogger,
+  SearchResult,
 } from './types'
 
 import * as utils from './utils'
@@ -374,7 +375,7 @@ export class Table extends EventEmitter {
     return await this.update(resource, opts)
   }
 
-  public find = async (opts:FindOpts):Promise<any> => {
+  public find = async (opts:FindOpts):Promise<SearchResult> => {
     opts = {
       ...this.findOpts,
       ..._.cloneDeep(opts),
@@ -393,7 +394,7 @@ export class Table extends EventEmitter {
     return results
   }
 
-  public findOne = async (opts):Promise<any> => {
+  public findOne = async (opts:FindOpts) => {
     opts = { ...opts, limit: 1 }
     const { items=[] } = await this.find(opts)
     if (!items.length) {
@@ -403,7 +404,7 @@ export class Table extends EventEmitter {
     return items[0]
   }
 
-  public search = opts => this.find(opts)
+  public search = (opts:FindOpts):Promise<SearchResult> => this.find(opts)
 
   public getPrefix = function (type:string|any):string {
     if (typeof type === 'object') {

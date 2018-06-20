@@ -9,10 +9,6 @@ import * as defaults from './defaults'
 import { search, Search } from './search'
 import { filterResults } from './filter-memory'
 
-// backwards compat
-const FilterOp = Search
-const find = search
-
 export {
   Table,
   createTable,
@@ -27,7 +23,4 @@ export {
   filterResults,
   search,
   Search,
-  // backwards-compat
-  find,
-  FilterOp,
 }

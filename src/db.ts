@@ -15,7 +15,7 @@ import {
 
 import { Table } from './table'
 import { ModelStore } from './model-store'
-import { IDBOpts, ITableOpts, IDynogelIndex, Model, Models, TableChooser, FindOpts, ILogger } from './types'
+import { IDBOpts, ITableOpts, IDynogelIndex, Model, Models, TableChooser, FindOpts, ILogger, SearchResult } from './types'
 import * as defaults from './defaults'
 
 const HOOKABLE = [
@@ -182,7 +182,7 @@ export default class DB extends EventEmitter {
     return _.flatten(results)
   }
 
-  public find = async (opts:FindOpts) => {
+  public find = async (opts:FindOpts):Promise<SearchResult> => {
     const type = getFilterType(opts)
     const table = await this.getTableForModel(type)
     return await table.find(opts)
@@ -194,7 +194,7 @@ export default class DB extends EventEmitter {
     return await table.findOne(opts)
   }
 
-  public search = (opts) => this.find(opts)
+  public search = (opts):Promise<SearchResult> => this.find(opts)
 
   public createTables = async ():Promise<void> => {
     for (const name of this._getTablesNames()) {
