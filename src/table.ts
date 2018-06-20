@@ -57,10 +57,9 @@ const {
 import * as defaults from './defaults'
 import minify from './minify'
 import { NotFound, InvalidInput } from './errors'
-import filterDynamoDB from './filter-dynamodb'
+import { Search } from './search'
 import OPERATORS = require('./operators')
 import { PRIMARY_KEYS_PROPS } from './constants'
-import { FilterOp } from './filter-dynamodb'
 
 const defaultOpts = {
   maxItemSize: Infinity,
@@ -386,7 +385,7 @@ export class Table extends EventEmitter {
     getFilterType(opts)
 
     this.logger.silly(`find() ${opts.filter.EQ[TYPE]}`)
-    const op = new FilterOp(opts)
+    const op = new Search(opts)
     await this.hooks.fire('pre:find:validate', op)
     const results = await op.exec()
     this.logger.silly(`find returned ${results.items.length} results`)

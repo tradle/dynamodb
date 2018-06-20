@@ -6,9 +6,9 @@ import {
 
 import { Table } from './table'
 import { ModelStore } from './model-store'
-import { FilterOp } from './filter-dynamodb'
+import { Search } from './search'
 
-export { Table, ModelStore, FilterOp }
+export { Table, ModelStore, Search }
 
 type IndexType = 'global'|'local'
 
@@ -121,7 +121,7 @@ type TableAndModel = {
 export type GetIndexesForModel = (opts: TableAndModel) => IndexedProperty[]
 export type GetPrimaryKeysForModel = (opts: TableAndModel) => IndexedProperty
 
-type _AllowScan = (op:FilterOp) => boolean
+type _AllowScan = (op:Search) => boolean
 export type AllowScan = boolean | _AllowScan
 export type ShouldMinify = (item:any) => boolean
 
@@ -291,4 +291,18 @@ export interface ILogger {
   error: Function
   debug: Function
   silly: Function
+}
+
+interface IItemPosition {
+  [key: string]: any
+}
+
+export type ItemToPosition = (item: any) => IItemPosition
+
+export type SearchResult = {
+  items: any[]
+  itemToPosition: ItemToPosition
+  startPosition: IItemPosition
+  endPosition: IItemPosition
+  index: IDynogelIndex
 }

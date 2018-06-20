@@ -6,8 +6,12 @@ import * as Errors from './errors'
 import { ModelStore, createModelStore } from './model-store'
 // import * as hooks from './hooks'
 import * as defaults from './defaults'
-import find, { FilterOp } from './filter-dynamodb'
+import { search, Search } from './search'
 import { filterResults } from './filter-memory'
+
+// backwards compat
+const FilterOp = Search
+const find = search
 
 export {
   Table,
@@ -20,7 +24,10 @@ export {
   Errors,
   // hooks,
   defaults,
+  filterResults,
+  search,
+  Search,
+  // backwards-compat
   find,
   FilterOp,
-  filterResults
 }

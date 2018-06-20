@@ -18,12 +18,12 @@ import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
 import { defaultLimit, minifiedFlag, PRIMARY_KEYS_PROPS } from './constants'
-import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan } from './types'
+import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan, SearchResult, ItemToPosition } from './types'
 import { Table } from './table'
 
 const { isComplexProperty } = validateModel.utils
 
-export class FilterOp {
+export class Search {
   public opts:FindOpts
   public models:Models
   public model:Model
@@ -40,7 +40,7 @@ export class FilterOp {
   public sortedByDB:boolean
   public queryProp:string
   public opType:string
-  public itemToPosition:Function
+  public itemToPosition:ItemToPosition
   public index?:IDynogelIndex
   public allowScan:AllowScan
   public bodyInObjects:boolean
@@ -108,7 +108,7 @@ export class FilterOp {
     return this._normalizeSelect(getModelProperties(this.model))
   }
 
-  public exec = async () => {
+  public exec = async ():Promise<SearchResult> => {
     this._debug(`running ${this.opType}`)
 
     let result
@@ -529,9 +529,7 @@ const isEmpty = obj => {
 
 const notNull = val => !!val
 
-export default function (opts) {
-  return new FilterOp(opts).exec()
-}
+export const search = (opts: FindOpts):Promise<SearchResult> => new Search(opts).exec()
 
 const EXPANDABLE_OPERATORS = [
   'NEQ',
