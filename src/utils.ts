@@ -739,6 +739,7 @@ export const renderTemplate = (str: string, data: any) => {
     interpolate: TEMPLATE_SETTINGS
   })
 
+  data = expandNestedProps(data)
   data = encodeTemplateValues(data)
   return render(data)
 }
