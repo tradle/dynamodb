@@ -298,7 +298,6 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
   let sortedByDB
   let index
   let defaultOrderBy
-
   if (opType === 'query') {
     // supported key condition operators:
     // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
@@ -307,6 +306,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
     index = preferred.index
     defaultOrderBy = { property: preferred.rangeKey }
     let resolvedOrderBy: ResolvedOrderBy
+    const originalOrderBy = orderBy || defaultOrderBy
     if (orderBy) {
       resolvedOrderBy = table.resolveOrderBy({
         type,
@@ -330,7 +330,10 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
       sortedByDB = hasAllKeyProps({ def: index || table, item: EQ })
     }
 
-    if (resolvedOrderBy && !resolvedOrderBy.full && resolvedOrderBy.prefix) {
+    if (resolvedOrderBy &&
+      !resolvedOrderBy.full &&
+      resolvedOrderBy.prefix &&
+      resolvedOrderBy.canOrderBy.includes(originalOrderBy.property)) {
       if (!filter.STARTS_WITH) {
         filter.STARTS_WITH = {}
       }
@@ -700,19 +703,31 @@ export const getVariablesInTemplate = (str: string) => {
 export const getTemplateStringValues = getVariablesInTemplate
 
 export const checkRenderable = (template:string, item:any, noConstants?:boolean) => {
-  const paths = getVariablesInTemplate(template)
-  const ret = { full: false, prefix: '' }
-  if (!paths.length && noConstants) {
+  const vars = getVariablesInTemplate(template)
+  const ret = {
+    full: false,
+    prefix: '',
+    vars,
+    // firstUnrenderableVar: null,
+    renderablePrefixVars: vars.slice(),
+  }
+
+  if (!vars.length && noConstants) {
     return ret
   }
 
-  const unrenderablePathIdx = paths.findIndex(path => typeof _.get(item, path) === 'undefined')
+  const unrenderablePathIdx = vars.findIndex(path => typeof _.get(item, path) === 'undefined')
   ret.full = unrenderablePathIdx === -1
   if (ret.full) {
     ret.prefix = template
   } else {
-    const idx = template.indexOf('{' + paths[unrenderablePathIdx] + '}')
-    ret.prefix = ret.full ? template : template.slice(0, idx)
+    const idx = template.indexOf('{' + vars[unrenderablePathIdx] + '}')
+    if (idx === -1) {
+      ret.renderablePrefixVars = []
+    } else {
+      ret.prefix = template.slice(0, idx)
+      ret.renderablePrefixVars = vars.slice(0, unrenderablePathIdx)
+    }
   }
 
   return ret
@@ -848,7 +863,16 @@ export const resolveOrderBy: ResolveOrderBy = ({
   item={}
 }) => {
   const model = table.models[type]
-  if (!model) return
+  const ret = {
+    property,
+    full: false,
+    prefix: '',
+    vars: [],
+    renderablePrefixVars: [],
+    canOrderBy: [],
+  }
+
+  if (!model) return ret
 
   const index = table.indexed.find(index => index.hashKey === hashKey)
   const indexes = table.getKeyTemplatesForModel(model)
@@ -860,11 +884,25 @@ export const resolveOrderBy: ResolveOrderBy = ({
     ...item
   })
 
-  if (rangeKeyDerivesFromProp.full || rangeKeyDerivesFromProp.prefix) {
-    return {
-      property: index.rangeKey,
-      ...checkRenderable(indexedProp.rangeKey.template, item)
-    }
+  if (!(rangeKeyDerivesFromProp.full || rangeKeyDerivesFromProp.prefix)) {
+    return ret
+  }
+
+  const renderInfo = checkRenderable(indexedProp.rangeKey.template, item)
+  let canOrderBy
+  if (renderInfo.full) {
+    canOrderBy = renderInfo.vars.slice()
+  } else {
+    // can order by first unrenderable var
+    // e.g. if template is {_t}{_author}{_time}
+    // and we have values for _t, and _author, we can orderBy _time
+    canOrderBy = renderInfo.vars.slice(0, renderInfo.renderablePrefixVars.length + 1)
+  }
+
+  return {
+    property: index.rangeKey,
+    canOrderBy,
+    ...renderInfo
   }
 }
 

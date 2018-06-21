@@ -1,6 +1,6 @@
-import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan } from './types';
+import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan, SearchResult, ItemToPosition } from './types';
 import { Table } from './table';
-export declare class FilterOp {
+export declare class Search {
     opts: FindOpts;
     models: Models;
     model: Model;
@@ -17,7 +17,7 @@ export declare class FilterOp {
     sortedByDB: boolean;
     queryProp: string;
     opType: string;
-    itemToPosition: Function;
+    itemToPosition: ItemToPosition;
     index?: IDynogelIndex;
     allowScan: AllowScan;
     bodyInObjects: boolean;
@@ -28,13 +28,7 @@ export declare class FilterOp {
     private _debug;
     private _normalizeSelect;
     private guessSelect;
-    exec: () => Promise<{
-        items: any;
-        startPosition: any;
-        endPosition: any;
-        index: IDynogelIndex;
-        itemToPosition: Function;
-    }>;
+    exec: () => Promise<SearchResult>;
     sortResults: (results: any) => any;
     collectInBatches: () => Promise<{
         ScannedCount: number;
@@ -51,11 +45,5 @@ export declare class FilterOp {
     _configureBuilder: () => void;
     _throwIfScanForbidden: () => void;
 }
-export default function (opts: any): Promise<{
-    items: any;
-    startPosition: any;
-    endPosition: any;
-    index: IDynogelIndex;
-    itemToPosition: Function;
-}>;
+export declare const search: (opts: FindOpts) => Promise<SearchResult>;
 export declare const expandFilter: (table: Table, filter: any) => any;

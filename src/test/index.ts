@@ -17,7 +17,7 @@ const models = mergeModels()
 import { OrderBy } from '../types'
 import minify from '../minify'
 import * as defaults from '../defaults'
-import { expandFilter } from '../filter-dynamodb'
+import { expandFilter } from '../search'
 import {
   defaultOrderBy,
   // defaultIndexes

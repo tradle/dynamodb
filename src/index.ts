@@ -6,7 +6,7 @@ import * as Errors from './errors'
 import { ModelStore, createModelStore } from './model-store'
 // import * as hooks from './hooks'
 import * as defaults from './defaults'
-import find, { FilterOp } from './filter-dynamodb'
+import { search, Search } from './search'
 import { filterResults } from './filter-memory'
 
 export {
@@ -20,7 +20,7 @@ export {
   Errors,
   // hooks,
   defaults,
-  find,
-  FilterOp,
-  filterResults
+  filterResults,
+  search,
+  Search,
 }

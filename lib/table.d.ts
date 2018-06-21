@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
-import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser, ILogger } from './types';
+import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser, ILogger, SearchResult } from './types';
 export declare class Table extends EventEmitter {
     name: string;
     models: Models;
@@ -55,14 +55,18 @@ export declare class Table extends EventEmitter {
     put: (resource: any, opts?: any) => Promise<void>;
     update: (resource: any, opts?: any) => Promise<any>;
     merge: (resource: any, opts: any) => Promise<any>;
-    find: (opts: FindOpts) => Promise<any>;
-    findOne: (opts: any) => Promise<any>;
-    search: (opts: any) => Promise<any>;
+    find: (opts: FindOpts) => Promise<SearchResult>;
+    findOne: (opts: FindOpts) => Promise<any>;
+    search: (opts: FindOpts) => Promise<SearchResult>;
     getPrefix: (type: any) => string;
     create: () => Promise<void>;
     destroy: () => Promise<void>;
     private _initTable;
-    deriveProps: (item: any, isRead?: boolean) => any;
+    deriveProps: (opts: {
+        item: any;
+        isRead?: boolean;
+        noConstants?: boolean;
+    }) => any;
     toDBFormat: (resource: any) => any;
     fromDBFormat: (items: any) => any;
     private _write;
@@ -70,9 +74,9 @@ export declare class Table extends EventEmitter {
     private _batchPut;
     getPrimaryKeys: (resource: any) => any;
     getKeys: (resource: any, schema: KeyProps) => any;
-    addDerivedProperties: (resource: any, forRead: any) => any;
-    withDerivedProperties: (resource: any) => any;
-    omitDerivedProperties: (resource: any) => any;
+    addDerivedProperties: (item: any, isRead: any) => any;
+    withDerivedProperties: (item: any) => any;
+    omitDerivedProperties: (item: any) => any;
     resolveOrderBy: (opts: {
         type: string;
         hashKey: string;
@@ -81,8 +85,11 @@ export declare class Table extends EventEmitter {
         table?: Table;
     }) => {
         property: string;
-        full?: boolean;
-        prefix?: string;
+        vars: string[];
+        full: boolean;
+        prefix: string;
+        renderablePrefixVars: string[];
+        canOrderBy: string[];
     };
     private _ensureWritable;
     private _ensureHasPrimaryKeys;

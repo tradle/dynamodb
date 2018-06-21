@@ -29,11 +29,13 @@ import {
   ResolveOrderBy,
   ResolveOrderByInput,
   PropsDeriver,
+  PropsDeriverInput,
   DerivedPropsParser,
   GetIndexesForModel,
   GetPrimaryKeysForModel,
   ShouldMinify,
   ILogger,
+  SearchResult,
 } from './types'
 
 import * as utils from './utils'
@@ -56,10 +58,9 @@ const {
 import * as defaults from './defaults'
 import minify from './minify'
 import { NotFound, InvalidInput } from './errors'
-import filterDynamoDB from './filter-dynamodb'
+import { Search } from './search'
 import OPERATORS = require('./operators')
 import { PRIMARY_KEYS_PROPS } from './constants'
-import { FilterOp } from './filter-dynamodb'
 
 const defaultOpts = {
   maxItemSize: Infinity,
@@ -374,7 +375,7 @@ export class Table extends EventEmitter {
     return await this.update(resource, opts)
   }
 
-  public find = async (opts:FindOpts):Promise<any> => {
+  public find = async (opts:FindOpts):Promise<SearchResult> => {
     opts = {
       ...this.findOpts,
       ..._.cloneDeep(opts),
@@ -385,7 +386,7 @@ export class Table extends EventEmitter {
     getFilterType(opts)
 
     this.logger.silly(`find() ${opts.filter.EQ[TYPE]}`)
-    const op = new FilterOp(opts)
+    const op = new Search(opts)
     await this.hooks.fire('pre:find:validate', op)
     const results = await op.exec()
     this.logger.silly(`find returned ${results.items.length} results`)
@@ -393,7 +394,7 @@ export class Table extends EventEmitter {
     return results
   }
 
-  public findOne = async (opts):Promise<any> => {
+  public findOne = async (opts:FindOpts) => {
     opts = { ...opts, limit: 1 }
     const { items=[] } = await this.find(opts)
     if (!items.length) {
@@ -403,7 +404,7 @@ export class Table extends EventEmitter {
     return items[0]
   }
 
-  public search = opts => this.find(opts)
+  public search = (opts:FindOpts):Promise<SearchResult> => this.find(opts)
 
   public getPrefix = function (type:string|any):string {
     if (typeof type === 'object') {
@@ -454,8 +455,13 @@ export class Table extends EventEmitter {
     })
   }
 
-  public deriveProps = (item, isRead=false) => {
-    const derived = this._deriveProps({ table: this, item, isRead })
+  public deriveProps = (opts: {
+    item: any
+    isRead?: boolean
+    noConstants?: boolean
+  }) => {
+    const { item } = opts
+    const derived = this._deriveProps({ table: this, isRead: false, ...opts })
     return _.omitBy(derived, (value, prop) => prop in item || value == null)
   }
 
@@ -622,16 +628,16 @@ export class Table extends EventEmitter {
   //   return prefixString(resource._permalink, resource[TYPE])
   // }
 
-  public addDerivedProperties = (resource, forRead) => _.extend(
-    resource,
-    this.deriveProps(resource, forRead)
+  public addDerivedProperties = (item, isRead) => _.extend(
+    item,
+    this.deriveProps({ item, isRead })
   )
 
-  public withDerivedProperties = resource => _.extend({}, resource, this.deriveProps(resource))
-  public omitDerivedProperties = resource => _.omit(resource, this.derivedProps)
+  public withDerivedProperties = item => _.extend({}, item, this.deriveProps({ item }))
+  public omitDerivedProperties = item => _.omit(item, this.derivedProps)
 
   public resolveOrderBy = (opts: ResolveOrderByInputLite) => {
-    return this._resolveOrderBy({ table: this, ...opts }) || { property: opts.property }
+    return this._resolveOrderBy({ table: this, ...opts })
   }
 
   private _ensureWritable = () => {
