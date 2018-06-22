@@ -121,61 +121,49 @@ export default class DB extends EventEmitter {
 
   public choose = async (type:string):Promise<Table> => {
     const model = await this.modelStore.get(type)
-    const table = this._choose({
-      tables: this.tableTableNames.map(name => this.tablesByName[name]),
-      type
-    })
-
-    if (!table) {
-      throw new Error(`table not found for type ${type}`)
-    }
-
-    // save alias
-    this.tables[type] = table
-    table.storeResourcesForModel({
-      model: this.models[type]
-    })
-
-    return table
+    return this._chooseTableForModel(model)
   }
 
   public put = async (resource, opts?) => {
-    const table = await this.getTableForModel(resource[TYPE])
+    const table = await this.getTableForType(resource[TYPE])
     return await table.put(resource, opts)
   }
 
   public update = async (resource, opts?) => {
-    const table = await this.getTableForModel(resource[TYPE])
+    const table = await this.getTableForType(resource[TYPE])
     return await table.update(resource, opts)
   }
 
   public merge = async (resource, opts?) => {
-    const table = await this.getTableForModel(resource[TYPE])
+    const table = await this.getTableForType(resource[TYPE])
     return await table.merge(resource, opts)
   }
 
   public get = async (keys:any, opts?) => {
-    const table = await this.getTableForModel(keys[TYPE])
+    const table = await this.getTableForType(keys[TYPE])
     return await table.get(keys, opts)
   }
 
   public del = async (keys:any, opts?) => {
-    const table = await this.getTableForModel(keys[TYPE])
+    const table = await this.getTableForType(keys[TYPE])
     return await table.del(keys, opts)
   }
 
-  public getTableForModel = async (model:string|Model):Promise<Table> => {
-    const type:string = typeof model === 'string' ? model : model.id
+  public getTableForType = async (type:string):Promise<Table> => {
     return this.tables[type] || this.choose(type)
+  }
+
+  public getTableForModel = (model:Model):Table => {
+    return this.tables[model.id] || this._chooseTableForModel(model)
   }
 
   public batchPut = async (resources:any[], opts?):Promise<any[]|void> => {
     const byTable = new Map<Table, any[]>()
     // prime cache
-    resources.forEach(resource => this.getTableForModel(resource[TYPE]))
+    resources.forEach(resource => this.getTableForType(resource[TYPE]))
     const byType = _.groupBy(resources, TYPE)
     const results = await Promise.all(_.map(byType, async (batch, type) => {
-      const table = await this.getTableForModel(type)
+      const table = await this.getTableForType(type)
       return table.batchPut(batch, opts)
     }))
 
@@ -184,13 +172,13 @@ export default class DB extends EventEmitter {
 
   public find = async (opts:FindOpts):Promise<SearchResult> => {
     const type = getFilterType(opts)
-    const table = await this.getTableForModel(type)
+    const table = await this.getTableForType(type)
     return await table.find(opts)
   }
 
   public findOne = async (opts) => {
     const type = getFilterType(opts)
-    const table = await this.getTableForModel(type)
+    const table = await this.getTableForType(type)
     return await table.findOne(opts)
   }
 
@@ -225,5 +213,25 @@ export default class DB extends EventEmitter {
 
   private _getTablesNames = ():string[] => {
     return this.tableTableNames.concat(Object.keys(this.exclusive))
+  }
+
+  private _chooseTableForModel = (model: Model) => {
+    const type = model.id
+    const table = this._choose({
+      tables: this.tableTableNames.map(name => this.tablesByName[name]),
+      type
+    })
+
+    if (!table) {
+      throw new Error(`table not found for type ${type}`)
+    }
+
+    // save alias
+    this.tables[type] = table
+    table.storeResourcesForModel({
+      model: this.models[type]
+    })
+
+    return table
   }
 }

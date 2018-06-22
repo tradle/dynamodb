@@ -32,7 +32,8 @@ export default class DB extends EventEmitter {
     merge: (resource: any, opts?: any) => Promise<any>;
     get: (keys: any, opts?: any) => Promise<any>;
     del: (keys: any, opts?: any) => Promise<any>;
-    getTableForModel: (model: string | Model) => Promise<Table>;
+    getTableForType: (type: string) => Promise<Table>;
+    getTableForModel: (model: Model) => Table;
     batchPut: (resources: any[], opts?: any) => Promise<void | any[]>;
     find: (opts: FindOpts) => Promise<SearchResult>;
     findOne: (opts: any) => Promise<any>;
@@ -43,4 +44,5 @@ export default class DB extends EventEmitter {
     private createTable;
     private destroyTable;
     private _getTablesNames;
+    private _chooseTableForModel;
 }
