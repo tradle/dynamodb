@@ -306,3 +306,8 @@ export type SearchResult = {
   endPosition: IItemPosition
   index: IDynogelIndex
 }
+
+export type ReindexOpts = {
+  model: Model
+  batchSize?: number
+}

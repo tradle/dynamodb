@@ -2,7 +2,7 @@
 import { EventEmitter } from 'events';
 import { Table } from './table';
 import { ModelStore } from './model-store';
-import { IDBOpts, Model, Models, FindOpts, ILogger, SearchResult } from './types';
+import { IDBOpts, Model, Models, FindOpts, ILogger, SearchResult, ReindexOpts } from './types';
 export default class DB extends EventEmitter {
     static getSafeTableName: (model: any) => string;
     modelStore: ModelStore;
@@ -38,6 +38,9 @@ export default class DB extends EventEmitter {
     find: (opts: FindOpts) => Promise<SearchResult>;
     findOne: (opts: any) => Promise<any>;
     search: (opts: any) => Promise<SearchResult>;
+    reindex: (opts: ReindexOpts) => Promise<{
+        count: number;
+    }>;
     createTables: () => Promise<void>;
     destroyTables: () => Promise<void>;
     hook: (method: any, handler: any) => any;

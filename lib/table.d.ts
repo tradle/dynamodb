@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
-import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser, ILogger, SearchResult } from './types';
+import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser, ILogger, SearchResult, ReindexOpts } from './types';
 export declare class Table extends EventEmitter {
     name: string;
     models: Models;
@@ -91,6 +91,9 @@ export declare class Table extends EventEmitter {
         renderablePrefixVars: string[];
         canOrderBy: string[];
     };
+    reindex: ({ model, batchSize }: ReindexOpts) => Promise<{
+        count: number;
+    }>;
     private _ensureWritable;
     private _ensureHasPrimaryKeys;
     private _hasAllPrimaryKeys;

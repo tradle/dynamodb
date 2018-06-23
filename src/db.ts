@@ -15,7 +15,19 @@ import {
 
 import { Table } from './table'
 import { ModelStore } from './model-store'
-import { IDBOpts, ITableOpts, IDynogelIndex, Model, Models, TableChooser, FindOpts, ILogger, SearchResult } from './types'
+import {
+  IDBOpts,
+  ITableOpts,
+  IDynogelIndex,
+  Model,
+  Models,
+  TableChooser,
+  FindOpts,
+  ILogger,
+  SearchResult,
+  ReindexOpts,
+} from './types'
+
 import * as defaults from './defaults'
 
 const HOOKABLE = [
@@ -183,6 +195,11 @@ export default class DB extends EventEmitter {
   }
 
   public search = (opts):Promise<SearchResult> => this.find(opts)
+
+  public reindex = async (opts: ReindexOpts) => {
+    const table = this.getTableForModel(opts.model)
+    return await table.reindex(opts)
+  }
 
   public createTables = async ():Promise<void> => {
     for (const name of this._getTablesNames()) {

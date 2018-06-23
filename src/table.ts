@@ -36,6 +36,7 @@ import {
   ShouldMinify,
   ILogger,
   SearchResult,
+  ReindexOpts,
 } from './types'
 
 import * as utils from './utils'
@@ -51,6 +52,7 @@ const {
   hookUp,
   resultsToJson,
   normalizeIndexedPropertyTemplateSchema,
+  normalizeIndexedProperty,
   toDynogelTableDefinition,
   pickNonNull
 } = utils
@@ -638,6 +640,48 @@ export class Table extends EventEmitter {
 
   public resolveOrderBy = (opts: ResolveOrderByInputLite) => {
     return this._resolveOrderBy({ table: this, ...opts })
+  }
+
+  public reindex = async ({ model, batchSize=50 }: ReindexOpts) => {
+    const table = this
+    const { indexes } = model
+    if (indexes) {
+      const hasType = indexes
+        .map(normalizeIndexedProperty)
+        .some(i => i.hashKey === '_t')
+
+      if (!hasType) throw new Errors.InvalidInput('model is not indexed by type')
+    }
+
+    let checkpoint
+    let count = 0
+    const limit = batchSize
+    while (true) {
+      let { items, endPosition } = await table.find({
+        limit,
+        filter: {
+          EQ: {
+            _t: model.id
+          }
+        },
+        checkpoint
+      })
+
+      if (!items.length) break
+
+      checkpoint = endPosition
+      for (let item of items) {
+        // force re-index
+        await table.put(item)
+      }
+
+      count += items.length
+      if (items.length < limit) break
+    }
+
+    return {
+      count
+    }
   }
 
   private _ensureWritable = () => {
