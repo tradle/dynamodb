@@ -287,7 +287,7 @@ export class Table extends EventEmitter {
     }
   }
 
-  public get = async (query, opts={}):Promise<any> => {
+  public get = async (query, opts:any={}):Promise<any> => {
     this.logger.silly(`get() ${JSON.stringify(query)}`)
     const expandedQuery = this.toDBFormat(query)
     const keysObj = this.getPrimaryKeys(expandedQuery)
@@ -323,19 +323,26 @@ export class Table extends EventEmitter {
       return this.objects.get(resource._link)
     }
 
-    return this._exportResource(resource)
+    return this._exportResource(resource, opts)
   }
 
-  public del = async (query, opts={}):Promise<any> => {
+  public del = async (query, opts:any={}):Promise<any> => {
     this._ensureWritable()
 
     query = this.toDBFormat(query)
     const keys = _.values(this.getPrimaryKeys(query))
     const result = await this.table.destroy(...keys, opts)
-    return result && this._exportResource(result)
+    return result && this._exportResource(result, opts)
   }
 
-  private _exportResource = resource => this.omitDerivedProperties(resultsToJson(resource))
+  private _exportResource = (resource:any, opts:any={}) => {
+    resource = this.fromDBFormat(resource)
+    if (!opts.keepDerivedProps) {
+      resource = this.omitDerivedProperties(resource)
+    }
+
+    return resource
+  }
 
   public batchPut = async (
     resources:any[],
@@ -392,7 +399,7 @@ export class Table extends EventEmitter {
     await this.hooks.fire('pre:find:validate', op)
     const results = await op.exec()
     this.logger.silly(`find returned ${results.items.length} results`)
-    results.items = results.items.map(resource => this._exportResource(resource))
+    results.items = results.items.map(resource => this._exportResource(resource, opts))
     return results
   }
 
@@ -515,7 +522,7 @@ export class Table extends EventEmitter {
   //   return this.exclusive ? props : props.map(prop => prefixString(prop, this.getPrefix(type)))
   // }
 
-  private _write = async (method:string, resource:any, options?:any):Promise<void> => {
+  private _write = async (method:string, resource:any, options:any={}):Promise<void> => {
     this._ensureWritable()
 
     const type = resource[TYPE] || (this.exclusive && this.model.id)
@@ -550,7 +557,7 @@ export class Table extends EventEmitter {
 
     const primaryKeys = this.getPrimaryKeys(resource)
     this.logger.silly(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
-    return result && this._exportResource(result)
+    return result && this._exportResource(result, options)
   }
 
   private _validateResource = (resource) => {
@@ -642,7 +649,7 @@ export class Table extends EventEmitter {
     return this._resolveOrderBy({ table: this, ...opts })
   }
 
-  public reindex = async ({ model, batchSize=50 }: ReindexOpts) => {
+  public reindex = async ({ model, batchSize=50, findOpts={} }: ReindexOpts) => {
     const table = this
     const { indexes } = model
     if (indexes) {
@@ -654,10 +661,11 @@ export class Table extends EventEmitter {
     }
 
     let checkpoint
-    let count = 0
+    let updated = 0
+    let unchanged = 0
     const limit = batchSize
     while (true) {
-      let { items, endPosition } = await table.find({
+      let { items, endPosition } = await table.find(_.merge({
         limit,
         filter: {
           EQ: {
@@ -665,23 +673,33 @@ export class Table extends EventEmitter {
           }
         },
         checkpoint
-      })
+      }, findOpts))
 
       if (!items.length) break
 
       checkpoint = endPosition
-      for (let item of items) {
-        // force re-index
-        await table.put(item)
+      let changed = items.filter(item => table.haveIndexedPropsChanged(item))
+      unchanged += (items.length - changed.length)
+      // force re-index
+      if (changed.length) {
+        await table.batchPut(changed)
+        updated += changed.length
       }
 
-      count += items.length
       if (items.length < limit) break
     }
 
     return {
-      count
+      updated,
+      unchanged
     }
+  }
+
+  public haveIndexedPropsChanged = item => {
+    const recalced = this.withDerivedProperties(this.omitDerivedProperties(item))
+    const before = _.pick(item, this.keyProps)
+    const after = _.pick(recalced, this.keyProps)
+    return !_.isEqual(before, after)
   }
 
   private _ensureWritable = () => {

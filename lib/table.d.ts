@@ -48,8 +48,8 @@ export declare class Table extends EventEmitter {
     storeResourcesForModel: ({ model }: {
         model: Model;
     }) => void;
-    get: (query: any, opts?: {}) => Promise<any>;
-    del: (query: any, opts?: {}) => Promise<any>;
+    get: (query: any, opts?: any) => Promise<any>;
+    del: (query: any, opts?: any) => Promise<any>;
     private _exportResource;
     batchPut: (resources: any[], backoffOpts?: BackoffOptions) => Promise<any[]>;
     put: (resource: any, opts?: any) => Promise<void>;
@@ -91,9 +91,11 @@ export declare class Table extends EventEmitter {
         renderablePrefixVars: string[];
         canOrderBy: string[];
     };
-    reindex: ({ model, batchSize }: ReindexOpts) => Promise<{
-        count: number;
+    reindex: ({ model, batchSize, findOpts }: ReindexOpts) => Promise<{
+        updated: number;
+        unchanged: number;
     }>;
+    haveIndexedPropsChanged: (item: any) => boolean;
     private _ensureWritable;
     private _ensureHasPrimaryKeys;
     private _hasAllPrimaryKeys;

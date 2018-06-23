@@ -39,7 +39,8 @@ export default class DB extends EventEmitter {
     findOne: (opts: any) => Promise<any>;
     search: (opts: any) => Promise<SearchResult>;
     reindex: (opts: ReindexOpts) => Promise<{
-        count: number;
+        updated: number;
+        unchanged: number;
     }>;
     createTables: () => Promise<void>;
     destroyTables: () => Promise<void>;

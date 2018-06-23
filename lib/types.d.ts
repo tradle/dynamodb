@@ -229,6 +229,7 @@ export type FindOpts = {
   limit?: number
   batchLimit?: number
   allowScan?: AllowScan
+  keepDerivedProps?: boolean
 }
 
 export interface IDynogelTableDefinition {
@@ -310,4 +311,5 @@ export type SearchResult = {
 export type ReindexOpts = {
   model: Model
   batchSize?: number
+  findOpts?: any
 }

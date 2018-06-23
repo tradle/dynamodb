@@ -333,7 +333,7 @@ export class Search {
           this._debug('failed to inflate via object storages', _.pick(resource, ['_t', '_link']))
         }
       } else {
-        more = await table.get(resource)
+        more = await table.get(resource, this.opts)
       }
 
       if (more) {
