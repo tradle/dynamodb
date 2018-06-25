@@ -878,7 +878,9 @@ export const resolveOrderBy: ResolveOrderBy = ({
   const index = table.indexed.find(index => index.hashKey === hashKey)
   const indexes = table.getKeyTemplatesForModel(model)
   const indexedProp = indexes[table.indexed.indexOf(index)]
-  if (!(indexedProp && indexedProp.rangeKey)) return
+  if (!(indexedProp && indexedProp.rangeKey)) {
+    return ret
+  }
 
   const rangeKeyDerivesFromProp = checkRenderable(indexedProp.rangeKey.template, {
     [property]: 'placeholder',
