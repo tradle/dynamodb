@@ -38,6 +38,7 @@ export default class DB extends EventEmitter {
     find: (opts: FindOpts) => Promise<SearchResult>;
     findOne: (opts: any) => Promise<any>;
     search: (opts: any) => Promise<SearchResult>;
+    list: (type: string, opts?: Partial<FindOpts>) => Promise<SearchResult>;
     reindex: (opts: ReindexOpts) => Promise<{
         updated: number;
         unchanged: number;

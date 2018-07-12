@@ -58,6 +58,7 @@ export declare class Table extends EventEmitter {
     find: (opts: FindOpts) => Promise<SearchResult>;
     findOne: (opts: FindOpts) => Promise<any>;
     search: (opts: FindOpts) => Promise<SearchResult>;
+    list: (type: string, opts?: Partial<FindOpts>) => Promise<SearchResult>;
     getPrefix: (type: any) => string;
     create: () => Promise<void>;
     destroy: () => Promise<void>;

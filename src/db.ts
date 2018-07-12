@@ -195,6 +195,10 @@ export default class DB extends EventEmitter {
   }
 
   public search = (opts):Promise<SearchResult> => this.find(opts)
+  public list = async (type: string, opts?:Partial<FindOpts>):Promise<SearchResult> => {
+    const table = await this.getTableForType(type)
+    return await table.list(type, opts)
+  }
 
   public reindex = async (opts: ReindexOpts) => {
     const table = this.getTableForModel(opts.model)

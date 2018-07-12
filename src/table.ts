@@ -37,6 +37,7 @@ import {
   ILogger,
   SearchResult,
   ReindexOpts,
+  OrderBy
 } from './types'
 
 import * as utils from './utils'
@@ -414,6 +415,13 @@ export class Table extends EventEmitter {
   }
 
   public search = (opts:FindOpts):Promise<SearchResult> => this.find(opts)
+  public list = async (type: string, opts:Partial<FindOpts>={}):Promise<SearchResult> => this.find(_.merge({
+    filter: {
+      EQ: {
+        [TYPE]: type
+      }
+    }
+  }, opts))
 
   public getPrefix = function (type:string|any):string {
     if (typeof type === 'object') {
