@@ -16,7 +16,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 1 | 0 | -1;
+export declare const compare: (a: any, b: any, propertyName: any) => 1 | -1 | 0;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
@@ -38,10 +38,11 @@ export declare const getMissingProperties: ({ resource, model, opts }: {
     model: any;
     opts: FindOpts;
 }) => any;
-export declare const getPreferredQueryProperty: ({ table, hashKeyProps, filter }: {
+export declare const getPreferredQueryProperty: ({ table, hashKeyProps, filter, orderBy }: {
     table: Table;
     hashKeyProps: string[];
     filter: Filter;
+    orderBy?: OrderBy;
 }) => {
     property: string;
     rangeKey?: string;

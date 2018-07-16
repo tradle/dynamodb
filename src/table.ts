@@ -398,7 +398,17 @@ export class Table extends EventEmitter {
     this.logger.silly(`find() ${opts.filter.EQ[TYPE]}`)
     const op = new Search(opts)
     await this.hooks.fire('pre:find:validate', op)
-    const results = await op.exec()
+    let results
+    try {
+      results = await op.exec()
+    } catch (err) {
+      if (err.code === 'ValidationException') {
+        this.logger.error('request failed validation', err.request)
+      }
+
+      throw err
+    }
+
     this.logger.silly(`find returned ${results.items.length} results`)
     results.items = results.items.map(resource => this._exportResource(resource, opts))
     return results

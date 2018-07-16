@@ -505,6 +505,7 @@ const exec = async (builder, method='exec') => {
   try {
     return await promisify(builder[method].bind(builder))()
   } catch (err) {
+    err.request = builder.request
     if (err.code === 'ResourceNotFoundException') {
       return {
         Count: 0,

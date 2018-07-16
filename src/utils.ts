@@ -222,10 +222,11 @@ type TablePropInfo = {
   index?: IDynogelIndex
 }
 
-export const getPreferredQueryProperty = ({ table, hashKeyProps, filter }: {
+export const getPreferredQueryProperty = ({ table, hashKeyProps, filter, orderBy }: {
   table: Table
   hashKeyProps: string[]
   filter: Filter
+  orderBy?: OrderBy
 }):TablePropInfo => {
   const { indexed } = table
   if (hashKeyProps.length > 1) {
@@ -236,7 +237,7 @@ export const getPreferredQueryProperty = ({ table, hashKeyProps, filter }: {
 
     if (projectsAll) {
       return {
-        index: projectsAll,
+        index: projectsAll.hashKey === table.hashKey ? null : projectsAll,
         property: projectsAll.hashKey,
         rangeKey: projectsAll.rangeKey
       }
@@ -250,14 +251,27 @@ export const getPreferredQueryProperty = ({ table, hashKeyProps, filter }: {
     }
   }
 
+  const { EQ } = filter
   const property = hashKeyProps.find(hashKeyProp => {
     const index = indexed.find(index => index.hashKey === hashKeyProp)
     const { rangeKey } = index
     if (!rangeKey) return true
 
-    return ['GT', 'GTE', 'LT', 'LTE', 'STARTS_WITH', 'EQ'].some(fType => {
+    const rangeKeyIsFilterable = ['GT', 'GTE', 'LT', 'LTE', 'STARTS_WITH', 'EQ'].some(fType => {
       return _.has(filter, [fType, rangeKey])
     })
+
+    if (rangeKeyIsFilterable) return rangeKeyIsFilterable
+    if (!orderBy) return false
+
+    const resolved = table.resolveOrderBy({
+      type: EQ[TYPE],
+      hashKey: hashKeyProp,
+      property: orderBy.property,
+      item: EQ
+    })
+
+    return resolved.canOrderBy.includes(orderBy.property)
   }) || hashKeyProps[0]
 
   if (property === table.hashKey) {
@@ -311,7 +325,13 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
   if (opType === 'query') {
     // supported key condition operators:
     // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
-    const preferred = getPreferredQueryProperty({ table, hashKeyProps: usedHashKeyProps, filter })
+    const preferred = getPreferredQueryProperty({
+      table,
+      hashKeyProps: usedHashKeyProps,
+      filter,
+      orderBy
+    })
+
     queryProp = preferred.property
     index = preferred.index
     defaultOrderBy = { property: preferred.rangeKey }
