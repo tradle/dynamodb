@@ -222,14 +222,15 @@ type TablePropInfo = {
   index?: IDynogelIndex
 }
 
-export const getPreferredQueryProperty = ({ table, properties }: {
-  table: Table,
-  properties: string[]
+export const getPreferredQueryProperty = ({ table, hashKeyProps, filter }: {
+  table: Table
+  hashKeyProps: string[]
+  filter: Filter
 }):TablePropInfo => {
-  if (properties.length > 1) {
-    const { indexes } = table
-    const projectsAll = indexes.find(index => {
-      return properties.includes(index.hashKey) &&
+  const { indexed } = table
+  if (hashKeyProps.length > 1) {
+    const projectsAll = indexed.find(index => {
+      return hashKeyProps.includes(index.hashKey) &&
         index.projection.ProjectionType === 'ALL'
     })
 
@@ -241,7 +242,7 @@ export const getPreferredQueryProperty = ({ table, properties }: {
       }
     }
 
-    if (properties.includes(table.hashKey)) {
+    if (hashKeyProps.includes(table.hashKey)) {
       return {
         property: table.hashKey,
         rangeKey: table.rangeKey
@@ -249,7 +250,16 @@ export const getPreferredQueryProperty = ({ table, properties }: {
     }
   }
 
-  const property = properties[0]
+  const property = hashKeyProps.find(hashKeyProp => {
+    const index = indexed.find(index => index.hashKey === hashKeyProp)
+    const { rangeKey } = index
+    if (!rangeKey) return true
+
+    return ['GT', 'GTE', 'LT', 'LTE', 'STARTS_WITH', 'EQ'].some(fType => {
+      return _.has(filter, [fType, rangeKey])
+    })
+  }) || hashKeyProps[0]
+
   if (property === table.hashKey) {
     return {
       property,
@@ -285,11 +295,11 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
   const { hashKey, rangeKey } = primaryKeys
   const indexedPropsMap = toObject(hashKeyProps)
   const { EQ={} } = filter
-  const usedIndexedProps = usedProps.filter(prop => {
+  const usedHashKeyProps = usedProps.filter(prop => {
     return prop in EQ && prop in indexedPropsMap
   })
 
-  const opType = usedIndexedProps.length
+  const opType = usedHashKeyProps.length
     ? 'query'
     : 'scan'
 
@@ -301,7 +311,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
   if (opType === 'query') {
     // supported key condition operators:
     // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
-    const preferred = getPreferredQueryProperty({ table, properties: usedIndexedProps })
+    const preferred = getPreferredQueryProperty({ table, hashKeyProps: usedHashKeyProps, filter })
     queryProp = preferred.property
     index = preferred.index
     defaultOrderBy = { property: preferred.rangeKey }

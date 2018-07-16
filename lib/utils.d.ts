@@ -38,9 +38,10 @@ export declare const getMissingProperties: ({ resource, model, opts }: {
     model: any;
     opts: FindOpts;
 }) => any;
-export declare const getPreferredQueryProperty: ({ table, properties }: {
+export declare const getPreferredQueryProperty: ({ table, hashKeyProps, filter }: {
     table: Table;
-    properties: string[];
+    hashKeyProps: string[];
+    filter: Filter;
 }) => {
     property: string;
     rangeKey?: string;
