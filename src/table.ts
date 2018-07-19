@@ -302,12 +302,18 @@ export class Table extends EventEmitter {
       })
     } else {
       // try to fall back to index
+      //
+      // hmm...rethink this? dynamodb indexes apparently don't enforce uniqueness
+      // so this get() isn't really a get, it's more of a findOne
       const index = this.indexes.find(index => this._hasAllKeys(expandedQuery, index))
       if (!index) {
         throw new Error('expected primary keys or keys for an indexed property')
       }
 
       result = await this.findOne({
+        orderBy: {
+          property: index.rangeKey
+        },
         filter: {
           EQ: query
         }

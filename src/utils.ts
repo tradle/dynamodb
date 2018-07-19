@@ -933,7 +933,7 @@ export const resolveOrderBy: ResolveOrderBy = ({
   }
 
   return {
-    property: index.rangeKey,
+    property: canOrderBy[0] === property ? index.rangeKey : property,
     canOrderBy,
     ...renderInfo
   }
