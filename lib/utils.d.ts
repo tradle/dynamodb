@@ -3,7 +3,7 @@ import promisify = require('pify');
 import AWS = require('aws-sdk');
 import { AttributePath } from '@aws/dynamodb-expressions';
 import { Table } from './table';
-import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, PropsDeriver, ResolveOrderBy, IndexedProperty, GetIndexesForModel, GetPrimaryKeysForModel, KeyProps, DerivedPropsParser, PropPath, Filter } from './types';
+import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, PropsDeriver, ResolveOrderBy, IndexedProperty, GetIndexesForModel, GetPrimaryKeysForModel, KeyProps, DerivedPropsParser, Filter } from './types';
 export declare const levenshteinDistance: (a: string, b: string) => any;
 export declare const cleanName: (str: any) => any;
 export declare const getTableName: ({ model, prefix, suffix }: {
@@ -16,7 +16,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 1 | -1 | 0;
+export declare const compare: (a: any, b: any, propertyName: any) => 1 | 0 | -1;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
@@ -38,7 +38,8 @@ export declare const getMissingProperties: ({ resource, model, opts }: {
     model: any;
     opts: FindOpts;
 }) => any;
-export declare const getPreferredQueryProperty: ({ table, hashKeyProps, filter, orderBy }: {
+export declare const getPreferredQueryProperty: ({ type, table, hashKeyProps, filter, orderBy }: {
+    type: string;
     table: Table;
     hashKeyProps: string[];
     filter: Filter;
@@ -52,17 +53,18 @@ export declare const getIndexForProperty: ({ table, property }: {
     table: any;
     property: any;
 }) => any;
-export declare const getQueryInfo: ({ table, filter, orderBy, type }: {
+export declare const getQueryInfo: ({ table, filter, orderBy, type, index }: {
     table: Table;
     filter: any;
     orderBy: any;
     type: string;
+    index?: IDynogelIndex;
 }) => {
     opType: string;
     hashKey: string;
     rangeKey: string;
     queryProp: any;
-    index: any;
+    index: IDynogelIndex;
     itemToPosition: (item: any) => any;
     filterProps: string[];
     sortedByDB: any;
@@ -109,7 +111,7 @@ export declare const renderTemplate: (str: string, data: any) => any;
 export declare const encodeTemplateValues: (data: any) => any;
 export declare const normalizeIndexedProperty: (property: any) => KeyProps;
 export declare const normalizeIndexedPropertyTemplateSchema: (property: any) => IndexedProperty;
-export declare const getKeyTemplateString: (val: PropPath) => any;
+export declare const getKeyTemplateString: (val: string | string[]) => any;
 export declare const pickNonNull: (obj: any, props: any) => any;
 export declare const getExpandedProperties: any;
 export declare const getIndexesForModel: GetIndexesForModel;
@@ -118,7 +120,7 @@ export declare const resolveOrderBy: ResolveOrderBy;
 export declare const deriveProps: PropsDeriver;
 export declare const parseDerivedProps: DerivedPropsParser;
 export declare const getTableKeys: (def: IDynogelTableDefinition) => string[];
-export declare const toAttributePath: (path: PropPath) => AttributePath;
+export declare const toAttributePath: (path: string | string[]) => AttributePath;
 export declare const marshallDBItem: (item: any) => AWS.DynamoDB.AttributeMap;
 export declare const unmarshallDBItem: (item: any) => any;
 export declare const createUpdateOptionsFromDiff: (diff: any) => {

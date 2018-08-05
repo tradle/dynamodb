@@ -17,7 +17,7 @@ const models = mergeModels()
 import { OrderBy } from '../types'
 import minify from '../minify'
 import * as defaults from '../defaults'
-import { expandFilter } from '../search'
+import { expandFilter, Search } from '../search'
 import {
   defaultOrderBy,
   // defaultIndexes
@@ -1350,6 +1350,88 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
   //     return table
   //   }
   // })
+}))
+
+test('reindex', loudAsync(async t => {
+  const model = {
+    type: 'tradle.Model',
+    id: 'tradle.Namey1',
+    title: 'Namey name1',
+    properties: {
+      firstName: { type: 'string' },
+      lastName: { type: 'string' },
+      nickName: { type: 'string' },
+      // firstName: { type: 'string' },
+    },
+    required: ['firstName', 'lastName'],
+    indexes: [
+      {
+        hashKey: '_t',
+        rangeKey: '_time',
+      },
+      {
+        hashKey: 'firstName',
+        rangeKey: 'lastName',
+      }
+    ]
+  }
+
+  const models = { [model.id]: model }
+  const tableOpts = {
+    objects,
+    docClient,
+    model,
+    models,
+    tableDefinition: tableSchema,
+    derivedProps: tableKeys
+  }
+
+  const tableV1 = createTable(tableOpts)
+  tableV1.storeResourcesForModel({ model })
+  const startTime = new Date('2000-01-01').getTime()
+  const names = [
+    { firstName: 'a', lastName: 'b', nickName: 'c' },
+    { firstName: 'd', lastName: 'e', nickName: 'f' },
+    { firstName: 'g', lastName: 'h', nickName: 'i' },
+    { firstName: 'j', lastName: 'k', nickName: 'l' },
+  ].map((n, i) => ({
+    _t: model.id,
+    _time: startTime + i,
+    _permalink: startTime + i + '',
+    ...n,
+  }))
+
+  await tableV1.destroy()
+  await tableV1.create()
+  await tableV1.batchPut(names)
+  t.same((await tableV1.list(model.id)).items, names)
+
+  model.indexes.push({
+    hashKey: 'nickName',
+    rangeKey: 'lastName',
+  })
+
+  const tableV2 = createTable(tableOpts)
+  tableV2.storeResourcesForModel({ model })
+  await tableV2.reindex({ model })
+
+  const search = new Search({
+    table: tableV2,
+    allowScan: false,
+    filter: {
+      EQ: {
+        _t: model.id,
+        nickName: names[0].nickName,
+      }
+    }
+  })
+
+  t.equal(search.index.hashKey, tableV2.indexes[2].hashKey)
+  const { items } = await search.exec()
+  t.equal(items.length, 1)
+  t.same(tableV2.exportResource(items[0]), names[0])
+
+  t.end()
 }))
 
 // test.only('index derived props', loudAsync(async t => {

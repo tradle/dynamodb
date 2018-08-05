@@ -18,14 +18,23 @@ import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
 import { defaultLimit, minifiedFlag, PRIMARY_KEYS_PROPS } from './constants'
-import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan, SearchResult, ItemToPosition } from './types'
+import {
+  OrderBy,
+  Model,
+  Models,
+  IDynogelIndex,
+  FindOpts,
+  AllowScan,
+  SearchResult,
+  ItemToPosition,
+  ProcessBatch,
+} from './types'
 import { Table } from './table'
 
 const { isComplexProperty } = validateModel.utils
 
 export class Search {
   public opts:FindOpts
-  public models:Models
   public model:Model
   public type: string
   public filter:any
@@ -47,13 +56,13 @@ export class Search {
   public consistentRead:boolean
   public builder:any
   public table:Table
+  private processBatch: ProcessBatch
   constructor (opts:FindOpts) {
     this.opts = opts
     Object.assign(this, opts)
     this.filter = _.cloneDeep(this.filter)
     const {
       table,
-      models,
       orderBy,
       limit=defaultLimit,
       checkpoint,
@@ -75,11 +84,12 @@ export class Search {
       type: this.type,
       table: this.table,
       filter: this.expandedFilter,
-      orderBy: this.orderBy
+      orderBy: this.orderBy,
+      index: this.index,
     }))
 
     const { type } = this
-    this.model = models[type]
+    this.model = table.models[type]
     this._configureBuilder()
     this._addConditions()
 
@@ -115,7 +125,6 @@ export class Search {
     const {
       table,
       model,
-      models,
       builder,
       orderBy,
       defaultOrderBy,
@@ -223,7 +232,7 @@ export class Search {
   })
 
   collectInBatches = async () => {
-    const { models, table, filter, limit, index, builder } = this
+    const { table, filter, limit, index, builder } = this
 
     // limit how many items dynamodb iterates over before filtering
     // this is different from the sql-like notion of limit
@@ -267,9 +276,9 @@ export class Search {
   }
 
   _filterResults = results => {
-    const { models, model, filter } = this
+    const { model, filter } = this
     return filterResults({
-      models,
+      models: this.table.models,
       model,
       filter,
       results
@@ -278,8 +287,13 @@ export class Search {
 
   _postProcessResult = async (result) => {
     const { table } = this
-    result.Items = result.Items.map(item => table.fromDBFormat(item))
-    result.Items = await Promise.all(result.Items.map(this._maybeInflate))
+    result.Items = await Promise.all(result.Items
+      .map(item => table.fromDBFormat(item))
+      .map(this._maybeInflate))
+
+    if (this.processBatch) {
+      await this.processBatch(_.cloneDeep(result.Items))
+    }
   }
 
   _maybeInflate = async (resource) => {

@@ -222,7 +222,8 @@ type TablePropInfo = {
   index?: IDynogelIndex
 }
 
-export const getPreferredQueryProperty = ({ table, hashKeyProps, filter, orderBy }: {
+export const getPreferredQueryProperty = ({ type, table, hashKeyProps, filter, orderBy }: {
+  type: string
   table: Table
   hashKeyProps: string[]
   filter: Filter
@@ -252,7 +253,15 @@ export const getPreferredQueryProperty = ({ table, hashKeyProps, filter, orderBy
   }
 
   const { EQ } = filter
-  const property = hashKeyProps.find(hashKeyProp => {
+  const model = table.models[type]
+  const typeIdx = findTypeIndexIndex({ table, model })
+  const typeLast = hashKeyProps.slice()
+  if (typeIdx !== -1) {
+    typeLast.splice(typeIdx, 1)
+    typeLast.push(hashKeyProps[typeIdx])
+  }
+
+  const property = typeLast.find(hashKeyProp => {
     const index = indexed.find(index => index.hashKey === hashKeyProp)
     const { rangeKey } = index
     if (!rangeKey) return true
@@ -272,7 +281,7 @@ export const getPreferredQueryProperty = ({ table, hashKeyProps, filter, orderBy
     })
 
     return resolved.canOrderBy.includes(orderBy.property)
-  }) || hashKeyProps[0]
+  }) || typeLast[0]
 
   if (property === table.hashKey) {
     return {
@@ -293,11 +302,12 @@ export const getIndexForProperty = ({ table, property }) => {
   return table.indexes.find(({ hashKey }) => hashKey === property)
 }
 
-export const getQueryInfo = ({ table, filter, orderBy, type }: {
+export const getQueryInfo = ({ table, filter, orderBy, type, index }: {
   table: Table
   filter: any
   orderBy: any
   type: string
+  index?: IDynogelIndex
 }) => {
   // orderBy is not counted, because for a 'query' op,
   // a value for the indexed prop must come from 'filter'
@@ -320,17 +330,26 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
   let builder
   let queryProp
   let sortedByDB
-  let index
   let defaultOrderBy
   if (opType === 'query') {
     // supported key condition operators:
     // http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.KeyConditionExpressions
-    const preferred = getPreferredQueryProperty({
-      table,
-      hashKeyProps: usedHashKeyProps,
-      filter,
-      orderBy
-    })
+    let preferred
+    if (index) {
+      preferred = {
+        index,
+        property: index.hashKey,
+        rangeKey: index.rangeKey,
+      }
+    } else {
+      preferred = getPreferredQueryProperty({
+        type,
+        table,
+        hashKeyProps: usedHashKeyProps,
+        filter,
+        orderBy,
+      })
+    }
 
     queryProp = preferred.property
     index = preferred.index
@@ -377,10 +396,9 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
   } else {
     orderBy = {}
     if (rangeKey) {
-      orderBy.property = rangeKey
+      orderBy.property = index ? index.rangeKey : rangeKey
     }
   }
-
 
   const itemToPosition = function itemToPosition (item) {
     item = {
@@ -1153,4 +1171,10 @@ const hasAllKeyProps = ({ def, item }: {
   }
 
   return false
+}
+
+const findTypeIndexIndex = ({ table, model }) => {
+  if (!(table && model)) debugger
+  return getIndexesForModel({ table, model })
+    .findIndex(i => i.hashKey.template.startsWith(`{${TYPE}}`))
 }

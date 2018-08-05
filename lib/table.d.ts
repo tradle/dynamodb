@@ -50,7 +50,7 @@ export declare class Table extends EventEmitter {
     }) => void;
     get: (query: any, opts?: any) => Promise<any>;
     del: (query: any, opts?: any) => Promise<any>;
-    private _exportResource;
+    exportResource: (resource: any, opts?: any) => any;
     batchPut: (resources: any[], backoffOpts?: BackoffOptions) => Promise<any[]>;
     put: (resource: any, opts?: any) => Promise<void>;
     update: (resource: any, opts?: any) => Promise<any>;
@@ -96,7 +96,6 @@ export declare class Table extends EventEmitter {
         updated: number;
         unchanged: number;
     }>;
-    haveIndexedPropsChanged: (item: any) => boolean;
     private _ensureWritable;
     private _ensureHasPrimaryKeys;
     private _hasAllPrimaryKeys;

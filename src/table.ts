@@ -10,7 +10,6 @@ import promisify from 'pify'
 import {
   minifiedFlag,
   batchWriteLimit,
-  RANGE_KEY_PLACEHOLDER_VALUE
   // typeAndPermalinkProperty
 } from './constants'
 
@@ -330,7 +329,7 @@ export class Table extends EventEmitter {
       return this.objects.get(resource._link)
     }
 
-    return this._exportResource(resource, opts)
+    return this.exportResource(resource, opts)
   }
 
   public del = async (query, opts:any={}):Promise<any> => {
@@ -339,10 +338,10 @@ export class Table extends EventEmitter {
     query = this.toDBFormat(query)
     const keys = _.values(this.getPrimaryKeys(query))
     const result = await this.table.destroy(...keys, opts)
-    return result && this._exportResource(result, opts)
+    return result && this.exportResource(result, opts)
   }
 
-  private _exportResource = (resource:any, opts:any={}) => {
+  public exportResource = (resource:any, opts:any={}) => {
     resource = this.fromDBFormat(resource)
     if (!opts.keepDerivedProps) {
       resource = this.omitDerivedProperties(resource)
@@ -416,7 +415,7 @@ export class Table extends EventEmitter {
     }
 
     this.logger.silly(`find returned ${results.items.length} results`)
-    results.items = results.items.map(resource => this._exportResource(resource, opts))
+    results.items = results.items.map(resource => this.exportResource(resource, opts))
     return results
   }
 
@@ -513,7 +512,7 @@ export class Table extends EventEmitter {
 
   public fromDBFormat = resultsToJson
 
-    // return this._exportResource(resource)
+    // return this.exportResource(resource)
     // return this.unprefixProperties(resource)
 
   // public prefixKey = ({ type, key }: { type:string, key:string }):string => {
@@ -581,7 +580,7 @@ export class Table extends EventEmitter {
 
     const primaryKeys = this.getPrimaryKeys(resource)
     this.logger.silly(`"${method}" ${JSON.stringify(primaryKeys)} successfully`)
-    return result && this._exportResource(result, options)
+    return result && this.exportResource(result, options)
   }
 
   private _validateResource = (resource) => {
@@ -676,13 +675,7 @@ export class Table extends EventEmitter {
   public reindex = async ({ model, batchSize=50, findOpts={} }: ReindexOpts) => {
     const table = this
     const { indexes } = model
-    if (indexes) {
-      const hasType = indexes
-        .map(normalizeIndexedProperty)
-        .some(i => i.hashKey === '_t')
-
-      if (!hasType) throw new Errors.InvalidInput('model is not indexed by type')
-    }
+    const typeIndex = getIndexForProp({ table, model, property: TYPE })
 
     let checkpoint
     let updated = 0
@@ -696,20 +689,23 @@ export class Table extends EventEmitter {
             _t: model.id
           }
         },
-        checkpoint
+        checkpoint,
+        index: typeIndex,
       }, findOpts))
 
       if (!items.length) break
 
       checkpoint = endPosition
-      let changed = items.filter(item => table.haveIndexedPropsChanged(item))
-      unchanged += (items.length - changed.length)
-      // force re-index
-      if (changed.length) {
-        await table.batchPut(changed)
-        updated += changed.length
-      }
+      // let changed = items.filter(item => table.haveIndexedPropsChanged(item))
+      // unchanged += (items.length - changed.length)
+      // // force re-index
+      // if (changed.length) {
+      //   await table.batchPut(changed)
+      //   updated += changed.length
+      // }
 
+      await table.batchPut(items)
+      updated += items.length
       if (items.length < limit) break
     }
 
@@ -719,12 +715,12 @@ export class Table extends EventEmitter {
     }
   }
 
-  public haveIndexedPropsChanged = item => {
-    const recalced = this.withDerivedProperties(this.omitDerivedProperties(item))
-    const before = _.pick(item, this.keyProps)
-    const after = _.pick(recalced, this.keyProps)
-    return !_.isEqual(before, after)
-  }
+  // public haveIndexedPropsChanged = item => {
+  //   const recalced = this.withDerivedProperties(this.omitDerivedProperties(item))
+  //   const before = _.pick(item, this.keyProps)
+  //   const after = _.pick(recalced, this.keyProps)
+  //   return !_.isEqual(before, after)
+  // }
 
   private _ensureWritable = () => {
     if (this.readOnly) {
@@ -793,4 +789,16 @@ const validateDiffItem = ({ op, path, value }) => {
   if (!(Array.isArray(path) && path.every(sub => typeof sub === 'string'))) {
     throw new InvalidInput(`invalid diff path, expected string array: ${JSON.stringify(path)}`)
   }
+}
+
+const getIndexForProp = ({ table, model, property }) => {
+  const indexIdx = model.indexes
+    .map(normalizeIndexedProperty)
+    .findIndex(i => i.hashKey === property)
+
+  if (indexIdx === -1)  {
+    throw new Errors.InvalidInput(`model is not indexed by ${property}`)
+  }
+
+  return table.indexes[indexIdx]
 }

@@ -1,8 +1,7 @@
-import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan, SearchResult, ItemToPosition } from './types';
+import { OrderBy, Model, IDynogelIndex, FindOpts, AllowScan, SearchResult, ItemToPosition } from './types';
 import { Table } from './table';
 export declare class Search {
     opts: FindOpts;
-    models: Models;
     model: Model;
     type: string;
     filter: any;
@@ -24,6 +23,7 @@ export declare class Search {
     consistentRead: boolean;
     builder: any;
     table: Table;
+    private processBatch;
     constructor(opts: FindOpts);
     private _debug;
     private _normalizeSelect;

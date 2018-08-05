@@ -14,14 +14,14 @@ export const primaryKeys = {
 export const indexes = [
   {
     // default for all tradle.Object resources
-    hashKey: '_author',
+    hashKey: TYPE,
     rangeKey: '_time'
   },
   {
     // default for all tradle.Object resources
-    hashKey: TYPE,
+    hashKey: '_author',
     rangeKey: '_time'
-  }
+  },
 ]
 
 export const logger: ILogger = {

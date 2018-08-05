@@ -220,6 +220,8 @@ export type OrderBy = {
   desc?: boolean
 }
 
+export type ProcessBatch = (batch: any[]) => Promise<void>
+
 export type FindOpts = {
   table?: Table
   filter?: Filter
@@ -230,6 +232,7 @@ export type FindOpts = {
   batchLimit?: number
   allowScan?: AllowScan
   keepDerivedProps?: boolean
+  processBatch?: ProcessBatch
 }
 
 export interface IDynogelTableDefinition {
