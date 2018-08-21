@@ -575,6 +575,10 @@ export class Table extends EventEmitter {
       result = await this.table[method](resource, options)
     } catch (err) {
       Errors.rethrow(err, 'developer')
+      if (err.code === 'ValidationException') {
+        this.logger.error('request failed validation', err.request)
+      }
+
       err.input = { item: resource, options }
       throw err
     }
