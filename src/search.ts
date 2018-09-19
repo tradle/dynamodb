@@ -493,10 +493,17 @@ export class Search {
     //   .concat(this.table.primaryKeys)
     //   .map(props => _.pick(props, PRIMARY_KEYS_PROPS))
 
-    const { primaryKeys, indexes } = this.model
-    const indexed = [].concat(primaryKeys).concat(indexes)
-    const indexedStr = JSON.stringify(indexed)
-    const hint = `Specify a limit, and a combination of hashKey in the EQ filter and (optionally) rangeKey in orderBy for one of the following: ${indexedStr}`
+    // const { primaryKeys, indexes } = this.model
+    // const indexed = [].concat(primaryKeys).concat(indexes)
+    // const indexedStr = JSON.stringify(indexed)
+    const keys = this.table.getKeyTemplatesForModel(this.model)
+    const varsNeeded = keys.map(({ hashKey, rangeKey }) => ({
+      hashKey: getVariablesInTemplate(hashKey.template),
+      rangeKey: rangeKey ? getVariablesInTemplate(rangeKey.template) : [],
+    }))
+
+    const varsNeededStr = JSON.stringify(varsNeeded)
+    const hint = `Specify a limit, and a combination of hashKey in the EQ filter and (optionally) rangeKey in orderBy for one of the following: ${varsNeededStr}`
     throw new Error(`this table does not allow scans or full reads. ${hint}`)
   }
 }
