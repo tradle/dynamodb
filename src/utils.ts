@@ -372,6 +372,7 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
       const { STARTS_WITH } = filter
       if (iRangeKey && !STARTS_WITH[iRangeKey]) {
         STARTS_WITH[iRangeKey] = renderTemplate(resolvedOrderBy.prefix, EQ)
+        sortedByDB = true
       }
     }
   } else {
