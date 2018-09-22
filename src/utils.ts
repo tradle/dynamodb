@@ -229,27 +229,27 @@ export const getPreferredQueryProperty = ({ table, hashKeyProps, filter, orderBy
   orderBy?: OrderBy
 }):TablePropInfo => {
   const { indexed } = table
-  if (hashKeyProps.length > 1) {
-    const projectsAll = indexed.find(index => {
-      return hashKeyProps.includes(index.hashKey) &&
-        index.projection.ProjectionType === 'ALL'
-    })
+  // if (hashKeyProps.length > 1) {
+  //   const projectsAll = indexed.find(index => {
+  //     return hashKeyProps.includes(index.hashKey) &&
+  //       index.projection.ProjectionType === 'ALL'
+  //   })
 
-    if (projectsAll) {
-      return {
-        index: projectsAll.hashKey === table.hashKey ? null : projectsAll,
-        property: projectsAll.hashKey,
-        rangeKey: projectsAll.rangeKey
-      }
-    }
+  //   if (projectsAll) {
+  //     return {
+  //       index: projectsAll.hashKey === table.hashKey ? null : projectsAll,
+  //       property: projectsAll.hashKey,
+  //       rangeKey: projectsAll.rangeKey
+  //     }
+  //   }
 
-    if (hashKeyProps.includes(table.hashKey)) {
-      return {
-        property: table.hashKey,
-        rangeKey: table.rangeKey
-      }
-    }
-  }
+  //   if (hashKeyProps.includes(table.hashKey)) {
+  //     return {
+  //       property: table.hashKey,
+  //       rangeKey: table.rangeKey
+  //     }
+  //   }
+  // }
 
   const { EQ } = filter
   const property = hashKeyProps.find(hashKeyProp => {
