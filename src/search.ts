@@ -548,17 +548,30 @@ const EXPANDABLE_OPERATORS = [
   'GTE',
 ]
 
+const CAN_RENDER_PREFIX = [
+  'LT',
+  'LTE',
+  'GT',
+  'GTE',
+  // 'STARTS_WITH',
+]
+
 export const expandFilter = (table: Table, filter: any) => {
   const expandedFilter = _.cloneDeep(filter)
   if (!filter.EQ) return expandedFilter
 
-  const addProps = (target, noConstants?) => _.extend(target, table.deriveProps({
+  const addProps = ({ target, noConstants, renderPrefix }: {
+    target: any
+    noConstants?: boolean
+    renderPrefix?: boolean
+  }) => _.extend(target, table.deriveProps({
     item: target,
     isRead: true,
-    noConstants
+    noConstants,
+    renderPrefix,
   }))
 
-  addProps(expandedFilter.EQ)
+  addProps({ target: expandedFilter.EQ })
 
   const { EQ } = expandedFilter
   const type = EQ[TYPE]
@@ -571,7 +584,19 @@ export const expandFilter = (table: Table, filter: any) => {
     if (delType) props[TYPE] = type
 
     const copy = _.clone(props)
-    addProps(copy, true)
+    const renderPrefix = CAN_RENDER_PREFIX.includes(op)
+    addProps({
+      target: copy,
+      noConstants: true,
+      renderPrefix,
+    })
+
+    if (renderPrefix) {
+      // hash keys need exact values
+      table.hashKeyProps.forEach(prop => {
+        delete copy[prop]
+      })
+    }
 
     const keep = Object.keys(copy).filter(p => !(p in props) && !(p in EQ))
     if (keep.length) {

@@ -247,19 +247,17 @@ export class Table extends EventEmitter {
       console.warn(`more key templates than indexes for model: ${model.id}!`)
     }
 
-    return raw.slice(0, this.indexed.length).map((indexedProp, i) => {
-      return {
-        ...indexedProp,
-        hashKey: {
-          ...indexedProp.hashKey,
-          key: this.indexed[i].hashKey
-        },
-        rangeKey: indexedProp.rangeKey && {
-          ...indexedProp.rangeKey,
-          key: this.indexed[i].rangeKey
-        }
+    return raw.slice(0, this.indexed.length).map((indexedProp, i) => ({
+      ...indexedProp,
+      hashKey: {
+        ...indexedProp.hashKey,
+        key: this.indexed[i].hashKey
+      },
+      rangeKey: indexedProp.rangeKey && {
+        ...indexedProp.rangeKey,
+        key: this.indexed[i].rangeKey
       }
-    })
+    }))
   }
 
   public hook = (method, handler) => this.hooks.hook(method, handler)
@@ -492,6 +490,7 @@ export class Table extends EventEmitter {
     item: any
     isRead?: boolean
     noConstants?: boolean
+    renderPrefix?: boolean
   }) => {
     const { item } = opts
     const derived = this._deriveProps({ table: this, isRead: false, ...opts })

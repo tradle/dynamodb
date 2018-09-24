@@ -67,6 +67,7 @@ export declare class Table extends EventEmitter {
         item: any;
         isRead?: boolean;
         noConstants?: boolean;
+        renderPrefix?: boolean;
     }) => any;
     toDBFormat: (resource: any) => any;
     fromDBFormat: (items: any) => any;

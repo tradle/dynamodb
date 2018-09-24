@@ -21,6 +21,7 @@ export type PropsDeriverInput = {
   item: any
   isRead: boolean
   noConstants?: boolean
+  renderPrefix?: boolean
 }
 
 export type PropsDeriver = (opts: PropsDeriverInput) => any

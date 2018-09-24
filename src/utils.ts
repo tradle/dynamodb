@@ -229,28 +229,6 @@ export const getPreferredQueryProperty = ({ table, hashKeyProps, filter, orderBy
   orderBy?: OrderBy
 }):TablePropInfo => {
   const { indexed } = table
-  // if (hashKeyProps.length > 1) {
-  //   const projectsAll = indexed.find(index => {
-  //     return hashKeyProps.includes(index.hashKey) &&
-  //       index.projection.ProjectionType === 'ALL'
-  //   })
-
-  //   if (projectsAll) {
-  //     return {
-  //       index: projectsAll.hashKey === table.hashKey ? null : projectsAll,
-  //       property: projectsAll.hashKey,
-  //       rangeKey: projectsAll.rangeKey
-  //     }
-  //   }
-
-  //   if (hashKeyProps.includes(table.hashKey)) {
-  //     return {
-  //       property: table.hashKey,
-  //       rangeKey: table.rangeKey
-  //     }
-  //   }
-  // }
-
   const { EQ } = filter
   const property = hashKeyProps.find(hashKeyProp => {
     const index = indexed.find(index => index.hashKey === hashKeyProp)
@@ -381,7 +359,6 @@ export const getQueryInfo = ({ table, filter, orderBy, type }: {
       orderBy.property = rangeKey
     }
   }
-
 
   const itemToPosition = function itemToPosition (item) {
     item = {
@@ -957,7 +934,8 @@ export const deriveProps: PropsDeriver = ({
   table,
   item,
   isRead,
-  noConstants
+  noConstants,
+  renderPrefix,
 }) => {
   if (!table.derivedProps.length) {
     return {}
@@ -978,7 +956,7 @@ export const deriveProps: PropsDeriver = ({
 
   const model = table.models[rType]
   const indexes = table.getKeyTemplatesForModel(model)
-  const renderable = _.chain(indexes)
+  const nested = indexes
     .map((templates, i) => {
       const { hashKey, rangeKey } = table.indexed[i]
       const ret = [{
@@ -995,12 +973,21 @@ export const deriveProps: PropsDeriver = ({
 
       return ret
     })
-    .flatten()
-    // only render the keys for which we have all the variables
-    .filter(({ template }) => checkRenderable(template, item, noConstants).full)
-    .value()
 
-  return renderable.reduce((inputs, { property, template, sort }) => {
+  const renderable = _.flatten(nested)
+    // only render the keys for which we have all the variables
+    .map(({ template, property }) => {
+      const renderable = checkRenderable(template, item, noConstants)
+      if (renderable.full || (renderPrefix && renderable.prefix)) {
+        return {
+          template: renderable.prefix,
+          property,
+        }
+      }
+    })
+    .filter(_.identity)
+
+  const rendered = renderable.reduce((inputs, { property, template, sort }) => {
     const val = renderTemplate(template, item)
     if (val.length) {
       // empty strings not allowed!
@@ -1009,6 +996,8 @@ export const deriveProps: PropsDeriver = ({
 
     return inputs
   }, {})
+
+  return rendered
 }
 
 export const parseDerivedProps:DerivedPropsParser = ({ table, model, resource }) => {
