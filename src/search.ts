@@ -546,6 +546,7 @@ const EXPANDABLE_OPERATORS = [
   'LTE',
   'GT',
   'GTE',
+  'STARTS_WITH',
 ]
 
 const CAN_RENDER_PREFIX = [
@@ -553,7 +554,7 @@ const CAN_RENDER_PREFIX = [
   'LTE',
   'GT',
   'GTE',
-  // 'STARTS_WITH',
+  'STARTS_WITH',
 ]
 
 export const expandFilter = (table: Table, filter: any) => {
