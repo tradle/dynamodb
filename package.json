@@ -31,7 +31,7 @@
     "test": "npm run copy-static-assets && node lib/test",
     "lint": "eslint --quiet --ignore-path .gitignore .",
     "prepush": "npm test",
-    "precommit": "npm run copy-static-assets",
+    "precommit": "tsc && npm run copy-static-assets",
     "commit": "git-cz",
     "copy-static-assets": "cp src/test/fixtures/* lib/test/fixtures/ && cp src/types.d.ts lib/"
   },
