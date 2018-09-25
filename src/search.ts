@@ -592,6 +592,22 @@ export const expandFilter = (table: Table, filter: any) => {
       renderPrefix,
     })
 
+    if (op === 'STARTS_WITH') {
+      // kind of hacky
+      // reason: rendered props will end with } due to templating specifics
+      // want:
+      //   starts with "{GeorgeWash" will match "{GeorgeWashington}"
+      // don't want:
+      //   starts with "{GeorgeWash}" will not match "{GeorgeWashington}"
+      for (let p in copy) {
+        if (!(p in props)) {
+          if (copy[p].endsWith('}')) {
+            copy[p] = copy[p].slice(0, -1)
+          }
+        }
+      }
+    }
+
     if (renderPrefix) {
       // hash keys need exact values
       table.hashKeyProps.forEach(prop => {
