@@ -25,7 +25,6 @@ import {
   FindOpts,
   ILogger,
   SearchResult,
-  ReindexOpts,
 } from './types'
 
 import * as defaults from './defaults'
@@ -198,11 +197,6 @@ export default class DB extends EventEmitter {
   public list = async (type: string, opts?:Partial<FindOpts>):Promise<SearchResult> => {
     const table = await this.getTableForType(type)
     return await table.list(type, opts)
-  }
-
-  public reindex = async (opts: ReindexOpts) => {
-    const table = this.getTableForModel(opts.model)
-    return await table.reindex(opts)
   }
 
   public createTables = async ():Promise<void> => {

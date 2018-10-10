@@ -310,7 +310,9 @@ export type SearchResult = {
 }
 
 export type ReindexOpts = {
-  model: Model
+  newModel: Model
+  oldModel: Model
+  tableOpts: ITableOpts
   batchSize?: number
   findOpts?: any
 }
