@@ -257,6 +257,7 @@ export type KeyTemplate = {
 export type IndexedProperty = {
   hashKey: KeyTemplate
   rangeKey?: KeyTemplate
+  specificity?: number
 }
 
 // export type Cache = {

@@ -236,8 +236,8 @@ export class Table extends EventEmitter {
     }
 
     const raw = [
-      this._getPrimaryKeysForModel({ table: this, model }),
-      ...this._getIndexesForModel({ table: this, model })
+      this.getPrimaryKeysForModel(model),
+      ...this.getIndexesForModel(model)
     ]
     .map(normalizeIndexedPropertyTemplateSchema)
 
@@ -257,6 +257,18 @@ export class Table extends EventEmitter {
       }
     }))
   }
+
+  public getIndexesForModel = (model: Model) => this._getIndexesForModel({ table: this, model })
+  public getIndexesForType = (type: string) => this._getIndexesForModel({
+    table: this,
+    model: this._getModel(type)
+  })
+
+  public getPrimaryKeysForModel = (model: Model) => this._getPrimaryKeysForModel({ table: this, model })
+  public getPrimaryKeysForType = (type: string) => this._getPrimaryKeysForModel({
+    table: this,
+    model: this._getModel(type)
+  })
 
   public hook = (method, handler) => this.hooks.hook(method, handler)
 
@@ -758,6 +770,12 @@ export class Table extends EventEmitter {
       min: item,
       diff: {}
     }
+  }
+
+  private _getModel = (type: string) => {
+    const model = this.models[type]
+    if (!model) throw new InvalidInput(`missing model for type: ${type}`)
+    return model
   }
 
   // private getPrimaryKeys = (props:string|any):KeyProps => {

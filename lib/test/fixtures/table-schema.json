@@ -24,6 +24,14 @@
     {
       "AttributeName": "__x1r__",
       "AttributeType": "S"
+    },
+    {
+      "AttributeName": "__x2h__",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "__x2r__",
+      "AttributeType": "S"
     }
   ],
   "KeySchema": [
@@ -80,6 +88,26 @@
       "Projection": {
         "ProjectionType": "INCLUDE",
         "NonKeyAttributes": ["topic", "_permalink", "_link", "_author", "_t", "_time"]
+      },
+      "ProvisionedThroughput": {
+        "ReadCapacityUnits": 5,
+        "WriteCapacityUnits": 5
+      }
+    },
+    {
+      "IndexName": "index2",
+      "KeySchema": [
+        {
+          "AttributeName": "__x2h__",
+          "KeyType": "HASH"
+        },
+        {
+          "AttributeName": "__x2r__",
+          "KeyType": "RANGE"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "KEYS_ONLY"
       },
       "ProvisionedThroughput": {
         "ReadCapacityUnits": 5,
