@@ -1,7 +1,7 @@
-import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan, SearchResult, ItemToPosition } from './types';
+import { OrderBy, Model, Models, IDynogelIndex, FindOptsWithTable, AllowScan, SearchResult, ItemToPosition } from './types';
 import { Table } from './table';
 export declare class Search {
-    opts: FindOpts;
+    opts: FindOptsWithTable;
     models: Models;
     model: Model;
     type: string;
@@ -24,7 +24,7 @@ export declare class Search {
     consistentRead: boolean;
     builder: any;
     table: Table;
-    constructor(opts: FindOpts);
+    constructor(opts: FindOptsWithTable);
     private _debug;
     private _normalizeSelect;
     private guessSelect;
@@ -45,5 +45,5 @@ export declare class Search {
     _configureBuilder: () => void;
     _throwIfScanForbidden: () => void;
 }
-export declare const search: (opts: FindOpts) => Promise<SearchResult>;
+export declare const search: (opts: FindOptsWithTable) => Promise<SearchResult>;
 export declare const expandFilter: (table: Table, filter: any) => any;

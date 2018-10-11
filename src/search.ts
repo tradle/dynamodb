@@ -18,13 +18,13 @@ import OPERATORS = require('./operators')
 import { getComparators } from './comparators'
 import { filterResults } from './filter-memory'
 import { defaultLimit, minifiedFlag, PRIMARY_KEYS_PROPS } from './constants'
-import { OrderBy, Model, Models, IDynogelIndex, FindOpts, AllowScan, SearchResult, ItemToPosition } from './types'
+import { OrderBy, Model, Models, IDynogelIndex, FindOptsWithTable, AllowScan, SearchResult, ItemToPosition } from './types'
 import { Table } from './table'
 
 const { isComplexProperty } = validateModel.utils
 
 export class Search {
-  public opts:FindOpts
+  public opts:FindOptsWithTable
   public models:Models
   public model:Model
   public type: string
@@ -47,13 +47,12 @@ export class Search {
   public consistentRead:boolean
   public builder:any
   public table:Table
-  constructor (opts:FindOpts) {
+  constructor (opts:FindOptsWithTable) {
     this.opts = opts
     Object.assign(this, opts)
     this.filter = _.cloneDeep(this.filter)
     const {
       table,
-      models,
       orderBy,
       limit=defaultLimit,
       checkpoint,
@@ -63,6 +62,8 @@ export class Search {
       select
     } = this
 
+    const { models } = table
+    this.models = models
     this.limit = limit
     this.orderBy = orderBy
     this.type = this.filter.EQ[TYPE]
@@ -537,7 +538,7 @@ const isEmpty = obj => {
 
 const notNull = val => !!val
 
-export const search = (opts: FindOpts):Promise<SearchResult> => new Search(opts).exec()
+export const search = (opts: FindOptsWithTable):Promise<SearchResult> => new Search(opts).exec()
 
 const EXPANDABLE_OPERATORS = [
   'NEQ',

@@ -25,6 +25,7 @@ import {
   Models,
   TableChooser,
   FindOpts,
+  FindOptsWithTable,
   ReadOptions,
   ResolveOrderBy,
   ResolveOrderByInput,
@@ -121,7 +122,7 @@ export class Table extends EventEmitter {
   private _prefix:{[key:string]: string}
   private tableDefinition:ITableDefinition
   private readOnly:boolean
-  private findOpts:object
+  private findOpts:Partial<FindOpts>
   private _deriveProps:PropsDeriver
   private _resolveOrderBy:ResolveOrderBy
   private _getIndexesForModel:GetIndexesForModel
@@ -202,10 +203,7 @@ export class Table extends EventEmitter {
     this._getPrimaryKeysForModel = getPrimaryKeysForModel
     this._shouldMinify = shouldMinify
     this.findOpts = {
-      // may change dynamically
-      get models() { return table.models },
       allowScan,
-      primaryKeys: this.primaryKeys,
       consistentRead: defaultReadOptions.consistentRead
     }
 
@@ -389,10 +387,10 @@ export class Table extends EventEmitter {
     return await this.update(resource, opts)
   }
 
-  public find = async (opts:FindOpts):Promise<SearchResult> => {
-    opts = {
+  public find = async (_opts:FindOpts):Promise<SearchResult> => {
+    const opts:FindOptsWithTable = {
       ...this.findOpts,
-      ..._.cloneDeep(opts),
+      ..._.cloneDeep(_opts),
       table: this
     }
 

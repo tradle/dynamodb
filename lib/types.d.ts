@@ -221,8 +221,7 @@ export type OrderBy = {
   desc?: boolean
 }
 
-export type FindOpts = {
-  table?: Table
+export interface FindOpts {
   filter?: Filter
   orderBy?: OrderBy
   select?: string[]
@@ -231,6 +230,11 @@ export type FindOpts = {
   batchLimit?: number
   allowScan?: AllowScan
   keepDerivedProps?: boolean
+  consistentRead?: boolean
+}
+
+export interface FindOptsWithTable extends FindOpts {
+  table: Table
 }
 
 export interface IDynogelTableDefinition {
