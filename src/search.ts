@@ -576,10 +576,8 @@ export const expandFilter = (table: Table, filter: any) => {
     expandedFilter.STARTS_WITH = {}
   }
 
-  expandedFilter.STARTS_WITH = _.defaults(
-    expandedFilter.STARTS_WITH,
-    expandedFilter.EQ
-  )
+  const copiedToStartsWith = _.pickBy(expandedFilter.EQ, (value, key) => !(key in expandedFilter.STARTS_WITH))
+  _.extend(expandedFilter.STARTS_WITH, copiedToStartsWith)
 
   addProps({
     target: expandedFilter.EQ,
@@ -634,6 +632,10 @@ export const expandFilter = (table: Table, filter: any) => {
 
     if (delType) delete props[TYPE]
   })
+
+  for (let key in copiedToStartsWith) {
+    delete expandedFilter.STARTS_WITH[key]
+  }
 
   // console.warn('performed dangerous filter expansion', _.omit(expandedFilter, 'EQ'))
   return expandedFilter
