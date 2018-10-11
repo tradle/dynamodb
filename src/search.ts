@@ -572,13 +572,24 @@ export const expandFilter = (table: Table, filter: any) => {
     renderPrefix,
   }))
 
-  addProps({ target: expandedFilter.EQ })
+  if (!expandedFilter.STARTS_WITH) {
+    expandedFilter.STARTS_WITH = {}
+  }
+
+  expandedFilter.STARTS_WITH = _.defaults(
+    expandedFilter.STARTS_WITH,
+    expandedFilter.EQ
+  )
+
+  addProps({
+    target: expandedFilter.EQ,
+  })
 
   const { EQ } = expandedFilter
   const type = EQ[TYPE]
   let dangerous
 
-  _.intersection(Object.keys(filter), EXPANDABLE_OPERATORS).forEach(op => {
+  _.intersection(Object.keys(expandedFilter), EXPANDABLE_OPERATORS).forEach(op => {
     const opInfo = OPERATORS[op]
     const props = expandedFilter[op]
     const delType = !props[TYPE]
