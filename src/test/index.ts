@@ -11,7 +11,7 @@ import buildResource from '@tradle/build-resource'
 import mergeModels from '@tradle/merge-models'
 const models = mergeModels()
   .add(require('@tradle/models').models)
-  .add(require('@tradle/custom-models'))
+  .add(require('@tradle/custom-models').models)
   .get()
 
 import { OrderBy } from '../types'
@@ -245,7 +245,7 @@ test('model store', loudAsync(async (t) => {
   let i = 0
   const onMissingModel = async (id) => {
     i++
-    store.addModels(_.pick(externalSource, ['tradle.Object', 'tradle.Seal']))
+    store.addModels(_.pick(externalSource, ['tradle.Object', 'tradle.Seal', 'tradle.PubKey']))
     return externalSource[id]
   }
 
