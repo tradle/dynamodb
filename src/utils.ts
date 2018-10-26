@@ -210,7 +210,7 @@ export const getMissingProperties = ({ resource, model, opts }: {
   const cut = resource[minifiedFlag]
   if (cut && cut.length) {
     const needsInflate = cut.some(prop => select.includes(prop))
-    if (!needsInflate) return resource
+    if (!needsInflate) return []
   }
 
   return missing
@@ -1111,6 +1111,11 @@ export const getDecisionProps = ({ filter, select }: {
 }) => {
   const props = (select || []).concat(getUsedProperties(filter || {}))
   return uniqueStrict(props)
+}
+
+export const isObjectMinified = (obj: any) => {
+  const cut = obj[minifiedFlag]
+  return cut && cut.length > 0
 }
 
 export {
