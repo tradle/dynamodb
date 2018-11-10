@@ -5,7 +5,6 @@ import _ from 'lodash'
 import test from 'tape'
 import dynogels from 'dynogels'
 import { diff } from 'just-diff'
-import omit from 'lodash/omit'
 import { TYPE, SIG, PREVLINK, PERMALINK } from '@tradle/constants'
 import validateResource from '@tradle/validate-resource'
 import buildResource from '@tradle/build-resource'
@@ -20,6 +19,7 @@ import minify from '../minify'
 import * as defaults from '../defaults'
 import { expandFilter } from '../search'
 import {
+  minifiedFlag,
   defaultOrderBy,
   // defaultIndexes
 } from '../constants'
@@ -270,14 +270,14 @@ test('minify (big values)', function (t) {
   const bigMsg = {
     [TYPE]: 'tradle.SimpleMessage',
     message: 'blah'.repeat(1000),
-    shortMessage: 'blah'.repeat(10)
+    shortMessage: 'blah'.repeat(10),
   }
 
   // fake table
   const table = {
     logger,
     models,
-    indexes: defaultIndexes
+    indexes: []
   }
 
   const minBigMsg = minify({
@@ -290,7 +290,7 @@ test('minify (big values)', function (t) {
   t.same(minBigMsg.min, {
     [TYPE]: bigMsg[TYPE],
     shortMessage: bigMsg.shortMessage,
-    _cut: ['message']
+    [minifiedFlag]: ['message']
   })
 
   const smallMsg = {
@@ -319,7 +319,11 @@ test('minify (retain resource values)', function (t) {
         friend: {
           type: 'object',
           ref: 'tradle.Identity'
-        }
+        },
+        bigUndifferentiatedData: {
+          type: 'object',
+          range: 'json',
+        },
       }
     }
   }
@@ -335,6 +339,9 @@ test('minify (retain resource values)', function (t) {
     [TYPE]: id,
     friend: {
       id: `${id}_abc_123`
+    },
+    bigUndifferentiatedData: {
+      something: 'big and undifferentiated'.repeat(1000)
     }
   }
 
@@ -344,7 +351,11 @@ test('minify (retain resource values)', function (t) {
     maxSize: 1
   })
 
-  t.same(minThingy.min, thingy)
+  t.same(minThingy.min, {
+    ..._.omit(thingy, 'bigUndifferentiatedData'),
+    [minifiedFlag]: ['bigUndifferentiatedData']
+  })
+
   t.end()
 })
 
@@ -382,7 +393,7 @@ test('minify (optional props)', function (t) {
     maxSize: 200
   })
 
-  t.same(minThingy.min._cut, ['b'])
+  t.same(minThingy.min[minifiedFlag], ['b'])
   t.end()
 })
 
@@ -1379,7 +1390,7 @@ test('specificity', t => {
       nickName: { type: 'string' },
     },
     required: ['firstName', 'lastName'],
-    indexes: indexesWithSpecificity.map(i => omit(i, 'specificity')),
+    indexes: indexesWithSpecificity.map(i => _.omit(i, 'specificity')),
   }
 
   const models = { [model.id]: model }

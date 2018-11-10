@@ -23,7 +23,7 @@ const MINIFY_PREFERENCES:MinifyPref[] = [
 
 const neverStrip = (opts:any) => {
   const { property } = opts
-  return property.ref && property.type === 'object'
+  return property.ref && property.type === 'object' && property.range !== 'json'
 }
 
 export default function minify ({ table, item, maxSize }) {
