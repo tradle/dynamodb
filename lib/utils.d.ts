@@ -16,7 +16,7 @@ export declare const sortResults: ({ results, orderBy, defaultOrderBy }: {
     orderBy?: OrderBy;
     defaultOrderBy?: OrderBy;
 }) => any;
-export declare const compare: (a: any, b: any, propertyName: any) => 1 | 0 | -1;
+export declare const compare: (a: any, b: any, propertyName: any) => 0 | 1 | -1;
 export declare const toObject: (arr: any) => {};
 export declare const fromResourceStub: (props: any) => {
     [x: number]: any;
@@ -48,6 +48,11 @@ export declare const getPreferredQueryProperty: ({ table, hashKeyProps, filter, 
     rangeKey?: string;
     index?: IDynogelIndex;
 };
+export declare const sortHashKeyPropsBySpecificityDesc: ({ hashKeyProps, table, type }: {
+    hashKeyProps: string[];
+    table: Table;
+    type: string;
+}) => string[];
 export declare const getIndexForProperty: ({ table, property }: {
     table: any;
     property: any;

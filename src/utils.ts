@@ -230,7 +230,9 @@ export const getPreferredQueryProperty = ({ table, hashKeyProps, filter, orderBy
 }):TablePropInfo => {
   const { indexed } = table
   const { EQ } = filter
-  const property = hashKeyProps.find(hashKeyProp => {
+  const type = EQ[TYPE]
+  const bySpecificity = sortHashKeyPropsBySpecificityDesc({ hashKeyProps, table, type })
+  const property = bySpecificity.find(hashKeyProp => {
     const index = indexed.find(index => index.hashKey === hashKeyProp)
     const { rangeKey } = index
     if (!rangeKey) return true
@@ -243,14 +245,14 @@ export const getPreferredQueryProperty = ({ table, hashKeyProps, filter, orderBy
     if (!orderBy) return false
 
     const resolved = table.resolveOrderBy({
-      type: EQ[TYPE],
+      type,
       hashKey: hashKeyProp,
       property: orderBy.property,
       item: EQ
     })
 
     return resolved.canOrderBy.includes(orderBy.property)
-  }) || hashKeyProps[0]
+  }) || bySpecificity[0]
 
   if (property === table.hashKey) {
     return {
@@ -265,6 +267,43 @@ export const getPreferredQueryProperty = ({ table, hashKeyProps, filter, orderBy
     property,
     rangeKey: index && index.rangeKey
   }
+}
+
+export const sortHashKeyPropsBySpecificityDesc = ({ hashKeyProps, table, type }: {
+  hashKeyProps: string[]
+  table: Table
+  type: string
+}):string[] => {
+  if (hashKeyProps.length < 2) return hashKeyProps.slice()
+
+  const primaryKeys:IndexedProperty = {
+    ...table.getPrimaryKeysForType(type),
+    specificity: Infinity,
+  }
+
+  const indexes = [primaryKeys].concat(table.getIndexesForType(type))
+  // table.indexed includes primary keys
+  const allHashKeyProps = table.indexed.map(i => i.hashKey)
+  const naturalOrder = hashKeyProps.sort((a, b) => {
+    // a model's indexes are assumed to be in order from most to least specific
+    // unless "specificity" is explicitly given per index
+    return allHashKeyProps.indexOf(a) - allHashKeyProps.indexOf(b)
+  })
+
+  const allMarked = indexes.every(i => typeof i.specificity === 'number')
+  if (!allMarked) {
+    return naturalOrder
+  }
+
+  const specificityDesc = naturalOrder.slice().sort((a, b) => {
+    const aIdx = allHashKeyProps.indexOf(a)
+    const bIdx = allHashKeyProps.indexOf(b)
+    const aSpecificity = indexes[aIdx].specificity
+    const bSpecificity = indexes[bIdx].specificity
+    return bSpecificity - aSpecificity
+  })
+
+  return specificityDesc
 }
 
 export const getIndexForProperty = ({ table, property }) => {
@@ -810,6 +849,10 @@ export const normalizeIndexedPropertyTemplateSchema = (property:any):IndexedProp
         template: getKeyTemplateString(val)
       }
     }
+  }
+
+  if (typeof property.specificity === 'number') {
+    ret.specificity = property.specificity
   }
 
   return ret

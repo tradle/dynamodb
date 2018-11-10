@@ -5,6 +5,7 @@ import _ from 'lodash'
 import test from 'tape'
 import dynogels from 'dynogels'
 import { diff } from 'just-diff'
+import omit from 'lodash/omit'
 import { TYPE, SIG, PREVLINK, PERMALINK } from '@tradle/constants'
 import validateResource from '@tradle/validate-resource'
 import buildResource from '@tradle/build-resource'
@@ -1351,6 +1352,90 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
   //   }
   // })
 }))
+
+test('specificity', t => {
+  const indexesWithSpecificity = [
+    {
+      hashKey: 'firstName',
+      specificity: 0,
+    },
+    {
+      hashKey: 'nickName',
+      specificity: 2,
+    },
+    {
+      hashKey: 'lastName',
+      specificity: 1,
+    }
+  ]
+
+  const model = {
+    type: 'tradle.Model',
+    id: 'tradle.Namey',
+    title: 'Namey name',
+    properties: {
+      firstName: { type: 'string' },
+      lastName: { type: 'string' },
+      nickName: { type: 'string' },
+    },
+    required: ['firstName', 'lastName'],
+    indexes: indexesWithSpecificity.map(i => omit(i, 'specificity')),
+  }
+
+  const models = { [model.id]: model }
+  const table1 = createTable({
+    objects,
+    docClient,
+    model,
+    models,
+    tableDefinition: tableSchema,
+    derivedProps: tableKeys,
+  })
+
+  let result
+  result = utils.sortHashKeyPropsBySpecificityDesc({
+    hashKeyProps: ['__x1h__', '__x0h__', '__x2h__'],
+    table: table1,
+    type: model.id,
+  })
+
+  t.same(result, ['__x0h__', '__x1h__', '__x2h__'], 'use model index order as indicator of specificity (most -> least)')
+
+  result = utils.sortHashKeyPropsBySpecificityDesc({
+    hashKeyProps: ['__x0h__', '__x1h__', '__h__', '__x2h__'],
+    table: table1,
+    type: model.id,
+  })
+
+  t.same(result, ['__h__', '__x0h__', '__x1h__', '__x2h__'], 'primary key is considered most specific (1)')
+
+  model.indexes = indexesWithSpecificity
+  const table2 = createTable({
+    objects,
+    docClient,
+    model,
+    models,
+    tableDefinition: tableSchema,
+    derivedProps: tableKeys,
+  })
+
+  result = utils.sortHashKeyPropsBySpecificityDesc({
+    hashKeyProps: ['__x1h__', '__x0h__', '__x2h__'],
+    table: table2,
+    type: model.id,
+  })
+
+  t.same(result, ['__x1h__', '__x2h__', '__x0h__'], 'explicit specificity respected')
+
+  result = utils.sortHashKeyPropsBySpecificityDesc({
+    hashKeyProps: ['__x1h__', '__x0h__', '__h__', '__x2h__'],
+    table: table2,
+    type: model.id,
+  })
+
+  t.same(result, ['__h__', '__x1h__', '__x2h__', '__x0h__'], 'primary key is considered most specific (2)')
+  t.end()
+})
 
 // test.only('index derived props', loudAsync(async t => {
 //   // const index = {

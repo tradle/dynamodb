@@ -42,7 +42,44 @@ export declare class Table extends EventEmitter {
             key: string;
             template: string;
         };
+        specificity?: number;
     }[];
+    getIndexesForModel: (model: Model) => {
+        hashKey: {
+            template: string;
+        };
+        rangeKey?: {
+            template: string;
+        };
+        specificity?: number;
+    }[];
+    getIndexesForType: (type: string) => {
+        hashKey: {
+            template: string;
+        };
+        rangeKey?: {
+            template: string;
+        };
+        specificity?: number;
+    }[];
+    getPrimaryKeysForModel: (model: Model) => {
+        hashKey: {
+            template: string;
+        };
+        rangeKey?: {
+            template: string;
+        };
+        specificity?: number;
+    };
+    getPrimaryKeysForType: (type: string) => {
+        hashKey: {
+            template: string;
+        };
+        rangeKey?: {
+            template: string;
+        };
+        specificity?: number;
+    };
     hook: (method: any, handler: any) => any;
     storeResourcesForModels: (models: Models) => any;
     storeResourcesForModel: ({ model }: {
@@ -103,5 +140,6 @@ export declare class Table extends EventEmitter {
     private _hasAllPrimaryKeys;
     private _hasAllKeys;
     private _minify;
+    private _getModel;
 }
 export declare const createTable: (opts: ITableOpts) => Table;
