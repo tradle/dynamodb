@@ -1,5 +1,5 @@
 import { Table, createTable } from './table'
-import DB from './db'
+import DB, { createDB } from './db'
 import * as utils from './utils'
 import constants from './constants'
 import * as Errors from './errors'
@@ -15,6 +15,7 @@ export {
   ModelStore,
   createModelStore,
   DB,
+  createDB,
   utils,
   constants,
   Errors,

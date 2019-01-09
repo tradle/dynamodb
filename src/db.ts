@@ -256,3 +256,5 @@ export default class DB extends EventEmitter {
     return table
   }
 }
+
+export const createDB = (opts: IDBOpts) => new DB(opts)

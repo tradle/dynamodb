@@ -51,3 +51,4 @@ export default class DB extends EventEmitter {
     private _getTablesNames;
     private _chooseTableForModel;
 }
+export declare const createDB: (opts: IDBOpts) => DB;
