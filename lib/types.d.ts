@@ -1,9 +1,5 @@
 
 import AWS = require('aws-sdk')
-import {
-  PathElement,
-} from '@aws/dynamodb-expressions'
-
 import { Table } from './table'
 import { ModelStore } from './model-store'
 import { Search } from './search'

@@ -11,7 +11,6 @@ import {
   AttributePath,
   PathElement,
   UpdateExpression,
-  ConditionExpression,
   ExpressionAttributes
 } from '@aws/dynamodb-expressions'
 import toJoi = require('@tradle/schema-joi')
