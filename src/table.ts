@@ -438,6 +438,17 @@ export class Table extends EventEmitter {
     return items[0]
   }
 
+  public matchOne = async (type: string, props: any) => {
+    return await this.findOne({
+      filter: {
+        EQ: {
+          _t: type,
+          ...props
+        }
+      }
+    })
+  }
+
   public search = (opts:FindOpts):Promise<SearchResult> => this.find(opts)
   public list = async (type: string, opts:Partial<FindOpts>={}):Promise<SearchResult> => this.find(_.merge({
     filter: {

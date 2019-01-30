@@ -37,6 +37,7 @@ export default class DB extends EventEmitter {
     batchPut: (resources: any[], opts?: any) => Promise<void | any[]>;
     find: (opts: FindOpts) => Promise<SearchResult>;
     findOne: (opts: any) => Promise<any>;
+    matchOne: (type: string, props: any) => Promise<any>;
     search: (opts: any) => Promise<SearchResult>;
     list: (type: string, opts?: Partial<FindOpts>) => Promise<SearchResult>;
     reindex: (opts: ReindexOpts) => Promise<{

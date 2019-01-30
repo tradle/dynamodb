@@ -94,6 +94,7 @@ export declare class Table extends EventEmitter {
     merge: (resource: any, opts: any) => Promise<any>;
     find: (_opts: FindOpts) => Promise<SearchResult>;
     findOne: (opts: FindOpts) => Promise<any>;
+    matchOne: (type: string, props: any) => Promise<any>;
     search: (opts: FindOpts) => Promise<SearchResult>;
     list: (type: string, opts?: Partial<FindOpts>) => Promise<SearchResult>;
     getPrefix: (type: any) => string;

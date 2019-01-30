@@ -194,6 +194,11 @@ export default class DB extends EventEmitter {
     return await table.findOne(opts)
   }
 
+  public matchOne = async (type: string, props: any) => {
+    const table = await this.getTableForType(type)
+    return await table.matchOne(type, props)
+  }
+
   public search = (opts):Promise<SearchResult> => this.find(opts)
   public list = async (type: string, opts?:Partial<FindOpts>):Promise<SearchResult> => {
     const table = await this.getTableForType(type)
