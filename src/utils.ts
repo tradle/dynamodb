@@ -7,11 +7,12 @@ import levenshtein = require('fast-levenshtein')
 import AWS = require('aws-sdk')
 import Joi from 'joi'
 import sort from 'array-sort'
+import * as DDBExpressions from '@aws/dynamodb-expressions'
 import {
   AttributePath,
   PathElement,
   UpdateExpression,
-  ExpressionAttributes
+  ExpressionAttributes,
 } from '@aws/dynamodb-expressions'
 import toJoi = require('@tradle/schema-joi')
 import { TYPE } from '@tradle/constants'
@@ -1158,6 +1159,26 @@ export const getDecisionProps = ({ filter, select }: {
 export const isObjectMinified = (obj: any) => {
   const cut = obj[minifiedFlag]
   return cut && cut.length > 0
+}
+
+interface CreateOptimisticLockingCondition { 
+  property: string
+  value: any 
+}
+
+export const createOptimisticLockingCondition = ({ 
+  property, 
+  value 
+}: CreateOptimisticLockingCondition): Partial<AWS.DynamoDB.UpdateItemInput> => {
+  return {
+    ExpressionAttributeNames: {
+      '#var1': property
+    },
+    ExpressionAttributeValues: {
+      ':val1': value
+    },
+    ConditionExpression: `#var1 = :val1`
+  }
 }
 
 export {

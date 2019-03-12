@@ -4,5 +4,5 @@ const InvalidInput = ex('InvalidInput')
 
 export {
   NotFound,
-  InvalidInput
+  InvalidInput,
 }

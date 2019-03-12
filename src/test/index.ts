@@ -1448,6 +1448,61 @@ test('specificity', t => {
   t.end()
 })
 
+test('optimistic locking', loudAsync(async t => {
+  const modelId = 'tradle.SillyName' + Date.now()
+  const model = {
+    type: 'tradle.Model',
+    id: modelId,
+    title: 'Silly name',
+    properties: {
+      firstName: { type: 'string' },
+      lastName: { type: 'string' },
+    },
+    required: ['firstName', 'lastName'],
+    primaryKeys: {
+      hashKey: 'firstName', 
+      rangeKey: 'lastName'
+    }
+  }
+
+  const models = { [model.id]: model }
+  const table = createTable({
+    objects,
+    docClient,
+    model,
+    models,
+    tableDefinition: tableSchema,
+    derivedProps: tableKeys
+  })
+
+  table.storeResourcesForModel({ model })
+  await table.create()
+
+  const resource = {
+    _t: modelId,
+    firstName: 'Ted',
+    lastName: 'Logan',
+    _v: 1
+  }
+
+  await table.put(resource, {
+    overwrite: false
+  })
+
+  let lock1 = utils.createOptimisticLockingCondition({ property: '_v', value: 0 })
+  try {
+    await table.update(resource, lock1)
+    t.fail('expected update to fail')
+  } catch (err) {
+    t.equal(err.name, 'ConditionalCheckFailedException')
+  }
+
+  let lock2 = utils.createOptimisticLockingCondition({ property: '_v', value: 1 })
+  await table.update(resource, lock2)
+  t.same(await table.get(resource), { ...resource, _v: 1 })
+  t.end()
+}))
+
 // test.only('index derived props', loudAsync(async t => {
 //   // const index = {
 //   //   hashKey: '__index__0',

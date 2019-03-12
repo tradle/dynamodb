@@ -1,6 +1,13 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
 import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser, ILogger, SearchResult, ReindexOpts } from './types';
+declare type ResolveOrderByInputLite = {
+    type: string;
+    hashKey: string;
+    property: string;
+    item?: any;
+    table?: Table;
+};
 export declare class Table extends EventEmitter {
     name: string;
     models: Models;
@@ -44,42 +51,10 @@ export declare class Table extends EventEmitter {
         };
         specificity?: number;
     }[];
-    getIndexesForModel: (model: Model) => {
-        hashKey: {
-            template: string;
-        };
-        rangeKey?: {
-            template: string;
-        };
-        specificity?: number;
-    }[];
-    getIndexesForType: (type: string) => {
-        hashKey: {
-            template: string;
-        };
-        rangeKey?: {
-            template: string;
-        };
-        specificity?: number;
-    }[];
-    getPrimaryKeysForModel: (model: Model) => {
-        hashKey: {
-            template: string;
-        };
-        rangeKey?: {
-            template: string;
-        };
-        specificity?: number;
-    };
-    getPrimaryKeysForType: (type: string) => {
-        hashKey: {
-            template: string;
-        };
-        rangeKey?: {
-            template: string;
-        };
-        specificity?: number;
-    };
+    getIndexesForModel: (model: Model) => import("src/types").IndexedProperty[];
+    getIndexesForType: (type: string) => import("src/types").IndexedProperty[];
+    getPrimaryKeysForModel: (model: Model) => import("src/types").IndexedProperty;
+    getPrimaryKeysForType: (type: string) => import("src/types").IndexedProperty;
     hook: (method: any, handler: any) => any;
     storeResourcesForModels: (models: Models) => any;
     storeResourcesForModel: ({ model }: {
@@ -117,20 +92,7 @@ export declare class Table extends EventEmitter {
     addDerivedProperties: (item: any, isRead: any) => any;
     withDerivedProperties: (item: any) => any;
     omitDerivedProperties: (item: any) => any;
-    resolveOrderBy: (opts: {
-        type: string;
-        hashKey: string;
-        property: string;
-        item?: any;
-        table?: Table;
-    }) => {
-        property: string;
-        vars: string[];
-        full: boolean;
-        prefix: string;
-        renderablePrefixVars: string[];
-        canOrderBy: string[];
-    };
+    resolveOrderBy: (opts: ResolveOrderByInputLite) => import("src/types").ResolvedOrderBy;
     reindex: ({ model, batchSize, findOpts }: ReindexOpts) => Promise<{
         updated: number;
         unchanged: number;
@@ -144,3 +106,4 @@ export declare class Table extends EventEmitter {
     private _getModel;
 }
 export declare const createTable: (opts: ITableOpts) => Table;
+export {};

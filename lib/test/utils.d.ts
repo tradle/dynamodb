@@ -2,7 +2,7 @@ import { IDynogelTableDefinition, IDynogelIndex, PropsDeriver, ResolveOrderBy } 
 import { DB } from '../';
 export declare const defaultTableDefinition: IDynogelTableDefinition;
 export declare const defaultIndexes: IDynogelIndex[];
-export declare const getCommonTableOpts: (tableName: any, indexes?: any) => {
+declare type CommonTableOpts = {
     maxItemSize: number;
     validate: boolean;
     tableDefinition: IDynogelTableDefinition;
@@ -10,6 +10,7 @@ export declare const getCommonTableOpts: (tableName: any, indexes?: any) => {
     deriveProps: PropsDeriver;
     resolveOrderBy?: ResolveOrderBy;
 };
+export declare const getCommonTableOpts: (tableName: any, indexes?: any) => CommonTableOpts;
 export declare const createDB: ({ models, objects, docClient, indexes, tableNames }: {
     models: any;
     objects: any;
@@ -17,3 +18,4 @@ export declare const createDB: ({ models, objects, docClient, indexes, tableName
     indexes: any;
     tableNames: any;
 }) => DB;
+export {};

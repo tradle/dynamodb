@@ -32,7 +32,8 @@
     "lint": "eslint --quiet --ignore-path .gitignore .",
     "prepush": "npm test",
     "precommit": "tsc && npm run copy-static-assets",
-    "copy-static-assets": "cp src/test/fixtures/* lib/test/fixtures/ && cp src/types.d.ts lib/"
+    "copy-static-assets": "cp src/test/fixtures/* lib/test/fixtures/ && cp src/types.d.ts lib/",
+    "tswatch": "tsc -w"
   },
   "dependencies": {
     "@aws/dynamodb-expressions": "^0.4.0",

@@ -20,7 +20,7 @@ export default class DB extends EventEmitter {
     private _choose;
     private _instantiateTable;
     private hooks;
-    constructor({tableNames, defineTable, chooseTable, modelStore, logger}: IDBOpts);
+    constructor({ tableNames, defineTable, chooseTable, modelStore, logger }: IDBOpts);
     readonly models: Models;
     setExclusive: ({ model, table }: {
         model?: any;

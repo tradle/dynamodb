@@ -5,7 +5,7 @@ export declare type OnMissingModelPromiser = (id: string) => Promise<void>;
 export declare class ModelStore extends EventEmitter {
     models: Models;
     private onMissingModel;
-    constructor({models, onMissingModel}: {
+    constructor({ models, onMissingModel }: {
         models?: Models;
         onMissingModel?: OnMissingModelPromiser;
     });

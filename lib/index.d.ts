@@ -7,4 +7,4 @@ import { ModelStore, createModelStore } from './model-store';
 import * as defaults from './defaults';
 import { search, Search } from './search';
 import { filterResults } from './filter-memory';
-export { Table, createTable, ModelStore, createModelStore, DB, createDB, utils, constants, Errors, defaults, filterResults, search, Search };
+export { Table, createTable, ModelStore, createModelStore, DB, createDB, utils, constants, Errors, defaults, filterResults, search, Search, };
