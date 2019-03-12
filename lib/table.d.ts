@@ -51,10 +51,10 @@ export declare class Table extends EventEmitter {
         };
         specificity?: number;
     }[];
-    getIndexesForModel: (model: Model) => import("src/types").IndexedProperty[];
-    getIndexesForType: (type: string) => import("src/types").IndexedProperty[];
-    getPrimaryKeysForModel: (model: Model) => import("src/types").IndexedProperty;
-    getPrimaryKeysForType: (type: string) => import("src/types").IndexedProperty;
+    getIndexesForModel: (model: Model) => import("./types").IndexedProperty[];
+    getIndexesForType: (type: string) => import("./types").IndexedProperty[];
+    getPrimaryKeysForModel: (model: Model) => import("./types").IndexedProperty;
+    getPrimaryKeysForType: (type: string) => import("./types").IndexedProperty;
     hook: (method: any, handler: any) => any;
     storeResourcesForModels: (models: Models) => any;
     storeResourcesForModel: ({ model }: {
@@ -92,7 +92,7 @@ export declare class Table extends EventEmitter {
     addDerivedProperties: (item: any, isRead: any) => any;
     withDerivedProperties: (item: any) => any;
     omitDerivedProperties: (item: any) => any;
-    resolveOrderBy: (opts: ResolveOrderByInputLite) => import("src/types").ResolvedOrderBy;
+    resolveOrderBy: (opts: ResolveOrderByInputLite) => import("./types").ResolvedOrderBy;
     reindex: ({ model, batchSize, findOpts }: ReindexOpts) => Promise<{
         updated: number;
         unchanged: number;

@@ -25,7 +25,7 @@
     "source-map-support": "^0.5.0",
     "tape": "^4.6.3",
     "tslib": "^1.9.0",
-    "typescript": "^2.5.3"
+    "typescript": "~3.3.3333"
   },
   "scripts": {
     "test": "npm run copy-static-assets && node lib/test",
