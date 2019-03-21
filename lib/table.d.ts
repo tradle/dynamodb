@@ -74,7 +74,9 @@ export declare class Table extends EventEmitter {
     list: (type: string, opts?: Partial<FindOpts>) => Promise<SearchResult>;
     getPrefix: (type: any) => string;
     create: () => Promise<void>;
-    destroy: () => Promise<void>;
+    destroy: (opts?: {
+        throwOnNotFound: boolean;
+    }) => Promise<void>;
     private _initTable;
     deriveProps: (opts: {
         item: any;

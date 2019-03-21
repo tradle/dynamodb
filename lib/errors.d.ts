@@ -1,3 +1,1 @@
-declare const NotFound: any;
-declare const InvalidInput: any;
-export { NotFound, InvalidInput, };
+export { Errors as default } from '@tradle/aws-common-utils';

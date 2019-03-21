@@ -4,7 +4,6 @@ import dynogels from 'dynogels'
 import { TYPE, SIG } from '@tradle/constants'
 import BaseModels from '@tradle/models'
 import validateResource from '@tradle/validate-resource'
-import Errors from '@tradle/errors'
 import createHooks from 'event-hooks'
 import promisify from 'pify'
 import {
@@ -13,6 +12,8 @@ import {
   RANGE_KEY_PLACEHOLDER_VALUE
   // typeAndPermalinkProperty
 } from './constants'
+
+import Errors from './errors'
 
 import {
   IDynogelIndex,
@@ -61,7 +62,6 @@ const {
 
 import * as defaults from './defaults'
 import minify from './minify'
-import { NotFound, InvalidInput } from './errors'
 import { Search } from './search'
 import OPERATORS = require('./operators')
 import { PRIMARY_KEYS_PROPS } from './constants'
@@ -329,7 +329,7 @@ export class Table extends EventEmitter {
     }
 
     if (!result) {
-      throw new NotFound(`query: ${JSON.stringify(query)}`)
+      throw new Errors.NotFound(`query: ${JSON.stringify(query)}`)
     }
 
     const resource = this.fromDBFormat(result)
@@ -341,13 +341,20 @@ export class Table extends EventEmitter {
     return this._exportResource(resource, opts)
   }
 
-  public del = async (query, opts:any={}):Promise<any> => {
+  public del = async (query, opts:any={ throwOnNotFound: false }):Promise<any> => {
     this._ensureWritable()
 
     query = this.toDBFormat(query)
     const keys = _.values(this.getPrimaryKeys(query))
-    const result = await this.table.destroy(...keys, opts)
-    return result && this._exportResource(result, opts)
+    try {
+      const result = await this.table.destroy(...keys, opts)
+      return result && this._exportResource(result, opts)
+    } catch (err) {
+      Errors.ignoreNotFound(err)
+      if (opts.throwOnNotFound) {
+        throw new Errors.NotFound(err.message)
+      }
+    }
   }
 
   private _exportResource = (resource:any, opts:any={}) => {
@@ -432,7 +439,7 @@ export class Table extends EventEmitter {
     opts = { ...opts, limit: 1 }
     const { items=[] } = await this.find(opts)
     if (!items.length) {
-      throw new NotFound(`query: ${JSON.stringify(opts)}`)
+      throw new Errors.NotFound(`query: ${JSON.stringify(opts)}`)
     }
 
     return items[0]
@@ -481,12 +488,15 @@ export class Table extends EventEmitter {
     this.logger.silly('created table')
   }
 
-  public destroy = async ():Promise<void> => {
+  public destroy = async (opts={ throwOnNotFound: false }):Promise<void> => {
     this.logger.info('destroying table')
     try {
       await this.table.deleteTable()
     } catch (err) {
-      Errors.ignore(err, { code: 'ResourceNotFoundException' })
+      Errors.ignoreNotFound(err)
+      if (opts.throwOnNotFound) {
+        throw new Errors.NotFound(err.message)
+      }
     }
 
     this.logger.silly('destroyed table')
@@ -785,7 +795,7 @@ export class Table extends EventEmitter {
 
   private _getModel = (type: string) => {
     const model = this.models[type]
-    if (!model) throw new InvalidInput(`missing model for type: ${type}`)
+    if (!model) throw new Errors.InvalidInput(`missing model for type: ${type}`)
     return model
   }
 
@@ -809,7 +819,7 @@ const getKeyProps = (schema: KeyProps) => _.values(pickNonNull(schema, PRIMARY_K
 const DIFF_OPS = ['add', 'remove', 'replace']
 const validateDiff = diff => {
   if (!Array.isArray(diff)) {
-    throw new InvalidInput(`expected diff to be array of diff items`)
+    throw new Errors.InvalidInput(`expected diff to be array of diff items`)
   }
 
   diff.forEach(validateDiffItem)
@@ -817,10 +827,10 @@ const validateDiff = diff => {
 
 const validateDiffItem = ({ op, path, value }) => {
   if (!DIFF_OPS.includes(op)) {
-    throw new InvalidInput(`invalid diff op: ${op}`)
+    throw new Errors.InvalidInput(`invalid diff op: ${op}`)
   }
 
   if (!(Array.isArray(path) && path.every(sub => typeof sub === 'string'))) {
-    throw new InvalidInput(`invalid diff path, expected string array: ${JSON.stringify(path)}`)
+    throw new Errors.InvalidInput(`invalid diff path, expected string array: ${JSON.stringify(path)}`)
   }
 }

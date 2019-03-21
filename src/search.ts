@@ -1,5 +1,5 @@
 import _ = require('lodash')
-import Errors from '@tradle/errors'
+import * as Errors from '@tradle/errors'
 import { TYPE } from '@tradle/constants'
 import validateModel from '@tradle/validate-model'
 import {

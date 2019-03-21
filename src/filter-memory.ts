@@ -1,7 +1,7 @@
 import _ = require('lodash')
 import validateResource = require('@tradle/validate-resource')
 import { TYPE } from '@tradle/constants'
-import Errors from '@tradle/errors'
+import * as Errors from '@tradle/errors'
 import OPERATORS = require('./operators')
 const { getRef, isDescendantOf } = validateResource.utils
 import {
