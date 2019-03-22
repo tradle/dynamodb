@@ -1,13 +1,13 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
 import { IDynogelIndex, KeyProps, ITableOpts, BackoffOptions, Objects, Model, Models, FindOpts, DerivedPropsParser, ILogger, SearchResult, ReindexOpts } from './types';
-declare type ResolveOrderByInputLite = {
+interface ResolveOrderByInputLite {
     type: string;
     hashKey: string;
     property: string;
     item?: any;
     table?: Table;
-};
+}
 export declare class Table extends EventEmitter {
     name: string;
     models: Models;
@@ -77,6 +77,9 @@ export declare class Table extends EventEmitter {
     destroy: (opts?: {
         throwOnNotFound: boolean;
     }) => Promise<void>;
+    exists: () => Promise<boolean>;
+    private _describeTable;
+    private _awaitExists;
     private _initTable;
     deriveProps: (opts: {
         item: any;

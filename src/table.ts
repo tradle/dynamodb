@@ -65,6 +65,7 @@ import minify from './minify'
 import { Search } from './search'
 import OPERATORS = require('./operators')
 import { PRIMARY_KEYS_PROPS } from './constants'
+import { DynamoDB } from 'aws-sdk';
 
 const defaultOpts = {
   maxItemSize: Infinity,
@@ -93,12 +94,18 @@ const HOOKABLE = [
   'destroy'
 ]
 
-type ResolveOrderByInputLite = {
+interface ResolveOrderByInputLite {
   type: string
   hashKey: string
   property: string
   item?: any
   table?: Table
+}
+
+interface AwaitExistsOpts {
+  interval?: number
+  maxWait?: number
+  exists?: boolean
 }
 
 export class Table extends EventEmitter {
@@ -481,6 +488,7 @@ export class Table extends EventEmitter {
     this.logger.info('creating table')
     try {
       await this.table.createTable()
+      await this._awaitExists({ exists: true })
     } catch (err) {
       Errors.ignore(err, { code: 'ResourceInUseException' })
     }
@@ -492,6 +500,7 @@ export class Table extends EventEmitter {
     this.logger.info('destroying table')
     try {
       await this.table.deleteTable()
+      await this._awaitExists({ exists: false })
     } catch (err) {
       Errors.ignoreNotFound(err)
       if (opts.throwOnNotFound) {
@@ -500,6 +509,38 @@ export class Table extends EventEmitter {
     }
 
     this.logger.silly('destroyed table')
+  }
+
+  public exists = async () => {
+    try {
+      await this._describeTable()
+      return true
+    } catch (err) {
+      Errors.ignoreNotFound(err)
+      return false
+    }
+  }
+
+  private _describeTable = async () => {
+    try {
+      return await this.table.describeTable()
+    } catch (err) {
+      Errors.ignoreNotFound(err)
+      throw new Errors.NotFound(err.message)
+    }
+  }
+
+  private _awaitExists = async (opts?: AwaitExistsOpts) => {
+    this.logger.debug('waiting for table to be created')
+    const { exists=true, maxWait=60000, interval=1000 } = opts
+
+    let timeLeft = maxWait
+    while (timeLeft > 0) {
+      if (opts.exists === await this.exists()) return
+
+      await utils.wait(Math.min(interval, timeLeft))
+      timeLeft -= interval
+    }
   }
 
   private _initTable = () => {

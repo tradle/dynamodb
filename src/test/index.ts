@@ -141,7 +141,6 @@ const reload = async (indexes?) => {
   lastCreated = _.range(0, numTables).map(i => prefix + i)
   db = createDB(indexes)
   await db.createTables()
-  await wait(1000)
   // await db.batchPut(validResources)
   await db.batchPut(formRequests)
 
@@ -1092,8 +1091,7 @@ let only
     })
 
     await db.tables[ALIEN_CLASSIFIER].create()
-    await wait(1000)
-
+    
     const updatedModels = db.models
     const alien = buildResource({
         models: updatedModels,
@@ -1277,8 +1275,6 @@ test('multiple types, overloaded indexes', loudAsync(async t => {
 
   const items = [event, contactInfo]
   await table.create()
-  await wait(1000)
-
   await Promise.all(items.map(item => table.put(item)))
 
   const foundContactInfo = await table.findOne({
@@ -1481,7 +1477,6 @@ test('optimistic locking', loudAsync(async t => {
 
   table.storeResourcesForModel({ model })
   await table.create()
-  await wait(1000)
 
   const resource = {
     _t: modelId,
