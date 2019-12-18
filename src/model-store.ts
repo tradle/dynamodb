@@ -40,7 +40,7 @@ export class ModelStore extends EventEmitter {
 
   public addModels = (models:Models) => {
     this.models = mergeModels()
-      .add(this.models, { validate: false })
+      .add(this.models, { validate: false, overwrite: true })
       .add(models)
       .get()
 
