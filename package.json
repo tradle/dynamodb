@@ -8,10 +8,10 @@
   "license": "MIT",
   "devDependencies": {
     "@tradle/build-resource": "^3.0.0",
-    "@tradle/custom-models": "github:tradle/custom-models",
+    "@tradle/custom-models": "github:tradle/custom-models#27891fc520ded4c00daef5d3a6106b0a1376fd44",
     "@tradle/engine": "^4.10.0",
     "@tradle/merge-models": "^2.1.0",
-    "@tradle/models": "github:tradle/models",
+    "@tradle/models": "github:tradle/models#eacfe07026d7de316692eea7397cb101b4b6f817",
     "@tradle/protocol": "^4.2.0",
     "@tradle/schema-joi": "github:tradle/schema-joi",
     "@tradle/validate-model": "^7.1.1",
