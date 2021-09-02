@@ -142,7 +142,9 @@ const reload = async (indexes?) => {
   db = createDB(indexes)
   await db.createTables()
   // await db.batchPut(validResources)
-  await db.batchPut(formRequests)
+  for (const formRequest of formRequests) {
+    await db.put(formRequest)
+  }
 
   // table = db.tables[FORM_REQUEST]
   // await db.batchPut(formRequests)
