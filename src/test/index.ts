@@ -73,7 +73,7 @@ const photoIds = resources
 
 sortResults({ results: formRequests, orderBy: defaultOrderBy })
 
-const endpoint = 'http://localhost:4569'
+const endpoint = `http://${process.env.LOCAL_IP || 'localhost'}:4569`
 const { AWS } = dynogels
 
 AWS.config.update({
