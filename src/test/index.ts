@@ -3,7 +3,7 @@ require('source-map-support').install()
 import crypto from 'crypto'
 import _ from 'lodash'
 import test from 'tape'
-import dynogels from 'dynogels'
+import dynogels from '@tradle/dynogels'
 import { diff } from 'just-diff'
 import { TYPE, SIG, PREVLINK, PERMALINK } from '@tradle/constants'
 import validateResource from '@tradle/validate-resource'

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import _ from 'lodash'
-import dynogels from 'dynogels'
+import dynogels from '@tradle/dynogels'
 import { TYPE, SIG } from '@tradle/constants'
 import BaseModels from '@tradle/models'
 import validateResource from '@tradle/validate-resource'
