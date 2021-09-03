@@ -7,7 +7,7 @@ jobs:
       NODE_NO_WARNINGS: 1
     services:
       redis:
-        image: tradle/dynalite:latest
+        image: tradle/dynalite:2.3.2
         ports:
           - 4569:4569
     steps:
