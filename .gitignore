@@ -7,3 +7,4 @@ project.sublime-project
 project.sublime-workspace
 settings.sublime-workspace
 src/db.js1
+package-lock.json
