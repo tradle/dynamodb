@@ -8,11 +8,7 @@ import { diff } from 'just-diff'
 import { TYPE, SIG, PREVLINK, PERMALINK } from '@tradle/constants'
 import validateResource from '@tradle/validate-resource'
 import buildResource from '@tradle/build-resource'
-import mergeModels from '@tradle/merge-models'
-const models = mergeModels()
-  .add(require('@tradle/models').models)
-  .add(require('@tradle/custom-models').models)
-  .get()
+const models = require('@tradle/models').models
 
 import { OrderBy } from '../types'
 import minify from '../minify'
@@ -146,7 +142,7 @@ const reload = async (indexes?) => {
     await db.put(formRequest)
   }
 
-  // table = db.tables[FORM_REQUEST]
+  // 
   // await db.batchPut(formRequests)
 }
 
