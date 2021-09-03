@@ -3,16 +3,12 @@ require('source-map-support').install()
 import crypto from 'crypto'
 import _ from 'lodash'
 import test from 'tape'
-import dynogels from 'dynogels'
+import dynogels from '@tradle/dynogels'
 import { diff } from 'just-diff'
 import { TYPE, SIG, PREVLINK, PERMALINK } from '@tradle/constants'
 import validateResource from '@tradle/validate-resource'
 import buildResource from '@tradle/build-resource'
-import mergeModels from '@tradle/merge-models'
-const models = mergeModels()
-  .add(require('@tradle/models').models)
-  .add(require('@tradle/custom-models').models)
-  .get()
+const models = require('@tradle/models').models
 
 import { OrderBy } from '../types'
 import minify from '../minify'
@@ -73,7 +69,7 @@ const photoIds = resources
 
 sortResults({ results: formRequests, orderBy: defaultOrderBy })
 
-const endpoint = 'http://localhost:4569'
+const endpoint = `http://${process.env.LOCAL_IP || 'localhost'}:4569`
 const { AWS } = dynogels
 
 AWS.config.update({
@@ -142,9 +138,11 @@ const reload = async (indexes?) => {
   db = createDB(indexes)
   await db.createTables()
   // await db.batchPut(validResources)
-  await db.batchPut(formRequests)
+  for (const formRequest of formRequests) {
+    await db.put(formRequest)
+  }
 
-  // table = db.tables[FORM_REQUEST]
+  // 
   // await db.batchPut(formRequests)
 }
 

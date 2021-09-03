@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import _ from 'lodash'
-import dynogels from 'dynogels'
+import dynogels from '@tradle/dynogels'
 import { TYPE, SIG } from '@tradle/constants'
 import BaseModels from '@tradle/models'
 import validateResource from '@tradle/validate-resource'
@@ -488,7 +488,12 @@ export class Table extends EventEmitter {
     this.logger.info('creating table')
     try {
       await this.table.createTable()
-      await this._awaitExists({ exists: true })
+      await new Promise((resolve, reject) => {
+        this.table.docClient.service.waitFor('tableExists', { TableName: this.name }, err => {
+          if (err) reject(err)
+          else resolve(null)
+        })
+      })
     } catch (err) {
       Errors.ignore(err, { code: 'ResourceInUseException' })
     }
