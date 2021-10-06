@@ -21,7 +21,7 @@ export default class DB extends EventEmitter {
     private _instantiateTable;
     private hooks;
     constructor({ tableNames, defineTable, chooseTable, modelStore, logger }: IDBOpts);
-    readonly models: Models;
+    get models(): Models;
     setExclusive: ({ model, table }: {
         model?: any;
         table: Table;

@@ -36,8 +36,8 @@ export declare class Table extends EventEmitter {
     private _getPrimaryKeysForModel;
     private _shouldMinify;
     private hooks;
-    readonly hashKey: string;
-    readonly rangeKey: string;
+    get hashKey(): string;
+    get rangeKey(): string;
     constructor(opts: ITableOpts);
     getKeyTemplate: (model: Model, key: string) => any;
     getKeyTemplatesForModel: (model: Model) => {

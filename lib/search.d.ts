@@ -37,7 +37,7 @@ export declare class Search {
     _filterResults: (results: any) => any[];
     _postProcessResult: (result: any) => Promise<void>;
     _maybeInflate: (resource: any) => Promise<any>;
-    readonly queriedPrimaryKeys: {
+    get queriedPrimaryKeys(): {
         hashKey: string;
         rangeKey: string;
     };

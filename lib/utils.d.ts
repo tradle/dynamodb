@@ -3,7 +3,7 @@ import promisify = require('pify');
 import AWS = require('aws-sdk');
 import * as DDBExpressions from '@aws/dynamodb-expressions';
 import { Table } from './table';
-import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, PropsDeriver, ResolveOrderBy, IndexedProperty, GetIndexesForModel, GetPrimaryKeysForModel, KeyProps, DerivedPropsParser, Filter } from './types';
+import { Model, Models, IDynogelIndex, IDynogelTableDefinition, OrderBy, FindOpts, PropsDeriver, ResolveOrderBy, IndexedProperty, GetIndexesForModel, GetPrimaryKeysForModel, KeyProps, DerivedPropsParser, PropPath, Filter } from './types';
 export declare const levenshteinDistance: (a: string, b: string) => any;
 export declare const cleanName: (str: any) => any;
 export declare const getTableName: ({ model, prefix, suffix }: {
@@ -78,7 +78,7 @@ export declare const getQueryInfo: ({ table, filter, orderBy, type }: {
 };
 declare function runWithBackoffOnTableNotExists(fn: any, opts?: any): Promise<any>;
 declare const runWithBackoffWhile: (fn: any, opts: any) => Promise<any>;
-declare function wait(millis: any): Promise<{}>;
+declare function wait(millis: any): Promise<unknown>;
 declare const waitTillActive: (table: any) => Promise<void>;
 declare function minBy<T>(arr: T[], fn: (T: any, i: number) => number): T;
 declare function sha256(data: any): string;
@@ -124,7 +124,7 @@ export declare const resolveOrderBy: ResolveOrderBy;
 export declare const deriveProps: PropsDeriver;
 export declare const parseDerivedProps: DerivedPropsParser;
 export declare const getTableKeys: (def: IDynogelTableDefinition) => string[];
-export declare const toAttributePath: (path: string | string[]) => DDBExpressions.AttributePath;
+export declare const toAttributePath: (path: PropPath) => DDBExpressions.AttributePath;
 export declare const marshallDBItem: (item: any) => AWS.DynamoDB.AttributeMap;
 export declare const unmarshallDBItem: (item: any) => any;
 export declare const createUpdateOptionsFromDiff: (diff: any) => {
